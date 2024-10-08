@@ -1,0 +1,3 @@
+[submodule "lib/app"]
+	path = lib/app
+	url = https://github.com/OHIF/Viewers.git
