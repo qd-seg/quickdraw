@@ -4,4 +4,9 @@ services:
     build:
       context: .
       dockerfile: ./build/app.dockerfile
-    ports: ["80:80"]
+  proxy:
+    image: proxy
+    build:
+      context: .
+      dockerfile: ./build/proxy.dockerfile
+    ports: ["80:80", "443:443"]
