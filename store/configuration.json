@@ -1,0 +1,19 @@
+{
+    "Name": "Orthanc",
+
+    "AuthenticationEnabled": false,
+    "RemoteAccessAllowed": true,
+
+    "OrthancExplorer2": {
+        "Enable": true,
+        "IsDefaultOrthancUI": true
+    },
+
+    "DicomWeb": {
+        "Enable": true
+    },
+
+    "PostgreSQL": {
+        "Host": "index"
+    }
+}

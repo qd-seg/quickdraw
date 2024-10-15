@@ -1,4 +1,4 @@
-FROM node:slim AS pull
+FROM node:22.9.0-slim AS pull
 
 RUN apt-get update && apt-get install -y git
 
@@ -8,7 +8,7 @@ WORKDIR /usr/local/src/app
 RUN git clone https://github.com/OHIF/Viewers.git .
 RUN git checkout ${APP_COMMIT}
 
-FROM node:slim AS pack
+FROM node:22.9.0-slim AS pack
 
 RUN apt-get update && apt-get install -y build-essential python3
 
@@ -33,7 +33,7 @@ ENV QUICK_BUILD true
 
 RUN yarn run build
 
-FROM nginx:alpine as serve
+FROM nginx:1.27-alpine3.20 as serve
 
 RUN rm /etc/nginx/conf.d/default.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
