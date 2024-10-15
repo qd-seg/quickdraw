@@ -28,6 +28,9 @@ COPY --from=pull /usr/local/src/app .
 
 RUN yarn install --frozen-lockfile --silent
 
+RUN rm /usr/local/src/app/platform/app/public/config/default.js
+COPY configuration.js /usr/local/src/app/platform/app/public/config/default.js
+
 ENV PATH /usr/local/src/app/node_modules/.bin:$PATH
 ENV QUICK_BUILD true
 

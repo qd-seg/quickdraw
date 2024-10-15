@@ -4,6 +4,8 @@
     "AuthenticationEnabled": false,
     "RemoteAccessAllowed": true,
 
+    "RestApiWriteToFileSystemEnabled": true,
+
     "OrthancExplorer2": {
         "Enable": true,
         "IsDefaultOrthancUI": true
