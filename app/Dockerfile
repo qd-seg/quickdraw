@@ -6,7 +6,7 @@ RUN mkdir -p /usr/local/src/app
 WORKDIR /usr/local/src/app
 
 RUN git clone https://github.com/OHIF/Viewers.git .
-RUN git checkout ${APP_COMMIT}
+RUN git checkout 43f54aa49c388dbeb2f01e19244210a4f3bda6c5
 
 FROM node:22.9.0-slim AS pack
 
