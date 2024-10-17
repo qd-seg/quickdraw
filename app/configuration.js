@@ -11,14 +11,12 @@ window.config = {
             '@ohif/extension-cornerstone.customizationModule.cornerstoneDicomUploadComponent',
     },
 
-    showStudyList: true,
-
-    maxNumberOfWebWorkers: 3,
-
-    showLoadingIndicator: true,
     showWarningMessageForCrossOrigin: true,
     showCPUFallbackMessage: true,
+    showLoadingIndicator: true,
     strictZSpacingForVolumeViewport: true,
+    useSharedArrayBuffer: false,
+    studyListFunctionsEnabled: true,
 
     defaultDataSourceName: 'orthanc',
 
@@ -34,13 +32,35 @@ window.config = {
                 qidoRoot: '/store/dicom-web',
                 wadoRoot: '/store/dicom-web',
 
-                qidoSupportsIncludeField: false,
+                qidoSupportsIncludeField: true,
+                supportsReject: true,
 
                 imageRendering: 'wadors',
                 thumbnailRendering: 'wadors',
 
+                enableStudyLazyLoad: true,
+                supportsFuzzyMatching: true,
+                supportsWildcard: true,
                 dicomUploadEnabled: true,
                 omitQuotationForMultipartRequest: true,
+
+                bulkDataURI: { enabled: true },
+            },
+        },
+        {
+            namespace: '@ohif/extension-default.dataSourcesModule.dicomjson',
+            sourceName: 'json',
+            configuration: {
+                friendlyName: 'DICOM JSON',
+                name: 'JSON',
+            },
+        },
+        {
+            namespace: '@ohif/extension-default.dataSourcesModule.dicomlocal',
+            sourceName: 'local',
+            dicomUploadEnabled: true,
+            configuration: {
+                friendlyName: 'DICOM Local',
             },
         }
     ],
