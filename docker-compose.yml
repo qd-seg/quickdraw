@@ -20,8 +20,6 @@ services:
     restart: unless-stopped
     networks:
       - public
-    environment:
-      - APP_COMMIT=43f54aa49c388dbeb2f01e19244210a4f3bda6c5
 
   index:
     image: postgres:15.8
