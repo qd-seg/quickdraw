@@ -26,17 +26,15 @@ WORKDIR /usr/local/src/app
 RUN apt-get update && apt-get install -y build-essential python3
 
 COPY --from=link /usr/local/src/app ./
-COPY configuration.js /usr/local/src/app/platform/app/public/config/default.js
+COPY ./config/app.config.js /usr/local/src/app/platform/app/public/config/default.js
+COPY ./src/app /usr/local/src/
 
-RUN mkdir -p /usr/local/src/extensions
-COPY extensions /usr/local/src/extensions
-
-RUN yarn run cli link-extension /usr/local/src/extensions/dashboard
+RUN yarn run cli link-extension /usr/local/src/extensions/model-management-panel
 RUN yarn run build
 
 FROM nginx:1.27-alpine3.20 as serve
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY ./config/app.nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=pack /usr/local/src/app/platform/app/dist /usr/share/nginx/html
 
 CMD ["nginx", "-g", "daemon off;"]
