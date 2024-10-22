@@ -28,6 +28,10 @@ RUN apt-get update && apt-get install -y build-essential python3
 COPY --from=link /usr/local/src/app ./
 COPY configuration.js /usr/local/src/app/platform/app/public/config/default.js
 
+RUN mkdir -p /usr/local/src/extensions
+COPY extensions /usr/local/src/extensions
+
+RUN yarn run cli link-extension /usr/local/src/extensions/dashboard
 RUN yarn run build
 
 FROM nginx:1.27-alpine3.20 as serve
