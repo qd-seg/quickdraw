@@ -34,7 +34,11 @@ import time
 #   - should allow docker auth (which is failing now bc of lack of network conn?)
 # - scp dicom images to instance. Just use gcloud in sh file or run it directly
 # - scp works, just dont include user in user@machine
-# Dockerize the model !!
+
+# Dockerize the model steps:
+# - Create Dockerfile with entrypoint that runs model predictions on DICOM image directory
+# - docker build -t <image-name>
+# - docker save -o <compressed-image-name>.tar <image-name>
 
 load_dotenv(override=True)
 _INSTANCE_LIMIT = 1
@@ -96,19 +100,6 @@ def get_docker_image(registry_client: artifactregistry.ArtifactRegistryClient, i
         print('Could not get docker image of name', image_name)
         print(e)
         return None
-    
-def get_credentials():
-    """Authenticate using a service account JSON file."""
-    print('Authenticating with service account from', _KEY_FILE)
-    credentials = service_account.Credentials.from_service_account_file(_KEY_FILE)
-    scoped_credentials = credentials.with_scopes(['https://www.googleapis.com/auth/cloud-platform'])
-    
-    scoped_credentials.refresh(Request())
-    print('Successfully authenticated.')
-    return scoped_credentials
-
-def get_compute_client(credentials):
-    return compute_v1.InstancesClient(credentials=credentials)
 
 def create(
         compute_client: compute_v1.InstancesClient,
@@ -169,9 +160,6 @@ def create_new_instance(compute_client, instance_name, project_id, zone, machine
         )
         
         return vm_instance
-
-def get_registry_client(credentials):
-    return artifactregistry.ArtifactRegistryClient(credentials=credentials)
 
 # def upload_docker_to_registry(registry_client: artifactregistry.ArtifactRegistryClient):
 def upload_docker_to_registry(service_account_access_token: str):
