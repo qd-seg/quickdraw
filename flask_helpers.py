@@ -19,11 +19,11 @@ _ZONE = os.getenv('ZONE')
 _REGION = '-'.join(_ZONE.split('-')[:2])
 _MACHINE_TYPE = os.getenv('MACHINE_TYPE')
 _SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
-_CLOUD_USER = os.getenv('CLOUD_USER') 
 _KEY_FILE = os.getenv('KEY_FILE')
 _INSTANCE_EXISTS = False
 _INSTANCE_NAME = None
 _REPOSITORY = os.getenv('REPOSITORY')
+_USERNAME = os.environ.get('USER')
 
 ## Functions for Compute Instances
 def generate_instance_name(prefix="myinstance", description="webserver"):
@@ -170,7 +170,7 @@ def get_docker_image(registry_client: artifactregistry.ArtifactRegistryClient, i
         print(e)
         return None
     
-def upload_docker_image_to_artifact_registry_helper(service_account_access_token: str, image_name: str, tarball_path: str, LOG=False, skip_push=False):
+def upload_docker_image_to_artifact_registry_helper(service_account_access_token: str, image_name: str, tarball_path: str, LOG=False, skip_push=False, override_existing=False, direct_push=False):
     if LOG:
         print('Logging into docker with service account')
     subprocess.run(['docker', 'login', '-u', 'oauth2accesstoken', '--password-stdin', f'https://{_REGION}-docker.pkg.dev'], check=True, input=service_account_access_token, text=True)
@@ -181,7 +181,7 @@ def upload_docker_image_to_artifact_registry_helper(service_account_access_token
     
     docker_img_exists_output = subprocess.check_output(['docker', 'images', '-q', f'{_IMAGE_NAME}:{_TAG}'], text=True)
     
-    if docker_img_exists_output.strip() == '':
+    if not direct_push and (override_existing or docker_img_exists_output.strip() == ''):
         if LOG:
             print('Loading docker image. This may take a while...')
         try:
@@ -208,9 +208,9 @@ def upload_docker_image_to_artifact_registry_helper(service_account_access_token
     
 # Uploads a Dockerized ML model to Google Artifact Registry
 # NOTE: image_name MUST be the same as the name used for docker build + docker save
-def upload_docker_image_to_artifact_registry(image_name: str, tarball_path: str, LOG=False, skip_push=False):
+def upload_docker_image_to_artifact_registry(image_name: str, tarball_path: str, LOG=False, skip_push=False, override_existing=False, direct_push=False):
     credentials = get_credentials(_KEY_FILE)
-    return upload_docker_image_to_artifact_registry_helper(credentials.token, image_name, tarball_path, LOG=LOG, skip_push=skip_push)
+    return upload_docker_image_to_artifact_registry_helper(credentials.token, image_name, tarball_path, LOG=LOG, skip_push=skip_push, override_existing=override_existing, direct_push=direct_push)
     
 ## Connecting Compute and Registry
 # Put setup script and other metadata into instance
@@ -220,10 +220,7 @@ def setup_instance_metadata(compute_client: compute_v1.InstancesClient, image_na
     
     with open('./compute-setup-script.sh', 'r') as f:
         setup_script = f.read().replace('{_REGION}', _REGION)
-        
-    # print(setup_script)
-    # setup_script = 
-    # compute_client.get()
+       
     startup_script_metadata = compute_v1.Items(key='startup-script', value=setup_script)
     
     # metadata = compute_v1.Metadata(items=[docker_image_metadata, dicom_image_metadata, startup_script_metadata], fingerprint=instance.metadata.fingerprint)
@@ -237,7 +234,7 @@ def setup_instance_metadata(compute_client: compute_v1.InstancesClient, image_na
     # startup_metadata = compute_v1.Metadata(items=[startup_script_metadata], fingerprint=instance.metadata.fingerprint)
     # startup_request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=startup_metadata, project=_PROJECT_ID, zone=_ZONE)
 
-def upload_dicom_to_instance(dicom_image_directory: str, instance_name: str, run_auth=True) -> bool:
+def upload_dicom_to_instance(dicom_image_directory: str, dicom_series_name: str, instance_name: str, run_auth=True) -> bool:
     if run_auth:
         try:
             # Log into service account with gcloud
@@ -247,14 +244,19 @@ def upload_dicom_to_instance(dicom_image_directory: str, instance_name: str, run
             return False
      
     try:
-        username = os.environ.get('USER')
+        username = _USERNAME
+        # Create images/ directory
+        subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
+                        f'--project={_PROJECT_ID}', 
+                        f'--zone={_ZONE}',
+                        f'--command=mkdir -p /home/{username}/images && mkdir -p /home/{username}/model_outputs && rm -rf /home/{username}/images/{dicom_series_name}'], check=True, input='\n', text=True)
         # Upload
         subprocess.run(['gcloud', 'compute', 'scp',
                         f'--project={_PROJECT_ID}', 
                         f'--zone={_ZONE}',
                         '--recurse',
                         dicom_image_directory,
-                        f'{username}@{instance_name}:/home/{username}'], check=True)
+                        f'{username}@{instance_name}:/home/{username}/images/{dicom_series_name}'], check=True)
     except Exception as e:
         print('DICOM upload failed')
         return False
@@ -262,15 +264,17 @@ def upload_dicom_to_instance(dicom_image_directory: str, instance_name: str, run
     return True
 
 # Creates an instance and pulls the model from registry to it. Returns if successfully created or not
-def setup_compute(image_name: str, use_existing_instance_name: str = None) -> bool:
+def setup_compute(image_name: str, use_existing_instance_name: str = None, skip_metadata=False) -> bool:
     credentials = get_credentials(_KEY_FILE)
     compute_client = get_compute_client(credentials)
+    CURR_INSTANCE = None
     if use_existing_instance_name is None:
         instance = create_new_instance(compute_client, generate_instance_name(), _PROJECT_ID, _ZONE, _MACHINE_TYPE, _INSTANCE_LIMIT)
         
         # If instance was not created successfully
         if not isinstance(instance, ExtendedOperation):
             # TODO: return error code as response to frontend
+            print(instance)
             return False
         
         # TODO: in the flask server we will handle everything async with:
@@ -292,43 +296,50 @@ def setup_compute(image_name: str, use_existing_instance_name: str = None) -> bo
         ##
     else:
         CURR_INSTANCE = get_instance(compute_client, _PROJECT_ID, _ZONE, use_existing_instance_name)
-    
-    setup_instance_metadata(compute_client, image_name, CURR_INSTANCE)
-    return CURR_INSTANCE
+        global _INSTANCE_NAME
+        
+    _INSTANCE_NAME = CURR_INSTANCE.name
+    if not skip_metadata:
+        setup_instance_metadata(compute_client, image_name, CURR_INSTANCE)
+    return True
 
-# Run predictions on existing compute instance. Assumes DICOM images have already been uploaded
-def run_predictions(dicom_image_directory: str, instance_name: str) -> bool:
+# Run predictions on existing compute instance. Assumes DICOM images have already been uploaded to ./dicom-images/
+def run_predictions(dicom_series_name: str, instance_name: str, skip_predictions: bool = False) -> bool:
+    print('Predicting', dicom_series_name)
     try:
+        username = _USERNAME
+        
         # Log into service account with gcloud
         subprocess.run(['gcloud', 'auth', 'activate-service-account', _SERVICE_ACCOUNT, f'--key-file={_KEY_FILE}'], check=True)
-        
-        # Set the directory on instance where DICOM images will be pulled from
-        subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
-                        f'--project={_PROJECT_ID}', 
-                        f'--zone={_ZONE}',
-                        f'--metadata=dicom-image="{dicom_image_directory}"'], check=True)
-        
-        # Copy over DICOM images from server to instance
-        if not upload_dicom_to_instance(dicom_image_directory, instance_name, run_auth=False):
-            raise Exception()
-        
-        # Run startup script (compute-setup-script.sh). This blocks until predictions are made
-        subprocess.run(['gcloud', 'compute', 'ssh', instance_name, 
-                        f'--project={_PROJECT_ID}', 
-                        f'--zone={_ZONE}',
-                        '--command=sudo google_metadata_script_runner startup'], check=True, input='\n', text=True)
-        
-        username = os.environ.get('USER')
+        if not skip_predictions:
+            # Set the directory on instance where DICOM images will be pulled from
+            subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
+                            f'--project={_PROJECT_ID}', 
+                            f'--zone={_ZONE}',
+                            f'--metadata=dicom-image={dicom_series_name},username={username}'], check=True)
+            
+            # Copy over DICOM images from server to instance
+            if not upload_dicom_to_instance(f'./dicom-images/{dicom_series_name}', dicom_series_name, instance_name, run_auth=False):
+                raise Exception()
+            
+            # Run startup script (compute-setup-script.sh). This blocks until predictions are made
+            subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
+                            f'--project={_PROJECT_ID}', 
+                            f'--zone={_ZONE}',
+                            '--command=sudo google_metadata_script_runner startup'], check=True, input='\n', text=True)
+            
         # Copy over DICOM images (predictions) from instance to server
-        subprocess.run(['gcloud', 'compute', 'scp', 
-                        f'{username}@{instance_name}:/home/{username}/app/{dicom_image_directory}-multiorgan-segmentation.dcm',
-                        './dcm-prediction',
+        subprocess.run(['mkdir', '-p', './dcm-prediction/'])
+        subprocess.run(['gcloud', 'compute', 'scp',
                         f'--project={_PROJECT_ID}', 
-                        f'--zone={_ZONE}'])
+                        f'--zone={_ZONE}',
+                        f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_name}-multiorgan-segmentation.dcm',
+                        './dcm-prediction/'])
         
         # TODO: upload predictions to Orthanc
     except Exception as e:
-        print('Something went wrong with running predictions')
+        print('Something went wrong with running predictions:')
+        print(e)
         return False
     
     return True
@@ -337,13 +348,21 @@ if __name__ == '__main__':
     # credentials = get_credentials(_KEY_FILE)
     # compute_client = get_compute_client(credentials)
     # setup_model_compute('asdf', None)
-    #
-    COMPUTE_INSTANCE_NAME = 'myinstance-webserver-20241025111254'
+    
+    # TODO: these variables will have to come from somewhere, likely the frontend API requests
+    COMPUTE_INSTANCE_NAME = 'myinstance-webserver-20241028191333' # set this to None to create a new instance. (you might have to re-run the program after doing this. It's a little bugged)
+    DICOM_SERIES_TO_PREDICT = 'PANCREAS_0005'
+    DOCKER_MODEL_NAME = 'organ-segmentation-model'
+    
     # instance = get_instance(compute_client, _PROJECT_ID, _ZONE, COMPUTE_INSTANCE_NAME)
-    if not setup_compute('organ_segmentation_model', use_existing_instance_name=COMPUTE_INSTANCE_NAME):
+    
+    if not setup_compute(DOCKER_MODEL_NAME, use_existing_instance_name=COMPUTE_INSTANCE_NAME):
         print('error')
         exit()
         
-    run_predictions('./dicom-images', COMPUTE_INSTANCE_NAME)
+    COMPUTE_INSTANCE_NAME = _INSTANCE_NAME
+    print(COMPUTE_INSTANCE_NAME)
+        
+    run_predictions(f'{DICOM_SERIES_TO_PREDICT}', COMPUTE_INSTANCE_NAME, skip_predictions=False)
     
     # print(get_instance_ip_address(instance, IPType.EXTERNAL))

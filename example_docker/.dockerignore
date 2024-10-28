@@ -1,0 +1,13 @@
+.venv
+.vscode
+
+Dockerfile
+.dockerignore
+
+**/__pycache__/
+**/*.py[cod]
+
+images/**
+temp
+model_outputs
+changes.txt

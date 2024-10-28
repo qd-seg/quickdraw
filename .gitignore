@@ -2,3 +2,6 @@ venv
 .venv
 .env
 serviceAccountKeys.json
+dcm-prediction
+dicom-images
+__pycache__
