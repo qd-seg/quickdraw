@@ -32,19 +32,21 @@ def refresh_credentials_if_expired():
         _REGISTRY_CLIENT = None
 
 def get_compute_client(credentials: service_account.Credentials = None):
+    global _COMPUTE_CLIENT
+    
     if credentials is None:
         credentials = get_credentials()
     if _COMPUTE_CLIENT is None:
-        global _COMPUTE_CLIENT
-        _COMPUTE_CLIENT = compute_v1.InstancesClient(get_credentials() if credentials is None else credentials)
+        _COMPUTE_CLIENT = compute_v1.InstancesClient(credentials=(get_credentials() if credentials is None else credentials))
         
     return _COMPUTE_CLIENT
 
 def get_registry_client(credentials: service_account.Credentials = None):
+    global _REGISTRY_CLIENT
+    
     if credentials is None:
         credentials = get_credentials()
     if _REGISTRY_CLIENT is None:
-        global _REGISTRY_CLIENT
-        _REGISTRY_CLIENT = artifactregistry.ArtifactRegistryClient(get_credentials() if credentials is None else credentials)
+        _REGISTRY_CLIENT = artifactregistry.ArtifactRegistryClient(credentials=(get_credentials() if credentials is None else credentials))
         
     return _REGISTRY_CLIENT

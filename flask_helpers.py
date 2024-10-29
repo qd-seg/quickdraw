@@ -48,7 +48,8 @@ def get_instance(project_id, zone, instance_name):
     try:
         response = get_compute_client().get(request)
         return response
-    except:
+    except Exception as e:
+        print(e)
         print('Could not get instance of name', instance_name)
         return None
     
@@ -289,8 +290,8 @@ def setup_compute(project_id: str, zone: str, instance_name_prefix: str, instanc
         ##
     else:
         CURR_INSTANCE = get_instance(project_id, zone, use_existing_instance_name)
-        global _INSTANCE_NAME
         
+    global _INSTANCE_NAME
     _INSTANCE_NAME = CURR_INSTANCE.name
     if not skip_metadata:
         if models_repo is None:
@@ -369,13 +370,13 @@ if __name__ == '__main__':
     
     # instance = get_instance(compute_client, _PROJECT_ID, _ZONE, COMPUTE_INSTANCE_NAME)
     
-    if not setup_compute(_PROJECT_ID, _ZONE, None, None, _MACHINE_TYPE, _INSTANCE_LIMIT, DOCKER_MODEL_NAME, use_existing_instance_name=COMPUTE_INSTANCE_NAME):
+    if not setup_compute(_PROJECT_ID, _ZONE, None, None, _MACHINE_TYPE, _INSTANCE_LIMIT, DOCKER_MODEL_NAME, _REPOSITORY, use_existing_instance_name=COMPUTE_INSTANCE_NAME):
         print('error')
         exit()
         
     COMPUTE_INSTANCE_NAME = _INSTANCE_NAME
     print(COMPUTE_INSTANCE_NAME)
-        
+    
     run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT, _KEY_FILE, f'{DICOM_SERIES_TO_PREDICT}', COMPUTE_INSTANCE_NAME, skip_predictions=False)
     
     # print(get_instance_ip_address(instance, IPType.EXTERNAL))
