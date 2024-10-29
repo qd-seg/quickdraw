@@ -1,25 +1,28 @@
 const path = require('path');
 const pkg = require('../package.json');
 
-const outputFile = 'index.umd.js';
-const rootDir = path.resolve(__dirname, '../');
-const outputFolder = path.join(__dirname, `../dist/umd/${pkg.name}/`);
+const root = path.resolve(__dirname, '../');
+const output = {
+  filename: 'index.umd.js',
+  directory: path.join(__dirname, `../dist/umd/${pkg.name}/`),
+};
 
 // Todo: add ESM build for the extension in addition to umd build
-
 const config = {
   mode: 'production',
-  entry: rootDir + '/' + pkg.module,
+  entry: root + '/' + pkg.module,
   devtool: 'source-map',
+
   output: {
-    path: outputFolder,
-    filename: outputFile,
+    path: output.directory,
+    filename: output.filename,
     library: pkg.name,
     libraryTarget: 'umd',
     chunkFilename: '[name].chunk.js',
     umdNamedDefine: true,
     globalObject: "typeof self !== 'undefined' ? self : this",
   },
+
   externals: [
     {
       react: {
@@ -42,8 +45,8 @@ const config = {
       },
     },
   ],
-  module: {
 
+  module: {
     rules: [
       {
         test: /\.svg?$/,
@@ -59,11 +62,11 @@ const config = {
                         name: 'preset-default',
                         params: {
                           overrides: {
-                            removeViewBox: false
+                            removeViewBox: false,
                           },
                         },
                       },
-                    ]
+                    ],
                   },
                   prettier: false,
                   svgo: true,
@@ -87,6 +90,7 @@ const config = {
       },
     ],
   },
+
   resolve: {
     modules: [path.resolve('./node_modules'), path.resolve('./src')],
     extensions: ['.json', '.js', '.jsx', '.tsx', '.ts'],

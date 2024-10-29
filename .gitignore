@@ -105,3 +105,6 @@ dist
 
 # TernJS port file
 .tern-port
+
+# Generated OHIF Type Declaratons
+types/app

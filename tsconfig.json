@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "jsx": "react",
+        "baseUrl": ".",
+        "paths": {
+            "@ohif/ui": [ "types/app/platform/ui/src" ],
+            "@ohif/core": [ "types/app/platform/core/src" ],
+        }
+    },
+}

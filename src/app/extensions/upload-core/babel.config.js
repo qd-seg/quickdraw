@@ -5,6 +5,7 @@ module.exports = {
     ['@babel/plugin-proposal-private-property-in-object', { loose: true }],
     ['@babel/plugin-proposal-private-methods', { loose: true }],
   ],
+
   env: {
     test: {
       presets: [
@@ -19,6 +20,7 @@ module.exports = {
         '@babel/preset-react',
         '@babel/preset-typescript',
       ],
+
       plugins: [
         '@babel/plugin-proposal-object-rest-spread',
         '@babel/plugin-syntax-dynamic-import',
@@ -27,6 +29,7 @@ module.exports = {
         '@babel/plugin-transform-typescript',
       ],
     },
+
     production: {
       presets: [
         // WebPack handles ES6 --> Target Syntax
@@ -34,8 +37,10 @@ module.exports = {
         '@babel/preset-react',
         '@babel/preset-typescript',
       ],
+
       ignore: ['**/*.test.jsx', '**/*.test.js', '__snapshots__', '__tests__'],
     },
+
     development: {
       presets: [
         // WebPack handles ES6 --> Target Syntax
@@ -43,6 +48,7 @@ module.exports = {
         '@babel/preset-react',
         '@babel/preset-typescript',
       ],
+
       plugins: ['react-refresh/babel'],
       ignore: ['**/*.test.jsx', '**/*.test.js', '__snapshots__', '__tests__'],
     },
