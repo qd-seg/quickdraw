@@ -18,7 +18,7 @@ services:
   app:
     build:
       dockerfile: .docker/app/Dockerfile
-      context: ./
+      context: .
     restart: unless-stopped
     networks:
       - public
