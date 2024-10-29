@@ -1,5 +1,5 @@
 import { id } from './id';
-import UploadButton from './components/UploadButton';
+import UploadPanel from './components/UploadPanel';
 
 export default {
   id,
@@ -11,7 +11,7 @@ export default {
         iconName: 'logo-ohif-small',
         iconLabel: 'Upload',
         label: 'Upload',
-        component: UploadButton,
+        component: UploadPanel,
       },
     ];
   },
