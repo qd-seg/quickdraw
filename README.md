@@ -6,6 +6,11 @@ Install the [gcloud CLI](https://cloud.google.com/sdk/docs/install).
 
 The instructions for creating a Google Cloud Service account is [here](https://cloud.google.com/iam/docs/service-accounts-create#iam-service-accounts-create-console), and how to get the key file is [here](https://cloud.google.com/iam/docs/keys-create-delete#iam-service-account-keys-create-console). Make sure to name the JSON key file `serviceAccountKeys.json` and put it into the root project directory.
 
+The service account must have the following permissions:
+- Service Account User
+- Compute Admin	
+- Artifact Registry Repository Administrator
+
 An `.env` file is required with the following entries. The *values* in the parentheses are the recommended values
 - PROJECT_ID=`<your Google Cloud project id>` *(radiology-b0759*)
 - ZONE=`<compute instance zone>` *(us-east4-b)*
