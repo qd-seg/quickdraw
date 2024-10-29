@@ -8,4 +8,6 @@
             "@ohif/mode-longitudinal": [ "types/app/modes/longitudinal/src" ]
         }
     },
+
+    "include": [ "src/**/*" ]
 }

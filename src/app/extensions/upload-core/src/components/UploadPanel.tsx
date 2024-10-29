@@ -2,6 +2,28 @@ import * as React from 'react';
 
 import { Button, PanelSection, ProgressLoadingBar } from '@ohif/ui';
 
+import { Timestamp } from 'firebase/firestore';
+
+interface Document {
+  id: string;
+  dateUploaded?: Timestamp;
+  Description?: string;
+  [key: string]: any;
+}
+
+const labelStyle = {
+  display: 'inline-block',
+  padding: '5px',
+  borderRadius: '5px',
+  cursor: 'pointer',
+};
+
+const checkedLabelStyle = {
+  ...labelStyle,
+  backgroundColor: '#0844b3',
+  color: '#fff',
+};
+
 const UploadButton = () => {
   const [statusMessage, setStatusMessage] = React.useState('');
   const [progress, setProgress] = React.useState(0);
@@ -92,6 +114,99 @@ const UploadButton = () => {
           </div>
         </div>
       </PanelSection>
+
+      <br />
+      <div className="w-full text-center text-white">
+        <PanelSection title={'Models'}>
+          <div style={{ maxHeight: '250px', overflowY: 'auto', fontSize: '13px' }}>
+            {documents.map((doc, index) => (
+              <div
+                key={index}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  margin: '3px',
+                  borderBottom: '1px solid #3a3f99',
+                }}
+              >
+                <div
+                  style={{
+                    width: '70%',
+                    padding: '5px',
+                  }}
+                >
+                  <label style={selectedModel === doc.id ? checkedLabelStyle : labelStyle}>
+                    <input
+                      type="radio"
+                      value={doc.id}
+                      checked={selectedModel === doc.id}
+                      onChange={() => setSelectedModel(doc.id)}
+                    />
+                    {doc.id}
+                  </label>
+                </div>
+                <button
+                  onClick={() => {
+                    alert(
+                      `Description: ${doc.description}\nDate Uploaded: ${doc.dateUploaded
+                        .toDate()
+                        .toLocaleDateString()}`
+                    );
+                  }}
+                  style={{
+                    backgroundColor: '#041c4a',
+                    alignSelf: 'flex-end', // Align the button to the right
+                    borderRadius: '3px',
+                    padding: '5px',
+                    color: 'lightgray',
+                  }}
+                >
+                  Info
+                </button>
+              </div>
+            ))}
+          </div>
+        </PanelSection>
+        <br />
+        {selectedModel && (
+          <div>
+            <h2>Selected Model:</h2>
+            <p>{selectedModel}</p>
+          </div>
+        )}
+      </div>
+
+      {
+        <div
+          style={{
+            marginTop: '1em',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+          }}
+        >
+          <h5>Running Containers</h5>
+          <div style={{ marginTop: '1em', width: '100%', textAlign: 'center' }}>
+            {containers &&
+              containers.map(([containerName, isActive], index) => (
+                <div
+                  key={index}
+                  style={{
+                    padding: '10px',
+                    backgroundColor: isActive ? '#68d391' : '#e2e8f0',
+                    marginBottom: '5px',
+                    color: 'black',
+                  }}
+                >
+                  {isActive ? `${containerName} (Your Container)` : containerName}
+                </div>
+              ))}
+          </div>
+        </div>
+      }
     </div>
   );
 };

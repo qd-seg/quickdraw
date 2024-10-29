@@ -2,8 +2,8 @@
     "private": true,
 
     "workspaces": [
-        "src/app/extensions/model-management-panel",
-        "src/app/modes/model-management-mode"
+        "src/app/extensions/upload-core",
+        "src/app/modes/radiology-ai"
     ],
 
     "scripts": {
