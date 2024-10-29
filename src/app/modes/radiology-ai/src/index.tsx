@@ -50,7 +50,7 @@ function modeFactory({ modeConfiguration }) {
       const { measurementService, toolbarService, toolGroupService } = servicesManager.services;
 
       measurementService.clearMeasurements();
-      initToolGroups(extensionManager, toolGroupService, commandsManager);
+      initToolGroups(extensionManager, toolGroupService, commandsManager, undefined);
 
       toolbarService.addButtons(toolbarButtons);
       toolbarService.createButtonSection('primary', [
