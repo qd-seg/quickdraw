@@ -4,13 +4,15 @@ from werkzeug.utils import secure_filename
 import os
 import sys
 from flask_socketio import SocketIO  # Import SocketIO
-from google.cloud.exceptions import NotFound, Conflict
+# from google.cloud.exceptions import NotFound, Conflict
 import math as Math
 from dotenv import load_dotenv
 from api.flask_helpers import (
-    list_instances,
-    setup_compute,
-    run_predictions
+    list_instances, get_instance, delete_instance,
+    generate_instance_name,
+    setup_compute_instance,
+    run_predictions,
+    read_json, write_json
 )
 from api.gcloud_auth import auth_with_key_file_json
 import json
@@ -33,8 +35,6 @@ _REGION = '-'.join(_ZONE.split('-')[:-1])
 _MACHINE_TYPE = os.getenv('MACHINE_TYPE')
 _SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
 _KEY_FILE = os.getenv('KEY_FILE')
-_INSTANCE_EXISTS = False
-_INSTANCE_NAME = None
 _REPOSITORY = os.getenv('REPOSITORY')
 
 # auth_with_key_file_json(_KEY_FILE)
@@ -98,7 +98,7 @@ def emit_update_progressbar(value):
     """
     socketio.emit("progress_update", {"value": value})
 
-## TODO how should the compute instance name be stored?
+## TODO this might not be needed?
 @app.route("/checkInstance", methods=["POST"])
 def check_instance():
     """
@@ -107,8 +107,6 @@ def check_instance():
     Returns:
         response: JSON response with instance details and existence status.
     """
-    global _INSTANCE_EXISTS
-    global _INSTANCE_NAME
     filename = "instance.json"
     data = read_json(filename)
     emit_status_update("Checking if instance exists")
@@ -135,11 +133,10 @@ def check_instance():
             200,
         )
     else:
-        _INSTANCE_EXISTS = False
-        _INSTANCE_NAME = None
+        data = []
         write_json(
             filename,
-            {"instance_name": _INSTANCE_NAME, "instance_exists": _INSTANCE_EXISTS},
+            []
         )
         return (
             jsonify(
@@ -147,6 +144,36 @@ def check_instance():
             ),
             200,
         )
+ 
+def clear_unused_instances():
+    '''Removes all Compute instances that do not have an existing model associated with them'''
+    
+    filename = 'model_instances.json'
+    model_instances = read_json(filename)
+    used_instance_names = [m.instance_name for m in model_instances]
+    compute_instances = list_instances(_PROJECT_ID, _ZONE)
+    for instance in compute_instances:
+        if instance.name not in used_instance_names:
+            delete_instance(_PROJECT_ID, _ZONE, instance.name)
+    
+def get_existing_instance_for_model(model_name: str):
+    '''Get the Instance associated with a model name, or None if it does not exist'''
+    
+    filename = 'model_instances.json'
+    model_instances = read_json(filename)
+    matching_instance = next((m for m in model_instances if m.model_name == model_name), None)
+    if matching_instance is None:
+        return None
+    
+    return get_instance(_PROJECT_ID, _ZONE, matching_instance.instance_name)
+
+def add_tracked_model_instance(model_name: str, instance_name: str):
+    model_instances = read_json('model_instances.json')
+    model_instances.append({
+        'model_name': model_name,
+        'instance_name': instance_name
+    })
+    # TODO: SAVE json
 
 ## TODO
 ##TODO: Change containers in upload button component to instancesrunning
@@ -162,12 +189,13 @@ def get_containers():
     try:
         # emit_status_update('Getting containers')
         containers = list_instances( _PROJECT_ID, _ZONE)
-        arr = []
-        for container in containers:
-            if container.name == _INSTANCE_NAME:
-                arr.append([container.name, True])
-            else:
-                arr.append([container.name, False])
+        arr = [c.name for c in containers]
+        # arr = []
+        # for container in containers:
+        #     if container.name == _INSTANCE_NAME:
+        #         arr.append([container.name, True])
+        #     else:
+        #         arr.append([container.name, False])
         # emit_status_update('Containers retrieved')
         return jsonify({"containers": arr}), 200
     except Exception as e:
@@ -189,10 +217,12 @@ def authenticateGoogleCloud():
         emit_status_update("User authenticated successfully")
         message = "Instance created successfully"
         status_code = 200
+        
     except Exception as e:
         emit_status_update("Error authenticating user")
         message = f"Error authenticating user: {str(e)}"
         status_code = 500
+        
     return jsonify({"message": message}), status_code
 
 ## TODO
@@ -201,22 +231,34 @@ def setupComputeWithModel():
     # Extract the selected model name
     if request.is_json:
         json_data = request.get_json()
-    selectedModel = json_data["selectedModel"]
+    else:
+        return jsonify({ 'message': 'Something went wrong' }), 500
     
-    compute_creation_result = setup_compute(
+    selectedModel = json_data.get('selected_model')
+    if selectedModel is None:
+        return jsonify({ 'message': 'No model selected ' }), 500
+    
+    existing_instance = get_existing_instance_for_model(selectedModel)
+    new_instance_name = None
+    if existing_instance is None:
+        new_instance_name = generate_instance_name('ohif-instance', 'predictor')
+    else:
+        new_instance_name = existing_instance.name
+            
+    new_instance = setup_compute_instance(
         _PROJECT_ID,
         _ZONE,
-        'ohif-instance',
-        'predictor',
+        new_instance_name,
         _MACHINE_TYPE,
         _INSTANCE_LIMIT,
         selectedModel,
         _REPOSITORY,
-        use_existing_instance_name=False
     )
     
+    
+    
     status_code = None
-    if compute_creation_result:
+    if new_instance is not None:
         emit_status_update("Instance created successfully")
         message = "Instance created successfully"
         status_code = 200

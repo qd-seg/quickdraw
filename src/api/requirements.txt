@@ -2,4 +2,5 @@ Flask==3.0.2
 gunicorn==22.0.0
 google-cloud-compute
 google-cloud-artifact-registry
+google-auth
 python-dotenv

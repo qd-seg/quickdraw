@@ -1,5 +1,5 @@
 import os
-from api.gcloud_auth import get_compute_client, get_credentials, auth_with_key_file_json, get_registry_client
+from gcloud_auth import get_compute_client, get_credentials, auth_with_key_file_json, get_registry_client
 from dotenv import load_dotenv
 from google.cloud import compute_v1, artifactregistry
 from google.api_core.extended_operation import ExtendedOperation
@@ -8,10 +8,25 @@ import subprocess
 import time
 from enum import Enum
 from typing import List
+import json 
 
 ## TODO: delete instance method
 
-_USERNAME = os.environ.get('USER')
+# _USERNAME = os.environ.get('USER')
+_USERNAME = 'cmsc435'
+
+def read_json(filename):
+    """Reads a JSON file and returns its content."""
+    try:
+        with open(filename, 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return None # {}
+
+def write_json(filename, data):
+    """Writes data to a JSON file."""
+    with open(filename, 'w') as file:
+        json.dump(data, file)
 
 def get_region_name(zone: str):
     return '-'.join(zone.split('-')[:-1])
@@ -40,6 +55,16 @@ def list_instances(project_id, zone):
     instances = list(response)
     return instances
 
+def start_instance(project_id, zone, instance_name):
+    request = compute_v1.StartInstanceRequest(project=project_id, zone=zone, instance=instance_name)
+    response = get_compute_client().start(request)
+    return response.result(timeout=30)
+
+def stop_instance(project_id, zone, instance_name):
+    request = compute_v1.StopInstanceRequest(discard_local_ssd=False, project=project_id, zone=zone, instance=instance_name)
+    response = get_compute_client().stop(request)
+    return response.result(timeout=30)
+
 def get_instance(project_id, zone, instance_name):    
     request = compute_v1.GetInstanceRequest(instance=instance_name, project=project_id, zone=zone)
     try:
@@ -49,6 +74,11 @@ def get_instance(project_id, zone, instance_name):
         print(e)
         print('Could not get instance of name', instance_name)
         return None
+    
+def delete_instance(project_id, zone, instance_name):
+    request = compute_v1.DeleteInstanceRequest(project=project_id, zone=zone, instance=instance_name)
+    response = get_compute_client().delete(request)
+    return response.result(timeout=30)
     
 class IPType(Enum):
     INTERNAL = "internal"
@@ -117,9 +147,9 @@ def create_instance_helper(
     request = compute_v1.InsertInstanceRequest(instance_resource=instance, project=project_id, zone=zone)
     response = get_compute_client().insert(request)
     print('Sent create instance request')
-    return response
+    return response.result(timeout=30)
 
-# starts the run by calling create function and passing in configs
+## NOTE: should probably change this name. This is only a helper function. Use setup_compute_instance() instead
 def create_new_instance(instance_name, project_id, zone, machine_type, instance_limit):
     # compute_client = compute_v1.InstancesClient()
     instance_count = count_instances(project_id, zone)
@@ -226,6 +256,7 @@ def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_
     # startup_script_metadata = compute_v1.Items(key='startup-script', value=setup_script)
     # startup_metadata = compute_v1.Metadata(items=[startup_script_metadata], fingerprint=instance.metadata.fingerprint)
     # startup_request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=startup_metadata, project=_PROJECT_ID, zone=_ZONE)
+    return first_metadata_request.result(timeout=30)
 
 def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, key_filepath: str, dicom_image_directory: str, dicom_series_name: str, instance_name: str, run_auth=True) -> bool:
     if run_auth:
@@ -257,53 +288,30 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
     return True
 
 # Creates an instance and pulls the model from registry to it. Returns if successfully created or not
-def setup_compute(project_id: str, zone: str, instance_name_prefix: str, instance_name_desc: str, machine_type: str, instance_limit: int, image_name: str, models_repo: str = None, use_existing_instance_name: str = None, skip_metadata=False) -> bool:
-    CURR_INSTANCE = None
-    if use_existing_instance_name is None:
-        instance = create_new_instance(generate_instance_name(instance_name_prefix, instance_name_desc), project_id, zone, machine_type, instance_limit)
-        
-        # If instance was not created successfully
-        if not isinstance(instance, ExtendedOperation):
-            # TODO: return error code as response to frontend
-            print(instance)
-            return False
-        
-        # TODO: in the flask server we will handle everything async with:
-        #   instance.add_done_callback(...)
-        
-        ## But for testing, just do it synchronously:
-        def update_curr_instance(x):
-            # Update the global variable for the current instance
-            global CURR_INSTANCE
-            CURR_INSTANCE = x
-            
-        instance.add_done_callback(update_curr_instance)
-        print('Waiting for compute instance to be created...')
-        while not instance.done():
-            time.sleep(2)
-            # print(instance.status)
-        print(instance.result(), instance.status)
-        time.sleep(0.5)
-        ##
-    else:
-        CURR_INSTANCE = get_instance(project_id, zone, use_existing_instance_name)
-        
-    global _INSTANCE_NAME
-    _INSTANCE_NAME = CURR_INSTANCE.name
+def setup_compute_instance(project_id: str, zone: str, instance_name: str | None, machine_type: str, instance_limit: int, image_name: str, models_repo: str = None, skip_metadata=False) -> compute_v1.Instance | None:
+    instance = get_instance(project_id, zone, instance_name)
+    if instance is None:
+        create_new_instance(instance_name, project_id, zone, machine_type, instance_limit)
+        instance = get_instance(project_id, zone, instance_name)
+
     if not skip_metadata:
         if models_repo is None:
             print('Please provide model repository path')
             exit(1)
             
-        setup_instance_metadata(project_id, zone, models_repo, image_name, CURR_INSTANCE)
+        setup_instance_metadata(project_id, zone, models_repo, image_name, instance)
         
-    return True
+    return instance
 
 # Run predictions on existing compute instance. Assumes DICOM images have already been uploaded to ./dicom-images/
 def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, dicom_series_name: str, instance_name: str, skip_predictions: bool = False) -> bool:
     print('Predicting', dicom_series_name)
     try:
         username = _USERNAME
+        
+        # Start the instance
+        start_instance(project_id, zone, instance_name)
+        time.sleep(1)
         
         # Log into service account with gcloud
         subprocess.run(['gcloud', 'auth', 'activate-service-account', service_account, f'--key-file={key_filepath}'], check=True)
@@ -334,6 +342,16 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                         f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_name}-multiorgan-segmentation.dcm',
                         './dcm-prediction/'])
         
+        # Delete files on Instance
+        print('Deleting unnecessary files on VM')
+        subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
+                        f'--project={project_id}', 
+                        f'--zone={zone}',
+                        f'--command=rm -rf /home/{username}/images && rm -rf /home/{username}/model_outputs'], check=True, input='\n', text=True)
+        
+        # Stop the instance
+        stop_instance(project_id, zone, instance_name)
+        
         # TODO: upload predictions to Orthanc
     except Exception as e:
         print('Something went wrong with running predictions:')
@@ -354,8 +372,6 @@ if __name__ == '__main__':
     _MACHINE_TYPE = os.getenv('MACHINE_TYPE')
     _SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
     _KEY_FILE = os.getenv('KEY_FILE')
-    _INSTANCE_EXISTS = False
-    _INSTANCE_NAME = None
     _REPOSITORY = os.getenv('REPOSITORY')
 
     auth_with_key_file_json(_KEY_FILE)
@@ -367,11 +383,13 @@ if __name__ == '__main__':
     
     # instance = get_instance(compute_client, _PROJECT_ID, _ZONE, COMPUTE_INSTANCE_NAME)
     
-    if not setup_compute(_PROJECT_ID, _ZONE, None, None, _MACHINE_TYPE, _INSTANCE_LIMIT, DOCKER_MODEL_NAME, _REPOSITORY, use_existing_instance_name=COMPUTE_INSTANCE_NAME):
+    instance = setup_compute_instance(_PROJECT_ID, _ZONE, COMPUTE_INSTANCE_NAME, _MACHINE_TYPE, _INSTANCE_LIMIT, DOCKER_MODEL_NAME, _REPOSITORY)
+        
+    if instance is None:
         print('error')
         exit()
         
-    COMPUTE_INSTANCE_NAME = _INSTANCE_NAME
+    COMPUTE_INSTANCE_NAME = instance.name
     print(COMPUTE_INSTANCE_NAME)
     
     run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT, _KEY_FILE, f'{DICOM_SERIES_TO_PREDICT}', COMPUTE_INSTANCE_NAME, skip_predictions=False)
