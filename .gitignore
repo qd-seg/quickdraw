@@ -108,3 +108,6 @@ dist
 
 # Generated OHIF Type Declaratons
 types/app
+
+# Python Virtual Environment
+.venv

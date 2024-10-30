@@ -1,14 +1,11 @@
 {
     "private": true,
 
-    "workspaces": [
-        "src/app/extensions/upload-core",
-        "src/app/modes/radiology-ai",
-        "src/dashboard"
-    ],
+    "workspaces": [ "src/**" ],
 
     "scripts": {
-        "build:types": "cd lib/app && tsc --declarationMap --outDir ../../types/app || true",
+        "init:env": "python -m venv .venv",
+        "init:dts": "cd lib/app && tsc --declarationMap --outDir ../../types/app || true",
         "install:python": "pip install -r src/api/requirements.txt",
         "install:nodejs": "yarn install"
     },
