@@ -24,7 +24,7 @@ RUN yarn run cli link-extension /usr/local/src/extensions/upload-core
 RUN yarn run cli link-mode /usr/local/src/modes/radiology-ai
 RUN yarn run build
 
-FROM nginx:1.27-alpine3.20 as serve
+FROM nginx:1.27-alpine3.20 AS serve
 
 COPY .docker/app/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=pack /usr/local/src/app/platform/app/dist /usr/share/nginx/html

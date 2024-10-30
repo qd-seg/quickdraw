@@ -1,4 +1,3 @@
-version: '3'
 services:
   proxy:
     image: nginx:1.27-alpine3.20
@@ -18,6 +17,14 @@ services:
   app:
     build:
       dockerfile: .docker/app/Dockerfile
+      context: .
+    restart: unless-stopped
+    networks:
+      - public
+
+  api:
+    build:
+      dockerfile: .docker/api/Dockerfile
       context: .
     restart: unless-stopped
     networks:

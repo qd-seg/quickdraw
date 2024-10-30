@@ -6,8 +6,9 @@ import { Timestamp } from 'firebase/firestore';
 
 interface Document {
   id: string;
-  dateUploaded?: Timestamp;
-  Description?: string;
+  date?: Timestamp;
+  description?: string;
+
   [key: string]: any;
 }
 
@@ -24,39 +25,134 @@ const checkedLabelStyle = {
   color: '#fff',
 };
 
-const UploadButton = () => {
-  const [statusMessage, setStatusMessage] = React.useState('');
+const UploadButton: React.FunctionComponent = () => {
+  const [message, setMessage] = React.useState('');
   const [progress, setProgress] = React.useState(0);
   const [counter, setCounter] = React.useState(0);
+
   const [containers, setContainers] = React.useState<[string, boolean][]>([]);
   const [documents, setDocuments] = React.useState<Document[]>([]);
-  const [selectedModel, setSelectedModel] = React.useState(undefined);
-  const [operationStatus, setOperationStatus] = React.useState({
+
+  const [model, setModel] = React.useState(undefined);
+
+  const [status, setStatus] = React.useState({
     uploading: false,
     deleting: false,
     predicting: false,
     authenticating: false,
   });
 
-  const isOperationActive = () =>
-    operationStatus.uploading ||
-    operationStatus.deleting ||
-    operationStatus.predicting ||
-    operationStatus.authenticating;
+  const isActive = () => {
+    return status.uploading || status.deleting || status.predicting || status.authenticating;
+  };
 
-  const navigateToDashboard = () => window.open('/dashboard', '_blank');
+  const authenticateUser = async () => {
+    setStatus({ ...status, authenticating: true });
+
+    try {
+      await fetch('/api/authenticate', { method: 'POST' });
+    } catch (error) {
+      setMessage('Unable to Authenticate');
+
+      console.error('Error:', error);
+    } finally {
+      setStatus({ ...status, authenticating: false });
+    }
+  };
+
+  const isInstanceAvailable = async () => {
+    try {
+      await fetch('/api/instances/available', { method: 'POST' });
+    } catch (error) {
+      setMessage('Unable to Authenticate');
+
+      console.error('Error:', error);
+    }
+  };
+
+  const updateContainers = async () => {
+    try {
+      const response = await fetch('/api/instances/running', { method: 'POST' });
+      const data = await response.json();
+
+      setContainers(data.containers);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const uploadInstance = async () => {
+    setStatus({ ...status, uploading: true });
+
+    const url = new URL(window.location.href);
+    const UIDs = url.searchParams.get('StudyInstanceUIDs');
+    const firstUID = UIDs.split(/[^\d.]+/)[0];
+
+    try {
+      await fetch('/api/instances/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstUID }),
+      });
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setStatus({ ...status, uploading: false });
+
+      updateContainers();
+    }
+  };
+
+  const runPrediction = async () => {
+    setStatus({ ...status, predicting: true });
+
+    try {
+      await fetch('/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedModel: model }),
+      });
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setStatus({ ...status, deleting: false });
+
+      setCounter(counter + 1);
+    }
+  };
+
+  const deleteInstance = async () => {
+    setStatus({ ...status, deleting: true });
+
+    try {
+      await fetch('/api/instances/delete', { method: 'POST' });
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setStatus({ ...status, deleting: false });
+
+      updateContainers();
+    }
+  };
 
   /* TODO: */
-  const uploadInstance = () => {};
-  const deleteInstance = () => {};
-  const fetchContainers = () => {};
-  const runPrediction = () => {};
+  const updateDocuments = async () => {
+    try {
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  React.useEffect(() => authenticateUser() as undefined, []);
+  React.useEffect(() => isInstanceAvailable() as undefined, []);
+  React.useEffect(() => updateContainers() as undefined, []);
+  React.useEffect(() => updateDocuments() as undefined, []);
 
   return (
     <div style={{ margin: '2px' }}>
       <div className="w-full text-center text-white">
         <h1 className="text-common-light mr-3 text-lg">Administrative Page:</h1>
-        <Button onClick={navigateToDashboard}>Model Management Page</Button>
+        <Button onClick={() => window.open('/dashboard', '_blank')}>Model Management Page</Button>
         <br />
         <br />
       </div>
@@ -75,42 +171,38 @@ const UploadButton = () => {
           <br />
           <Button
             onClick={uploadInstance}
-            children={operationStatus.uploading ? 'Uploading...' : 'Upload Images to Server'}
-            disabled={isOperationActive()}
+            children={status.uploading ? 'Uploading...' : 'Upload Images to Server'}
+            disabled={isActive()}
           />
 
           <br />
           <Button
             onClick={runPrediction}
-            children={operationStatus.deleting ? 'Running Prediction...' : 'Run Prediction'}
-            disabled={isOperationActive()}
+            children={status.deleting ? 'Running Prediction...' : 'Run Prediction'}
+            disabled={isActive()}
           />
 
           <br />
           <Button
             onClick={deleteInstance}
-            children={operationStatus.deleting ? 'Deleting...' : 'Delete Current Instance'}
-            disabled={isOperationActive()}
+            children={status.deleting ? 'Deleting...' : 'Delete Current Instance'}
+            disabled={isActive()}
           />
 
           <br />
           <Button
             onClick={() => {}}
-            children={operationStatus.uploading ? 'Saving...' : 'Save Modified Mask'}
-            disabled={isOperationActive()}
+            children={status.uploading ? 'Saving...' : 'Save Modified Mask'}
+            disabled={isActive()}
           />
 
           <br />
-          <Button
-            onClick={fetchContainers}
-            children="Refresh Containers"
-            disabled={isOperationActive()}
-          />
+          <Button onClick={updateContainers} children="Refresh Containers" disabled={isActive()} />
 
           {progress > 0 && <ProgressLoadingBar progress={progress} />}
 
           <div style={{ color: '#90cdf4', margin: '5px' }}>
-            <p>{statusMessage}</p>
+            <p>{message}</p>
           </div>
         </div>
       </PanelSection>
@@ -119,7 +211,7 @@ const UploadButton = () => {
       <div className="w-full text-center text-white">
         <PanelSection title={'Models'}>
           <div style={{ maxHeight: '250px', overflowY: 'auto', fontSize: '13px' }}>
-            {documents.map((doc, index) => (
+            {documents.map((document, index) => (
               <div
                 key={index}
                 style={{
@@ -136,27 +228,27 @@ const UploadButton = () => {
                     padding: '5px',
                   }}
                 >
-                  <label style={selectedModel === doc.id ? checkedLabelStyle : labelStyle}>
+                  <label style={model === document.id ? checkedLabelStyle : labelStyle}>
                     <input
                       type="radio"
-                      value={doc.id}
-                      checked={selectedModel === doc.id}
-                      onChange={() => setSelectedModel(doc.id)}
+                      value={document.id}
+                      checked={model === document.id}
+                      onChange={() => setModel(document.id)}
                     />
-                    {doc.id}
+                    {document.id}
                   </label>
                 </div>
                 <button
                   onClick={() => {
                     alert(
-                      `Description: ${doc.description}\nDate Uploaded: ${doc.dateUploaded
+                      `Description: ${document.description}\nDate Uploaded: ${document.dateUploaded
                         .toDate()
                         .toLocaleDateString()}`
                     );
                   }}
                   style={{
                     backgroundColor: '#041c4a',
-                    alignSelf: 'flex-end', // Align the button to the right
+                    alignSelf: 'flex-end',
                     borderRadius: '3px',
                     padding: '5px',
                     color: 'lightgray',
@@ -169,44 +261,42 @@ const UploadButton = () => {
           </div>
         </PanelSection>
         <br />
-        {selectedModel && (
+        {model && (
           <div>
             <h2>Selected Model:</h2>
-            <p>{selectedModel}</p>
+            <p>{model}</p>
           </div>
         )}
       </div>
 
-      {
-        <div
-          style={{
-            marginTop: '1em',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-          }}
-        >
-          <h5>Running Containers</h5>
-          <div style={{ marginTop: '1em', width: '100%', textAlign: 'center' }}>
-            {containers &&
-              containers.map(([containerName, isActive], index) => (
-                <div
-                  key={index}
-                  style={{
-                    padding: '10px',
-                    backgroundColor: isActive ? '#68d391' : '#e2e8f0',
-                    marginBottom: '5px',
-                    color: 'black',
-                  }}
-                >
-                  {isActive ? `${containerName} (Your Container)` : containerName}
-                </div>
-              ))}
-          </div>
+      <div
+        style={{
+          marginTop: '1em',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+        }}
+      >
+        <h5>Running Containers</h5>
+        <div style={{ marginTop: '1em', width: '100%', textAlign: 'center' }}>
+          {containers &&
+            containers.map(([name, isActive], index) => (
+              <div
+                key={index}
+                style={{
+                  padding: '10px',
+                  backgroundColor: isActive ? '#68d391' : '#e2e8f0',
+                  marginBottom: '5px',
+                  color: 'black',
+                }}
+              >
+                {isActive ? `${name} (Your Container)` : name}
+              </div>
+            ))}
         </div>
-      }
+      </div>
     </div>
   );
 };

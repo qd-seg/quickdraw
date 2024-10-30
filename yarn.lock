@@ -1989,9 +1989,9 @@
     validate.js "^0.12.0"
 
 "@ohif/extension-cornerstone@^3.9.0-beta.101":
-  version "3.9.0-beta.101"
-  resolved "https://registry.yarnpkg.com/@ohif/extension-cornerstone/-/extension-cornerstone-3.9.0-beta.101.tgz#140ae92e7f7406cd388709f7573ec66c7720f698"
-  integrity sha512-Y2gdI1vuDkZI+P+0+wE8ZyrQXJDzCgeKxEGXVgX81Vrzx9A48C4BpIJLvCR5whBftqmCxyb1n0VSQDNjD13GJw==
+  version "3.9.0-beta.102"
+  resolved "https://registry.yarnpkg.com/@ohif/extension-cornerstone/-/extension-cornerstone-3.9.0-beta.102.tgz#84d3e575fe1ea5872621528b436bdf18e72ec404"
+  integrity sha512-MFGYnfajUR4yaYQy+/YcHr5o9DA17S+PDSM0/9XHC434pJsQK+L+9Ll1dpiXvDBt+eP9ulIGPAaHMGhXHNCq5w==
   dependencies:
     "@babel/runtime" "^7.20.13"
     "@cornerstonejs/adapters" "^1.86.0"
@@ -2007,17 +2007,17 @@
     worker-loader "^3.0.8"
 
 "@ohif/extension-default@^3.9.0-beta.101":
-  version "3.9.0-beta.101"
-  resolved "https://registry.yarnpkg.com/@ohif/extension-default/-/extension-default-3.9.0-beta.101.tgz#c38a899235516d0263a7880e64b6fbc33056363c"
-  integrity sha512-rs7Id7tNVSKd8NOT/Gxwh7vMhucxXtUgdUcabVIjHCj+HEkYROGBg57LlZt82Hnbk2xpagfzjU0Y10Wfa123jg==
+  version "3.9.0-beta.102"
+  resolved "https://registry.yarnpkg.com/@ohif/extension-default/-/extension-default-3.9.0-beta.102.tgz#da8f5fac4e994a32ac61ab1d367f6dc9b16e6ed1"
+  integrity sha512-vY0eqSyXI72Xw5A4cPDoWJ26kWG82xC2oiIp43MLmi/2bseQ/aebApXQuMLrEA0Tz2DnQz85nfCxV2q044qyUA==
   dependencies:
     "@babel/runtime" "^7.20.13"
     "@cornerstonejs/calculate-suv" "^1.1.0"
 
 "@ohif/i18n@^3.9.0-beta.101":
-  version "3.9.0-beta.101"
-  resolved "https://registry.yarnpkg.com/@ohif/i18n/-/i18n-3.9.0-beta.101.tgz#95e25f88d75a93b32e0a68fd782146b30d339fa4"
-  integrity sha512-qR7jVr1QyED4ZnH7HWOppKFDjHk3NQFaBd7OdZYxPSiHvWPow/f4LQpDpTQd495npkHOSUcgvTxdVuvfpRjxxg==
+  version "3.9.0-beta.102"
+  resolved "https://registry.yarnpkg.com/@ohif/i18n/-/i18n-3.9.0-beta.102.tgz#ee01298d010a948693b0b088240548c605ba202d"
+  integrity sha512-wJEDctIsJP/WVU98BMYmXluXa00bge9fIxiUAYD5xCQlMsrgjDlKUmtQ6I7yhpwRV7tv4MS6zwRgmCOXFRoGYg==
   dependencies:
     "@babel/runtime" "^7.20.13"
     i18next-locize-backend "^2.0.0"

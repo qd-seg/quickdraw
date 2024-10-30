@@ -7,10 +7,9 @@
     ],
 
     "scripts": {
-        "start": "docker compose up -d",
-        "stop": "docker compose down",
-        "build": "docker compose build",
-        "build:types": "cd lib/app && tsc --declarationMap --outDir ../../types/app || true"
+        "build:types": "cd lib/app && tsc --declarationMap --outDir ../../types/app || true",
+        "install:python": "pip install -r src/api/requirements.txt",
+        "install:nodejs": "yarn install"
     },
 
     "devDependencies": {
