@@ -19,7 +19,7 @@ function LoginPage() {
         .then(() => {
           setUser('signed in');
           setError('');
-          navigate('/model-management-page');
+          navigate('/manage');
         })
         .catch(() => {
           setError('Failed to Sign In');

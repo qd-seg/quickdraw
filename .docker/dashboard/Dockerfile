@@ -20,6 +20,6 @@ RUN yarn run build
 FROM nginx:1.27-alpine3.20 AS serve
 
 COPY .docker/dashboard/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=pack /usr/local/src/dashboard/build /usr/share/nginx/html
+COPY --from=pack /usr/local/src/dashboard/dist /usr/share/nginx/html
 
 CMD ["nginx", "-g", "daemon off;"]

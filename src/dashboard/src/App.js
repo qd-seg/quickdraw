@@ -12,7 +12,7 @@ function App() {
     <StateProvider>
       <Routes>
         <Route index element={<LoginPage />} />
-        <Route path="model-management-page" element={<ModelManagementPage />}></Route>
+        <Route path="manage" element={<ModelManagementPage />}></Route>
       </Routes>
     </StateProvider>
   );

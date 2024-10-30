@@ -1,15 +1,12 @@
 {
     "private": true,
-
     "workspaces": [ "src/**" ],
-
     "scripts": {
         "init:env": "python -m venv .venv",
         "init:dts": "cd lib/app && tsc --declarationMap --outDir ../../types/app || true",
         "install:python": "pip install -r src/api/requirements.txt",
         "install:nodejs": "yarn install"
     },
-
     "devDependencies": {
         "@ohif/core": "^3.9.0-beta.101",
         "@ohif/extension-cornerstone": "^3.9.0-beta.101",
