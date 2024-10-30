@@ -1,4 +1,0 @@
-google-cloud-compute
-google-cloud-artifact-registry
-python-dotenv
-Flask

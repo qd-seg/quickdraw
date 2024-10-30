@@ -1,0 +1,22 @@
+{
+    "Name": "Orthanc",
+
+    "AuthenticationEnabled": false,
+    "RemoteAccessAllowed": true,
+
+    "HttpPort": 80,
+    "RestApiWriteToFileSystemEnabled": true,
+
+    "OrthancExplorer2": {
+        "Enable": true,
+        "IsDefaultOrthancUI": true
+    },
+
+    "DicomWeb": {
+        "Enable": true
+    },
+
+    "PostgreSQL": {
+        "Host": "index"
+    }
+}

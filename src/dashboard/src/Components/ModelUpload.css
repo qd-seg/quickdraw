@@ -1,0 +1,29 @@
+.page-container {
+  display: flex;
+  justify-content: center; /* Centers content horizontally */
+  align-items: center; /* Centers content vertically */
+}
+
+.container {
+  display: flex;
+}
+
+.button-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.text-content {
+  margin-top: 50px;
+  margin-left: 25%;
+  animation: pulse 1.5s infinite alternate; /* Applying the pulse animation */
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1); /* Initial scale */
+  }
+  100% {
+    transform: scale(1.1); /* Scale up */
+  }
+}

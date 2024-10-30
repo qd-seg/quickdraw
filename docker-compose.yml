@@ -1,0 +1,71 @@
+services:
+  proxy:
+    image: nginx:1.27-alpine3.20
+    restart: unless-stopped
+    depends_on:
+      - app
+      - api
+      - dashboard
+      - index
+      - store
+    networks:
+      - public
+    volumes:
+      - .docker/proxy/nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - 80:80
+      - 443:443
+
+  app:
+    build:
+      dockerfile: .docker/app/Dockerfile
+      context: .
+    restart: unless-stopped
+    networks:
+      - public
+
+  api:
+    build:
+      dockerfile: .docker/api/Dockerfile
+      context: .
+    restart: unless-stopped
+    networks:
+      - public
+
+  dashboard:
+    build:
+      dockerfile: .docker/dashboard/Dockerfile
+      context: .
+    restart: unless-stopped
+    networks:
+      - public
+
+  index:
+    image: postgres:15.8
+    restart: unless-stopped
+    networks:
+      - private
+    volumes:
+      - index:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+
+  store:
+    image: orthancteam/orthanc:24.10.1
+    restart: unless-stopped
+    depends_on:
+      - index
+    networks:
+      - public
+      - private
+    volumes:
+      - store:/var/lib/orthanc/db
+      - .docker/store/default.json:/etc/orthanc/default.json
+
+volumes:
+  index:
+  store:
+
+networks:
+  public:
+  private:
