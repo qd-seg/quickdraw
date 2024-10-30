@@ -6,7 +6,6 @@ WORKDIR /usr/local/src/app
 
 COPY lib/app .
 
-RUN yarn config set workspaces-experimental true
 RUN yarn install --frozen-lockfile --silent
 
 FROM node:22.9.0-slim AS pack

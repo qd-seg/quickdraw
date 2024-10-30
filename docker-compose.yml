@@ -4,6 +4,8 @@ services:
     restart: unless-stopped
     depends_on:
       - app
+      - api
+      - dashboard
       - index
       - store
     networks:
@@ -25,6 +27,14 @@ services:
   api:
     build:
       dockerfile: .docker/api/Dockerfile
+      context: .
+    restart: unless-stopped
+    networks:
+      - public
+
+  dashboard:
+    build:
+      dockerfile: .docker/dashboard/Dockerfile
       context: .
     restart: unless-stopped
     networks:

@@ -3,7 +3,8 @@
 
     "workspaces": [
         "src/app/extensions/upload-core",
-        "src/app/modes/radiology-ai"
+        "src/app/modes/radiology-ai",
+        "src/dashboard"
     ],
 
     "scripts": {

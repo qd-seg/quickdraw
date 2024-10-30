@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "jsx": "react",
+
+        "paths": {
+            "@ohif/core": [ "../../../../types/app/platform/core/src" ],
+            "@ohif/mode-longitudinal": [ "../../../../types/app/modes/longitudinal/src" ]
+        }
+    },
+
+    "include": [ "src/**/*" ]
+}
