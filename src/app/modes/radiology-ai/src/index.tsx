@@ -27,17 +27,17 @@ const segmentation = {
   viewport: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
 };
 
-const dicomSEG = {
-  viewport: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
-  sopClassHandler: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
-  panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
-};
+// const dicomSEG = {
+//   viewport: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
+//   sopClassHandler: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
+//   panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
+// };
 
-const dicomRT = {
-  viewport: '@ohif/extension-cornerstone-dicom-rt.viewportModule.dicom-rt',
-  sopClassHandler: '@ohif/extension-cornerstone-dicom-rt.sopClassHandlerModule.dicom-rt',
-  panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
-};
+// const dicomRT = {
+//   viewport: '@ohif/extension-cornerstone-dicom-rt.viewportModule.dicom-rt',
+//   sopClassHandler: '@ohif/extension-cornerstone-dicom-rt.sopClassHandlerModule.dicom-rt',
+//   panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
+// };
 
 const uploadCore = {
   panel: 'upload-core.panelModule.upload',
@@ -140,14 +140,14 @@ function modeFactory({ modeConfiguration }) {
                   namespace: segmentation.viewport,
                   displaySetsToDisplay: [segmentation.sopClassHandler],
                 },
-                {
-                  namespace: dicomSEG.viewport,
-                  displaySetsToDisplay: [dicomSEG.sopClassHandler],
-                },
-                {
-                  namespace: dicomRT.viewport,
-                  displaySetsToDisplay: [dicomRT.sopClassHandler],
-                },
+                // {
+                //   namespace: dicomSEG.viewport,
+                //   displaySetsToDisplay: [dicomSEG.sopClassHandler],
+                // },
+                // {
+                //   namespace: dicomRT.viewport,
+                //   displaySetsToDisplay: [dicomRT.sopClassHandler],
+                // },
               ],
             },
           };
@@ -157,7 +157,9 @@ function modeFactory({ modeConfiguration }) {
 
     extensions: extensionDependencies,
     hangingProtocol: 'default',
-    sopClassHandlers: [ohif.sopClassHandler, segmentation.sopClassHandler, dicomSEG.sopClassHandler, dicomRT.sopClassHandler],
+    // sopClassHandlers: [ohif.sopClassHandler, segmentation.sopClassHandler, dicomSEG.sopClassHandler, dicomRT.sopClassHandler],
+    sopClassHandlers: [ohif.sopClassHandler, segmentation.sopClassHandler],
+
     hotkeys: [...hotkeys.defaults.hotkeyBindings],
   };
 }

@@ -25,7 +25,7 @@ const checkedLabelStyle = {
   color: '#fff',
 };
 
-const UploadButton: React.FunctionComponent = ({ servicesManager, commandsManager }) => {
+function UploadButton({ servicesManager, commandsManager }) {
   const [message, setMessage] = React.useState('');
   const [progress, setProgress] = React.useState(0);
   const [counter, setCounter] = React.useState(0);
