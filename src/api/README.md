@@ -42,7 +42,7 @@ An example Dockerfile and .dockerignore is provided in `/example_docker/`.
 
 ## Making Predictions:
 Here is how to test the code outside of Flask: 
-- Navigate to the [Google Cloud Console](https://console.cloud.google.com/compute/instances?project=radiology-b0759). If there are any instances there, either start them, or delete them
+- Navigate to the [Google Cloud Console](https://console.cloud.google.com/compute/instances?project=radiology-b0759)
 - Upload a DICOM series into `dicom-images/`. Do not only upload one single layer. Upload an entire directory of DCM files, for example, `PANCREAS_XXXX/` (keeping all of its subfolders)
 - Go to `flask_helpers.py` and replace these variables as needed:
   - `COMPUTE_INSTANCE_NAME`: name of Google Compute instance. If it is None, a new instance will be created *(ex: myinstance-webserver-20241028191333)*. Note: creating a new instance is slightly bugged. You may have to replace `COMPUTE_INSTANCE_NAME` with the proper name after creation and re-run the program
