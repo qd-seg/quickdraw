@@ -41,7 +41,7 @@ Or, if you wish to save the image to a tarball first:
 An example Dockerfile and .dockerignore is provided in `/example_docker/`.
 
 ## Making Predictions:
-Currently the code is just for testing. Ideally it would be running a Flask server. But here is how to test it for now: 
+Here is how to test the code outside of Flask: 
 - Navigate to the [Google Cloud Console](https://console.cloud.google.com/compute/instances?project=radiology-b0759). If there are any instances there, either start them, or delete them
 - Upload a DICOM series into `dicom-images/`. Do not only upload one single layer. Upload an entire directory of DCM files, for example, `PANCREAS_XXXX/` (keeping all of its subfolders)
 - Go to `flask_helpers.py` and replace these variables as needed:
@@ -55,4 +55,3 @@ Currently the code is just for testing. Ideally it would be running a Flask serv
 - Only one user is able to run predictions on a single compute instance at the same time
 - Only one compute instance can exist at a time (this should be easily changeable)
 - The variables that have to manually be changed in `flask_helpers.py` will need to come from the frontend, or somewhere else
-- You must manually start and stop the Compute instance now (to save compute credits). Ideally this would be done automatically
