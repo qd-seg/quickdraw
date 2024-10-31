@@ -9,7 +9,7 @@ const ohif = {
   sopClassHandler: '@ohif/extension-default.sopClassHandlerModule.stack',
   hangingProtocol: '@ohif/extension-default.hangingProtocolModule.default',
   leftPanel: '@ohif/extension-default.panelModule.seriesList',
-  rightPanel: '@ohif/extension-default.panelModule.measure',
+  rightPanel: '@ohif/extension-default.panelModule.measurements',
 };
 
 const cornerstone = {
@@ -25,7 +25,6 @@ const dicomSEG = {
 const dicomRT = {
   viewport: '@ohif/extension-cornerstone-dicom-rt.viewportModule.dicom-rt',
   sopClassHandler: '@ohif/extension-cornerstone-dicom-rt.sopClassHandlerModule.dicom-rt',
-  panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
 };
 
 const uploadCore = {
@@ -77,10 +76,10 @@ function modeFactory({ modeConfiguration }) {
 
       uiDialogService.dismissAll();
       uiModalService.hide();
-      toolGroupService.destroy();
-      syncGroupService.destroy();
-      segmentationService.destroy();
-      cornerstoneViewportService.destroy();
+      toolGroupService?.destroy();
+      syncGroupService?.destroy();
+      segmentationService?.destroy();
+      cornerstoneViewportService?.destroy();
     },
 
     validationTags: {
@@ -103,13 +102,13 @@ function modeFactory({ modeConfiguration }) {
 
     routes: [
       {
-        path: 'uploadmodel',
+        path: 'radiology-ai',
         layoutTemplate: ({ location, servicesManager }) => {
           return {
             id: ohif.layout,
             props: {
               leftPanels: [ohif.leftPanel],
-              rightPanels: [dicomSEG.panel, uploadCore.panel],
+              rightPanels: [ohif.rightPanel, dicomSEG.panel, uploadCore.panel],
               viewports: [
                 {
                   namespace: cornerstone.viewport,
@@ -137,6 +136,4 @@ function modeFactory({ modeConfiguration }) {
   };
 }
 
-const mode = { id, modeFactory, extensionDependencies };
-
-export default mode;
+export default { id, modeFactory, extensionDependencies };
