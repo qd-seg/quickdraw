@@ -1,3 +1,11 @@
+venv
+.venv
+.env
+serviceAccountKeys.json
+dcm-prediction
+dicom-images
+__pycache__
+
 # MacOS directory attributes
 .DS_Store
 
