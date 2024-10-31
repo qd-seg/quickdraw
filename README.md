@@ -69,9 +69,9 @@ within the OHIF Viewer submodule.
 
 #### Generate Type Declarations
 
-Unfortunately, the OHIF Viewer does not natively provide type declarations when installing component
-packages of the parent project such as `@ohif/core` from NPM. These can be generated from the OHIF
-Viewer source, which is provided as a Git submodule within this project.
+Unfortunately, the OHIF Viewer does not natively provide type declarations when installing modules
+of the parent project such as `@ohif/core` from NPM. These can be generated from the OHIF Viewer
+source, which is provided as a Git submodule within this project.
 
 ```
 > yarn run init:declarations
@@ -94,9 +94,8 @@ remain uncommited.
 
 ### Development
 
-Various scripts have been provided to start up development servers for each component of the
-project. These servers allow for quick iteration, avoiding lengthy build processes and deployment
-procedures.
+Various scripts have been provided to start up development servers for each module of the project.
+These servers allow for quick iteration, avoiding lengthy build processes and deployment procedures.
 
 ##### REST API Server
 
