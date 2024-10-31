@@ -119,3 +119,6 @@ types/app
 
 # Python Virtual Environment
 .venv
+
+# submodule
+.lib/app

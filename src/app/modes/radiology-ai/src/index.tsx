@@ -1,5 +1,9 @@
 import { hotkeys } from '@ohif/core';
-import { initToolGroups, toolbarButtons } from '@ohif/mode-longitudinal';
+// import { initToolGroups, toolbarButtons } from '@ohif/mode-longitudinal';
+import segmentationButtons from './segmentationButtons';
+import toolbarButtons from './toolbarButtons';
+import initToolGroups from './initToolGroups';
+
 import { id } from './id';
 
 const NON_IMAGE_MODALITIES = ['SM', 'ECG', 'SR', 'SEG', 'RTSTRUCT'];
@@ -16,16 +20,24 @@ const cornerstone = {
   viewport: '@ohif/extension-cornerstone.viewportModule.cornerstone',
 };
 
-const dicomSEG = {
-  viewport: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
-  sopClassHandler: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
+const segmentation = {
   panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
+  panelTool: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentationWithTools',
+  sopClassHandler: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
+  viewport: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
 };
 
-const dicomRT = {
-  viewport: '@ohif/extension-cornerstone-dicom-rt.viewportModule.dicom-rt',
-  sopClassHandler: '@ohif/extension-cornerstone-dicom-rt.sopClassHandlerModule.dicom-rt',
-};
+// const dicomSEG = {
+//   viewport: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
+//   sopClassHandler: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
+//   panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
+// };
+
+// const dicomRT = {
+//   viewport: '@ohif/extension-cornerstone-dicom-rt.viewportModule.dicom-rt',
+//   sopClassHandler: '@ohif/extension-cornerstone-dicom-rt.sopClassHandlerModule.dicom-rt',
+//   panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
+// };
 
 const uploadCore = {
   panel: 'upload-core.panelModule.upload',
@@ -49,25 +61,32 @@ function modeFactory({ modeConfiguration }) {
       const { measurementService, toolbarService, toolGroupService } = servicesManager.services;
 
       measurementService.clearMeasurements();
-      initToolGroups(extensionManager, toolGroupService, commandsManager, undefined);
+      initToolGroups(extensionManager, toolGroupService, commandsManager);
 
       toolbarService.addButtons(toolbarButtons);
+      toolbarService.addButtons(segmentationButtons);
+
       toolbarService.createButtonSection('primary', [
         'MeasurementTools',
         'Zoom',
         'WindowLevel',
         'Pan',
+        'TrackballRotate',
         'Capture',
         'Layout',
         'Crosshairs',
         'MoreTools',
       ]);
+      toolbarService.createButtonSection('segmentationToolbox', ['BrushTools', 'Shapes']);
+      console.log("created toolbox");
+
     },
 
     onModeExit: ({ servicesManager }: withAppTypes) => {
       const {
         toolGroupService,
         syncGroupService,
+        toolbarService,
         segmentationService,
         cornerstoneViewportService,
         uiDialogService,
@@ -108,20 +127,27 @@ function modeFactory({ modeConfiguration }) {
             id: ohif.layout,
             props: {
               leftPanels: [ohif.leftPanel],
-              rightPanels: [ohif.rightPanel, dicomSEG.panel, uploadCore.panel],
+              // OLD:
+              // rightPanels: [dicomSEG.panel, uploadCore.panel],
+              // replace dicomSEG.panel with segmentation.panelTool
+              rightPanels: [segmentation.panelTool, uploadCore.panel],
               viewports: [
                 {
                   namespace: cornerstone.viewport,
                   displaySetsToDisplay: [ohif.sopClassHandler],
                 },
                 {
-                  namespace: dicomSEG.viewport,
-                  displaySetsToDisplay: [dicomSEG.sopClassHandler],
+                  namespace: segmentation.viewport,
+                  displaySetsToDisplay: [segmentation.sopClassHandler],
                 },
-                {
-                  namespace: dicomRT.viewport,
-                  displaySetsToDisplay: [dicomRT.sopClassHandler],
-                },
+                // {
+                //   namespace: dicomSEG.viewport,
+                //   displaySetsToDisplay: [dicomSEG.sopClassHandler],
+                // },
+                // {
+                //   namespace: dicomRT.viewport,
+                //   displaySetsToDisplay: [dicomRT.sopClassHandler],
+                // },
               ],
             },
           };
@@ -131,9 +157,16 @@ function modeFactory({ modeConfiguration }) {
 
     extensions: extensionDependencies,
     hangingProtocol: 'default',
-    sopClassHandlers: [ohif.sopClassHandler, dicomSEG.sopClassHandler, dicomRT.sopClassHandler],
+    // sopClassHandlers: [ohif.sopClassHandler, segmentation.sopClassHandler, dicomSEG.sopClassHandler, dicomRT.sopClassHandler],
+    sopClassHandlers: [ohif.sopClassHandler, segmentation.sopClassHandler],
+
     hotkeys: [...hotkeys.defaults.hotkeyBindings],
   };
 }
 
-export default { id, modeFactory, extensionDependencies };
+const mode = { 
+  id, 
+  modeFactory, 
+  extensionDependencies };
+
+export default mode;

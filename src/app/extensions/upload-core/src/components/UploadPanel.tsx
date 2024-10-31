@@ -25,7 +25,7 @@ const checkedLabelStyle = {
   color: '#fff',
 };
 
-const UploadButton: React.FunctionComponent = () => {
+function UploadButton({ servicesManager, commandsManager }) {
   const [message, setMessage] = React.useState('');
   const [progress, setProgress] = React.useState(0);
   const [counter, setCounter] = React.useState(0);
@@ -41,10 +41,34 @@ const UploadButton: React.FunctionComponent = () => {
     predicting: false,
     authenticating: false,
   });
+  const segmentationService = servicesManager.services.segmentationService;
 
   const isActive = () => {
     return status.uploading || status.deleting || status.predicting || status.authenticating;
   };
+
+  // // SEGMENTATION_UPDATED event listener: echang
+  // this is the event listener for the SEGMENTATION_UPDATED event
+  // it will be triggered whenever a segmentation is updated
+  // useEffect(() => {
+  //     if (!segmentationService) return;
+  
+  //     // Define the event handler for segmentation updates
+  //     const handleSegmentationUpdate = () => {
+  //         const activeSegmentation = segmentationService.getActiveSegmentation();
+  //         const activeSegmentationID = activeSegmentation ? activeSegmentation.id : null;
+  //         setActiveSegmentationID(activeSegmentationID);
+  //         console.log('SEGMENTATION_UPDATED event fired. Active segmentation ID:', activeSegmentationID);
+  //     };
+  
+  //     // Subscribe to the SEGMENTATION_UPDATED event
+  //     segmentationService.subscribe(segmentationService.EVENTS.SEGMENTATION_UPDATED, handleSegmentationUpdate);
+  
+  //     // Cleanup: Unsubscribe when component unmounts
+  //     return () => {
+  //       segmentationService.unsubscribe(segmentationService.EVENTS.SEGMENTATION_UPDATED, handleSegmentationUpdate);
+  //     };
+  //   }, [segmentationService]);
 
   const authenticateUser = async () => {
     setStatus({ ...status, authenticating: true });
@@ -191,7 +215,17 @@ const UploadButton: React.FunctionComponent = () => {
 
           <br />
           <Button
-            onClick={() => {}}
+            onClick={() => {
+              // use segmentationService to get the id of the active segmentation
+              const activeID = segmentationService.getActiveSegmentation()?.id;
+              console.log('Active Segmentation:', activeID);
+
+              // downloads to local downloads folder by calling downloadSegmentation command through commandsManager
+              commandsManager.runCommand('downloadSegmentation', {
+                  segmentationId: activeID,
+                });
+
+            }}
             children={status.uploading ? 'Saving...' : 'Save Modified Mask'}
             disabled={isActive()}
           />
