@@ -255,7 +255,7 @@ def setupComputeWithModel():
         _REPOSITORY,
     )
     
-    
+    add_tracked_model_instance(selectedModel, new_instance_name)
     
     status_code = None
     if new_instance is not None:
@@ -269,29 +269,19 @@ def setupComputeWithModel():
         
     return jsonify({"message": message}), status_code
  
-## TODO
-@app.route("/deleteInstance", methods=["POST"])
-def deleteInstance():
+## TODO: this is completely outdated
+# @app.route("/deleteInstance", methods=["POST"])
+# def deleteInstance():
     """
     Delete the instance.
 
     Returns:
         response: JSON response with status of the instance deletion process.
     """
-    global _INSTANCE_EXISTS
-    global _INSTANCE_NAME
-    global _PREDICTION_RUNNING
-    global _INSTANCE_LIMIT
-    global _PROJECT_ID
-    global _ZONE
-    global _MACHINE_TYPE
-    global _SERVICE_ACCOUNT
-    global _CLOUD_USER
-    global _KEY_FILE
     # Check if user's designated instance exists already before proceeding.
     # This prevents the user from creating multiple instances and loading images
     # on them but never running the prediction on it.
-    check_instance()
+    # check_instance()
     try:
         # Make sure no prediction is running on the instance before deleting it
         if _INSTANCE_EXISTS and _INSTANCE_NAME is not None and not _PREDICTION_RUNNING:
@@ -326,47 +316,40 @@ def deleteInstance():
     return jsonify({"message": message}), status_code
 
 
-@app.route("/runPrediction", methods=["POST"])
-def runPrediction():
+## TODO: update this 
+@app.route("/run", methods=["POST"])
+def run_prediction():
     """
     Run the prediction on the Google Cloud instance.
 
     Returns:
         response: JSON response with status of the prediction process.
     """
-    global _INSTANCE_EXISTS
-    global _INSTANCE_NAME
-    global _PREDICTION_RUNNING
+    
+    if request.is_json:
+        json_data = request.get_json()
+    selectedModel = json_data["selectedModel"]
+    selectedDicomSeries = json_data["selectedDicomSeries"]
+    
+    if selectedModel is None or selectedDicomSeries is None:
+        return jsonify({'message': 'Model or images not provided'}), 500
 
-    check_instance()
+    # check_instance()
     message = "No Instance running, please create an instance first"
     status_code = 500
     emit_update_progressbar(0)
     try:
-        if _INSTANCE_EXISTS and _INSTANCE_NAME is not None:
-            # Run the prediction
-            _PREDICTION_RUNNING = True
+        if (instance := get_existing_instance_for_model(selectedModel)) is not None:
             emit_update_progressbar(0)
-
-            # Extract the selected model name
-            if request.is_json:
-                json_data = request.get_json()
-            selectedModel = json_data["selectedModel"]
-            selectedDicomSeries = json_data["selectedDicomSeries"]
-            
-            if selectedModel is None:
-                # print("Please select a model first from the model management page.")
-                emit_status_update("Please select a model first from the model management page.")
-                return jsonify({"message": message}), status_code
             
             # if selectedModel is None:
             #     # print("Please select a model first from the model management page.")
             #     emit_status_update("Please select a model first from the model management page.")
-            emit_update_progressbar(50)
             ## TODO: pull the images from Orthanc into /dicom-images/
-            
-            emit_update_progressbar(70)
-            run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT, _KEY_FILE, selectedDicomSeries, _INSTANCE_NAME)
+            ## 
+            ##
+            emit_update_progressbar(50)
+            run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT, _KEY_FILE, selectedDicomSeries, instance.name)
             
             emit_update_progressbar(90)
             
@@ -374,9 +357,11 @@ def runPrediction():
             
             message = "Prediction complete"
             status_code = 200
-            _PREDICTION_RUNNING = False
-            # deleteInstance()
             
+            # TODO: maybe delete instance here? it gets paused anyway so not sure if needed
+        else:
+            # TODO: maybe handle this differently
+            return jsonify({"message": 'Instance does not exist for model'}), 500
     # Catch any exceptions
     except Exception as e:
         emit_status_update("Error running prediction")
@@ -387,7 +372,7 @@ def runPrediction():
     emit_status_update(message)
     return jsonify({"message": message}), status_code
 
-
+# Model upload is done through CLI
 # @app.route("/uploadImage", methods=["POST"])
 # def uploadModel():
 #     """
