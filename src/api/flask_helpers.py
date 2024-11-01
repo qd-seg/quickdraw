@@ -175,17 +175,27 @@ def create_new_instance(instance_name, project_id, zone, machine_type, instance_
         return vm_instance
 
 ## Docker Images and Artifact Registry
-def list_docker_images(project_id, zone):
-    request = artifactregistry.ListDockerImagesRequest(parent=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/models')
+def list_docker_images(project_id: str, zone: str, models_repo: str):
+    request = artifactregistry.ListDockerImagesRequest(parent=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}')
     response = get_registry_client().list_docker_images(request)
     return list(response)
 
-def get_docker_image(project_id, zone, image_name: str):
-    request = artifactregistry.GetDockerImageRequest(name=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/models/dockerImages/{image_name}:latest')
+def get_docker_image(project_id: str, zone: str, models_repo: str, image_name: str):
+    request = artifactregistry.GetDockerImageRequest(name=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}/dockerImages/{image_name}:latest')
     try:
         response = get_registry_client().get_docker_image(request)
         artifactregistry.GetTagRequest()
         return response
+    except Exception as e:
+        print('Could not get docker image of name', image_name)
+        print(e)
+        return None
+    
+def delete_docker_image(project_id: str, zone: str, models_repo: str, image_name: str):
+    request = artifactregistry.DeletePackageRequest(name=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}/packages/{image_name}')
+    try:
+        response = get_registry_client().delete_package(request)
+        return response.result(timeout=30)
     except Exception as e:
         print('Could not get docker image of name', image_name)
         print(e)
@@ -335,7 +345,8 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         # NOTE: in the future, this may require a separate check to see if the service account is still authorized
         # If the prediction takes too long and the access token expires, that may cause an issue.
         # Copy over DICOM images (predictions) from instance to server
-        subprocess.run(['mkdir', '-p', './dcm-prediction/'])
+        # subprocess.run(['mkdir', '-p', './dcm-prediction/'])
+        os.makedirs('dcm-prediction', exist_ok=True)
         subprocess.run(['gcloud', 'compute', 'scp',
                         f'--project={project_id}', 
                         f'--zone={zone}',

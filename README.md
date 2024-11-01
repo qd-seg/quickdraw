@@ -102,6 +102,8 @@ These servers allow for quick iteration, avoiding lengthy build processes and de
 The REST API server can be found in `src/api`, and is a Flask based backend for both the OHIF Viewer
 extension, and the management dashboard.
 
+Additional setup is required to interact with Google Cloud Services. The instructions can be found [here](/src/api/README.md).
+
 ```
 > yarn run dev:api
 ```

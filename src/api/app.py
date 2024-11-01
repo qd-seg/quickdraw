@@ -4,7 +4,6 @@ from werkzeug.utils import secure_filename
 import os
 import sys
 from flask_socketio import SocketIO  # Import SocketIO
-# from google.cloud.exceptions import NotFound, Conflict
 import math as Math
 from dotenv import load_dotenv
 from api.flask_helpers import (
@@ -12,20 +11,16 @@ from api.flask_helpers import (
     generate_instance_name,
     setup_compute_instance,
     run_predictions,
-    read_json, write_json
+    read_json, write_json,
+    delete_docker_image
 )
 from api.gcloud_auth import auth_with_key_file_json
-import json
-import time
 from werkzeug.middleware.proxy_fix import ProxyFix
 app = Flask(__name__)
 
 # @app.route("/")
 # def index():
 #     return ({}, 200)
-
-# This Flask server has yet to be fully implemented
-# Need to copy last year's code into here, then add our new stuff for the model-related routes
 
 load_dotenv(override=True)
 _INSTANCE_LIMIT = 1
@@ -46,7 +41,6 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*")
-
 
 # Serve React App
 @app.route("/", defaults={"path": ""})  # Base path for the app
@@ -97,53 +91,6 @@ def emit_update_progressbar(value):
         value (int): The new value for the progress bar.
     """
     socketio.emit("progress_update", {"value": value})
-
-## TODO This is outdated
-@app.route("/checkInstance", methods=["POST"])
-def check_instance():
-    """
-    Check if the Google Cloud instance exists.
-
-    Returns:
-        response: JSON response with instance details and existence status.
-    """
-    filename = "instance.json"
-    data = read_json(filename)
-    emit_status_update("Checking if instance exists")
-
-    if data:
-        _INSTANCE_NAME = data.get("instance_name")
-        # Suppose list_instances is a function that lists all your instances
-        instances = list_instances(_PROJECT_ID, _ZONE)
-        for instance in instances:
-            if instance.name == _INSTANCE_NAME:
-                _INSTANCE_EXISTS = True
-                break
-        if not _INSTANCE_EXISTS:
-            _INSTANCE_NAME = None
-            _INSTANCE_EXISTS = False
-            write_json(
-                filename,
-                {"instance_name": _INSTANCE_NAME, "instance_exists": _INSTANCE_EXISTS},
-            )
-        return (
-            jsonify(
-                {"instance_name": _INSTANCE_NAME, "instance_exists": _INSTANCE_EXISTS}
-            ),
-            200,
-        )
-    else:
-        data = []
-        write_json(
-            filename,
-            []
-        )
-        return (
-            jsonify(
-                {"instance_name": _INSTANCE_NAME, "instance_exists": _INSTANCE_EXISTS}
-            ),
-            200,
-        )
  
 def clear_unused_instances():
     '''Removes all Compute instances that do not have an existing model associated with them'''
@@ -191,13 +138,7 @@ def get_containers():
         # emit_status_update('Getting containers')
         containers = list_instances( _PROJECT_ID, _ZONE)
         arr = [c.name for c in containers]
-        # arr = []
-        # for container in containers:
-        #     if container.name == _INSTANCE_NAME:
-        #         arr.append([container.name, True])
-        #     else:
-        #         arr.append([container.name, False])
-        # emit_status_update('Containers retrieved')
+
         return jsonify({"containers": arr}), 200
     except Exception as e:
         print("Exception while fetching containers")
@@ -269,52 +210,6 @@ def setupComputeWithModel():
         status_code = 500
         
     return jsonify({"message": message}), status_code
- 
-## TODO: this is completely outdated
-# @app.route("/deleteInstance", methods=["POST"])
-# def deleteInstance():
-    # """
-    # Delete the instance.
-
-    # Returns:
-    #     response: JSON response with status of the instance deletion process.
-    # """
-    # Check if user's designated instance exists already before proceeding.
-    # This prevents the user from creating multiple instances and loading images
-    # on them but never running the prediction on it.
-    # check_instance()
-    # try:
-    #     # Make sure no prediction is running on the instance before deleting it
-    #     if _INSTANCE_EXISTS and _INSTANCE_NAME is not None and not _PREDICTION_RUNNING:
-    #         # Delete the instance
-    #         emit_update_progressbar(0)
-    #         emit_status_update("Preparing deletion of instance...")
-    #         delete_instance(_INSTANCE_NAME, _ZONE, _PROJECT_ID)
-    #         emit_update_progressbar(50)
-    #         for i in range(1, 11):
-    #             emit_status_update(f"Instance deleting...~{10-i} seconds remaining")
-    #             emit_update_progressbar(50 + i * 5)
-    #             time.sleep(1)
-    #         # Do a timer for 20 seconds
-    #         _INSTANCE_EXISTS = False
-    #         _INSTANCE_NAME = None
-    #         write_json(
-    #             "instance.json",
-    #             {"instance_name": _INSTANCE_NAME, "instance_exists": _INSTANCE_EXISTS},
-    #         )
-    #         message = "Instance deleted successfully"
-    #         emit_status_update(message)
-    #         status_code = 200
-    #     else:
-    #         emit_status_update("No instance to delete")
-    #         message = "No instance to delete"
-    #         status_code = 200
-    # # Catch exceptions
-    # except Exception as e:
-    #     emit_status_update("Error deleting instance")
-    #     message = f"Error deleting instance: {str(e)}"
-    #     status_code = 500
-    # return jsonify({"message": message}), status_code
 
 @app.route("/run", methods=["POST"])
 def run_prediction():
@@ -379,11 +274,6 @@ def run_prediction():
 #         response: JSON response with status of the upload process.
 #     """
 
-#     global _ZONE
-#     global _PROJECT_ID
-#     global _REPOSITORY
-#     global _KEY_FILE
-
 #     status_code = 500
 #     try:
 #         # Get the tarball
@@ -431,19 +321,14 @@ def run_prediction():
 #     return jsonify({"message": message}), status_code
 
 
-# @app.route("/deleteImage", methods=["POST"])
-# def deleteModel():
+@app.route("/deleteModel", methods=["POST"])
+def deleteModel():
     """
-    delete a model by doing something
+    Delete a model from Artifact Registry
 
     Returns:
         something.
     """
-
-    global _ZONE
-    global _PROJECT_ID
-    global _REPOSITORY
-    global _KEY_FILE
 
     status_code = 500
     try:
@@ -456,7 +341,7 @@ def run_prediction():
         emit_status_update("Deletion in progress . . .")
 
         # Execute the bash script
-        delete_model(_ZONE, _PROJECT_ID, _REPOSITORY, _KEY_FILE, imagename)
+        delete_docker_image(_PROJECT_ID, _ZONE, _REPOSITORY, imagename)
 
         emit_status_update("Model successfully deleted !")
         status_code = 200
