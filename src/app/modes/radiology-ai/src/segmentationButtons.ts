@@ -125,7 +125,6 @@ const toolbarButtons: Button[] = [
                   return;
                 }
 
-                // check the condition of the threshold-range option
                 const thresholdRangeOption = options.find(
                   option => option.id === 'threshold-shape'
                 );
