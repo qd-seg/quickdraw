@@ -4,3 +4,5 @@ google-cloud-compute
 google-cloud-artifact-registry
 google-auth
 python-dotenv
+flask-cors
+flask-socketio
