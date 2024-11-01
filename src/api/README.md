@@ -23,7 +23,7 @@ An `.env` file is required with the following entries. The *values* in the paren
 - REPOSITORY=`<name of artifact registry repo>` *(models)*
 
 ### Python Virtual Environment
-You should have already created a Python virtual environment and installed the required packages as described [here](/README.md).
+You should have already created a Python virtual environment and installed the required packages as described [here](/README.md#activate-the-virtual-environment).
 
 ### Dockerizing a Model
 A Dockerized model `organ-segmentation-model` is already available on radiology-b0759's Google Cloud Artifact Registry. Only follow the below instructions if you do not have access to that project, or if you would like to create your own:
@@ -43,7 +43,7 @@ An example Dockerfile and .dockerignore is provided in `/example_docker/`.
 
 ---
 
-The Flask server can now be run as described [in the root directory](/README.md).
+The Flask server can now be run as described [in the root directory](/README.md#rest-api-server).
 
 ## Testing Google Cloud Services without Flask
 The cloud code can be tested outside of Flask. Please note this is only for development and is not intended for a production environment. 
