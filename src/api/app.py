@@ -98,7 +98,7 @@ def emit_update_progressbar(value):
     """
     socketio.emit("progress_update", {"value": value})
 
-## TODO this might not be needed?
+## TODO This is outdated
 @app.route("/checkInstance", methods=["POST"])
 def check_instance():
     """
@@ -168,12 +168,13 @@ def get_existing_instance_for_model(model_name: str):
     return get_instance(_PROJECT_ID, _ZONE, matching_instance.instance_name)
 
 def add_tracked_model_instance(model_name: str, instance_name: str):
-    model_instances = read_json('model_instances.json')
+    filename = 'model_instances.json'
+    model_instances = read_json(filename)
     model_instances.append({
         'model_name': model_name,
         'instance_name': instance_name
     })
-    # TODO: SAVE json
+    write_json(filename, model_instances)
 
 ## TODO
 ##TODO: Change containers in upload button component to instancesrunning
@@ -272,51 +273,49 @@ def setupComputeWithModel():
 ## TODO: this is completely outdated
 # @app.route("/deleteInstance", methods=["POST"])
 # def deleteInstance():
-    """
-    Delete the instance.
+    # """
+    # Delete the instance.
 
-    Returns:
-        response: JSON response with status of the instance deletion process.
-    """
+    # Returns:
+    #     response: JSON response with status of the instance deletion process.
+    # """
     # Check if user's designated instance exists already before proceeding.
     # This prevents the user from creating multiple instances and loading images
     # on them but never running the prediction on it.
     # check_instance()
-    try:
-        # Make sure no prediction is running on the instance before deleting it
-        if _INSTANCE_EXISTS and _INSTANCE_NAME is not None and not _PREDICTION_RUNNING:
-            # Delete the instance
-            emit_update_progressbar(0)
-            emit_status_update("Preparing deletion of instance...")
-            delete_instance(_INSTANCE_NAME, _ZONE, _PROJECT_ID)
-            emit_update_progressbar(50)
-            for i in range(1, 11):
-                emit_status_update(f"Instance deleting...~{10-i} seconds remaining")
-                emit_update_progressbar(50 + i * 5)
-                time.sleep(1)
-            # Do a timer for 20 seconds
-            _INSTANCE_EXISTS = False
-            _INSTANCE_NAME = None
-            write_json(
-                "instance.json",
-                {"instance_name": _INSTANCE_NAME, "instance_exists": _INSTANCE_EXISTS},
-            )
-            message = "Instance deleted successfully"
-            emit_status_update(message)
-            status_code = 200
-        else:
-            emit_status_update("No instance to delete")
-            message = "No instance to delete"
-            status_code = 200
-    # Catch exceptions
-    except Exception as e:
-        emit_status_update("Error deleting instance")
-        message = f"Error deleting instance: {str(e)}"
-        status_code = 500
-    return jsonify({"message": message}), status_code
+    # try:
+    #     # Make sure no prediction is running on the instance before deleting it
+    #     if _INSTANCE_EXISTS and _INSTANCE_NAME is not None and not _PREDICTION_RUNNING:
+    #         # Delete the instance
+    #         emit_update_progressbar(0)
+    #         emit_status_update("Preparing deletion of instance...")
+    #         delete_instance(_INSTANCE_NAME, _ZONE, _PROJECT_ID)
+    #         emit_update_progressbar(50)
+    #         for i in range(1, 11):
+    #             emit_status_update(f"Instance deleting...~{10-i} seconds remaining")
+    #             emit_update_progressbar(50 + i * 5)
+    #             time.sleep(1)
+    #         # Do a timer for 20 seconds
+    #         _INSTANCE_EXISTS = False
+    #         _INSTANCE_NAME = None
+    #         write_json(
+    #             "instance.json",
+    #             {"instance_name": _INSTANCE_NAME, "instance_exists": _INSTANCE_EXISTS},
+    #         )
+    #         message = "Instance deleted successfully"
+    #         emit_status_update(message)
+    #         status_code = 200
+    #     else:
+    #         emit_status_update("No instance to delete")
+    #         message = "No instance to delete"
+    #         status_code = 200
+    # # Catch exceptions
+    # except Exception as e:
+    #     emit_status_update("Error deleting instance")
+    #     message = f"Error deleting instance: {str(e)}"
+    #     status_code = 500
+    # return jsonify({"message": message}), status_code
 
-
-## TODO: update this 
 @app.route("/run", methods=["POST"])
 def run_prediction():
     """
@@ -341,12 +340,10 @@ def run_prediction():
     try:
         if (instance := get_existing_instance_for_model(selectedModel)) is not None:
             emit_update_progressbar(0)
-            
-            # if selectedModel is None:
-            #     # print("Please select a model first from the model management page.")
-            #     emit_status_update("Please select a model first from the model management page.")
+
             ## TODO: pull the images from Orthanc into /dicom-images/
-            ## 
+            os.makedirs('dicom-images', exist_ok=True)
+            os.makedirs('dcm-prediction', exist_ok=True)
             ##
             emit_update_progressbar(50)
             run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT, _KEY_FILE, selectedDicomSeries, instance.name)
@@ -474,6 +471,7 @@ def run_prediction():
  
 
 if __name__ == "__main__":
+    clear_unused_instances()
     app.run()
 #    socketio.run(app, debug=True)
 
