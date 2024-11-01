@@ -10,8 +10,6 @@ from enum import Enum
 from typing import List
 import json 
 
-## TODO: delete instance method
-
 # _USERNAME = os.environ.get('USER')
 _USERNAME = 'cmsc435'
 
@@ -21,7 +19,7 @@ def read_json(filename):
         with open(filename, 'r') as file:
             return json.load(file)
     except FileNotFoundError:
-        return None # {}
+        return {}
 
 def write_json(filename, data):
     """Writes data to a JSON file."""

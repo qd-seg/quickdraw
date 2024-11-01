@@ -6,7 +6,7 @@ import sys
 from flask_socketio import SocketIO  # Import SocketIO
 import math as Math
 from dotenv import load_dotenv
-from api.flask_helpers import (
+from flask_helpers import (
     list_instances, get_instance, delete_instance,
     generate_instance_name,
     setup_compute_instance,
@@ -14,7 +14,7 @@ from api.flask_helpers import (
     read_json, write_json,
     delete_docker_image
 )
-from api.gcloud_auth import auth_with_key_file_json
+from gcloud_auth import auth_with_key_file_json
 from werkzeug.middleware.proxy_fix import ProxyFix
 app = Flask(__name__)
 
@@ -32,7 +32,7 @@ _SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
 _KEY_FILE = os.getenv('KEY_FILE')
 _REPOSITORY = os.getenv('REPOSITORY')
 
-# auth_with_key_file_json(_KEY_FILE)
+auth_with_key_file_json(_KEY_FILE)
 
 app = Flask(__name__, static_folder="./Viewers-master/platform/app/dist")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
@@ -154,7 +154,9 @@ def authenticateGoogleCloud():
         response: JSON response with authentication status.
     """
     try:
-        auth_with_key_file_json(_KEY_FILE)
+        # auth_with_key_file_json(_KEY_FILE)
+        
+        ## I'm not even sure what to do here. Maybe Firebase stuff?
 
         emit_status_update("User authenticated successfully")
         message = "Instance created successfully"
@@ -181,11 +183,7 @@ def setupComputeWithModel():
         return jsonify({ 'message': 'No model selected ' }), 500
     
     existing_instance = get_existing_instance_for_model(selectedModel)
-    new_instance_name = None
-    if existing_instance is None:
-        new_instance_name = generate_instance_name('ohif-instance', 'predictor')
-    else:
-        new_instance_name = existing_instance.name
+    new_instance_name = generate_instance_name('ohif-instance', 'predictor') if existing_instance is None else existing_instance.name
             
     new_instance = setup_compute_instance(
         _PROJECT_ID,
