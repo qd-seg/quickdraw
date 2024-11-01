@@ -1,7 +1,8 @@
 # Google Cloud Functionality
 Implements the ability to upload Dockerized models to Artifact Registry and make predictions on Compute.
 
-## Google Cloud Setup
+## Setting up Flask Server
+### Google Cloud Setup
 Install the [gcloud CLI](https://cloud.google.com/sdk/docs/install).
 
 Create a Google Cloud Project with the following APIs activated:
@@ -21,17 +22,17 @@ An `.env` file is required with the following entries. The *values* in the paren
 - KEY_FILE=`<path to service account key.json>` *(./serviceAccountKeys.json)*
 - REPOSITORY=`<name of artifact registry repo>` *(models)*
 
-## Python Virtual Environment
+### Python Virtual Environment
 You should have already created a Python virtual environment and installed the required packages as described [here](/README.md).
 
-## Dockerizing a Model
-For testing purposes, a Dockerized model `organ-segmentation-model` is already available on Artifact Registry. Only follow the below instructions if you would like to create your own:
+### Dockerizing a Model
+A Dockerized model `organ-segmentation-model` is already available on radiology-b0759's Google Cloud Artifact Registry. Only follow the below instructions if you do not have access to that project, or if you would like to create your own:
 - Create Dockerfile with an ENTRYPOINT that is that python file ran to make predictions. Ex: `ENTRYPOINT ["python", "predict.py"]`
 - `predict.py` should take 1 required command-line argument, which is the name of the DICOM series that will be fed to the model
 - `predict.py` **MUST** take in inputs from `./images` and output to `./model_outputs`, relative to the directory that `predict.py` is stored (probably `/app/`)
 - `docker build -t <image-name>`
 
-To push the model to Registry, you can either do it directly:
+Your image should appear if you run `docker images`. If so, you can push it directly to Registry:
 - `python3 upload_model.py <image-name> --direct-push`
 
 Or, if you wish to save the image to a tarball first:
@@ -40,16 +41,20 @@ Or, if you wish to save the image to a tarball first:
   
 An example Dockerfile and .dockerignore is provided in `/example_docker/`.
 
+---
+
+The Flask server can now be run as described [in the root directory](/README.md).
+
 ## Testing Google Cloud Services without Flask
-Here is how to test the code outside of Flask: 
+The cloud code can be tested outside of Flask. Please note this is only for development and is not intended for a production environment. 
 - Upload a DICOM series into `dicom-images/`. Do not only upload one single layer. Upload an entire directory of DCM files, for example, `PANCREAS_XXXX/` (keeping all of its subfolders)
-- Go to `flask_helpers.py` and replace these variables as needed:
+- Go to the main function of `flask_helpers.py` and replace these variables as needed:
   - `COMPUTE_INSTANCE_NAME`: name of Google Compute instance. If it is None, a new instance will be created *(ex: myinstance-webserver-20241028191333)*.
   - `DICOM_SERIES_TO_PREDICT`: name of the folder in `dicom-images/` (not the path) to predict. *(ex: PANCREAS_XXXX)*
   - `DOCKER_MODEL_NAME`: name of docker image on Registry *(ex: organ-segmentation-model)*
 - `python3 flask_helpers.py`
 
-*Note: after running a prediction, the code will stop the Compute instance, but not delete it.*
+*Note: after running a prediction, the code will stop the Compute instance, but not delete it. When the Flask server is run, any unused instances will be deleted.*
 
 ## Issues
 - Only one user is able to run predictions on a single compute instance at the same time
