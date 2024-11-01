@@ -1,4 +1,5 @@
 const path = require('path');
+
 const pkg = require('../package.json');
 
 const root = path.resolve(__dirname, '../');
@@ -7,7 +8,6 @@ const output = {
   directory: path.join(__dirname, `../dist/umd/${pkg.name}/`),
 };
 
-// Todo: add ESM build for the mode in addition to umd build
 const config = {
   mode: 'production',
   entry: root + '/' + pkg.module,
@@ -36,18 +36,6 @@ const config = {
         commonjs: '@ohif/core',
         amd: '@ohif/core',
         root: '@ohif/core',
-      },
-      '@ohif/ui': {
-        commonjs2: '@ohif/ui',
-        commonjs: '@ohif/ui',
-        amd: '@ohif/ui',
-        root: '@ohif/ui',
-      },
-      '@ohif/mode-longitudinal': {
-        commonjs2: '@ohif/mode-longitudinal',
-        commonjs: '@ohif/mode-longitudinal',
-        amd: '@ohif/mode-longitudinal',
-        root: '@ohif/mode-longitudinal',
       },
     },
   ],

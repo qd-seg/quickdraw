@@ -67,13 +67,7 @@ function createTools(utilityModule) {
         parentTool: 'Brush',
         configuration: {
           activeStrategy: 'THRESHOLD_INSIDE_CIRCLE',
-          // preview: {
-          //   enabled: true,
-          // },
           strategySpecificConfiguration: {
-            // to use the use the center segment index to determine
-            // if inside -> same segment, if outside -> eraser
-            // useCenterSegmentIndex: true,
             THRESHOLD: {
               isDynamic: true,
               dynamicRadius: 3,

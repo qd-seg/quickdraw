@@ -1,12 +1,10 @@
 import { hotkeys } from '@ohif/core';
-// import { initToolGroups, toolbarButtons } from '@ohif/mode-longitudinal';
-import segmentationButtons from './segmentationButtons';
-import toolbarButtons from './toolbarButtons';
-import initToolGroups from './initToolGroups';
 
 import { id } from './id';
 
-const NON_IMAGE_MODALITIES = ['SM', 'ECG', 'SR', 'SEG', 'RTSTRUCT'];
+import segmentationButtons from './segmentationButtons';
+import toolbarButtons from './toolbarButtons';
+import initToolGroups from './initToolGroups';
 
 const ohif = {
   layout: '@ohif/extension-default.layoutTemplateModule.viewerLayout',
@@ -26,18 +24,6 @@ const segmentation = {
   sopClassHandler: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
   viewport: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
 };
-
-// const dicomSEG = {
-//   viewport: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
-//   sopClassHandler: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
-//   panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
-// };
-
-// const dicomRT = {
-//   viewport: '@ohif/extension-cornerstone-dicom-rt.viewportModule.dicom-rt',
-//   sopClassHandler: '@ohif/extension-cornerstone-dicom-rt.sopClassHandlerModule.dicom-rt',
-//   panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
-// };
 
 const uploadCore = {
   panel: 'upload-core.panelModule.upload',
@@ -77,9 +63,8 @@ function modeFactory({ modeConfiguration }) {
         'Crosshairs',
         'MoreTools',
       ]);
-      toolbarService.createButtonSection('segmentationToolbox', ['BrushTools', 'Shapes']);
-      console.log("created toolbox");
 
+      toolbarService.createButtonSection('segmentationToolbox', ['BrushTools', 'Shapes']);
     },
 
     onModeExit: ({ servicesManager }: withAppTypes) => {
@@ -95,10 +80,10 @@ function modeFactory({ modeConfiguration }) {
 
       uiDialogService.dismissAll();
       uiModalService.hide();
-      toolGroupService?.destroy();
-      syncGroupService?.destroy();
-      segmentationService?.destroy();
-      cornerstoneViewportService?.destroy();
+      toolGroupService.destroy();
+      syncGroupService.destroy();
+      segmentationService.destroy();
+      cornerstoneViewportService.destroy();
     },
 
     validationTags: {
@@ -107,29 +92,25 @@ function modeFactory({ modeConfiguration }) {
     },
 
     isValidMode: ({ modalities }) => {
-      const modalities_list = modalities.split('\\');
-      const modalities_filter = modality => NON_IMAGE_MODALITIES.indexOf(modality) === -1;
-      const modalities_absent = modalities_list.filter(modalities_filter);
+      const list = modalities.split('\\');
+      const unsupported = ['SM', 'US', 'MG', 'OT', 'DOC', 'CR'];
 
-      const valid = modalities_absent.length > 0;
+      const valid = list.length === 1 ? !unsupported.includes(list[0]) : true;
       const description =
         'The mode does not support studies that ONLY include the following modalities: ' +
-        NON_IMAGE_MODALITIES.join(', ');
+        unsupported.join(', ');
 
       return { valid, description };
     },
 
     routes: [
       {
-        path: 'radiology-ai',
+        path: 'template',
         layoutTemplate: ({ location, servicesManager }) => {
           return {
             id: ohif.layout,
             props: {
               leftPanels: [ohif.leftPanel],
-              // OLD:
-              // rightPanels: [dicomSEG.panel, uploadCore.panel],
-              // replace dicomSEG.panel with segmentation.panelTool
               rightPanels: [segmentation.panelTool, uploadCore.panel],
               viewports: [
                 {
@@ -140,14 +121,6 @@ function modeFactory({ modeConfiguration }) {
                   namespace: segmentation.viewport,
                   displaySetsToDisplay: [segmentation.sopClassHandler],
                 },
-                // {
-                //   namespace: dicomSEG.viewport,
-                //   displaySetsToDisplay: [dicomSEG.sopClassHandler],
-                // },
-                // {
-                //   namespace: dicomRT.viewport,
-                //   displaySetsToDisplay: [dicomRT.sopClassHandler],
-                // },
               ],
             },
           };
@@ -157,16 +130,10 @@ function modeFactory({ modeConfiguration }) {
 
     extensions: extensionDependencies,
     hangingProtocol: 'default',
-    // sopClassHandlers: [ohif.sopClassHandler, segmentation.sopClassHandler, dicomSEG.sopClassHandler, dicomRT.sopClassHandler],
     sopClassHandlers: [ohif.sopClassHandler, segmentation.sopClassHandler],
 
     hotkeys: [...hotkeys.defaults.hotkeyBindings],
   };
 }
 
-const mode = { 
-  id, 
-  modeFactory, 
-  extensionDependencies };
-
-export default mode;
+export default { id, modeFactory, extensionDependencies };
