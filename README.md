@@ -104,6 +104,8 @@ extension, and the management dashboard.
 
 Additional setup is required to interact with Google Cloud Services. The instructions can be found [here](/src/api/README.md).
 
+Run the command below once the above setup is done.
+
 ```
 > yarn run dev:api
 ```
