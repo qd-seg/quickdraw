@@ -23,7 +23,7 @@ const checkedLabelStyle = {
   color: '#fff',
 };
 
-function UploadButton({ servicesManager, commandsManager }) {
+const UploadPanel = ({ servicesManager, commandsManager }) => {
   const [message, setMessage] = React.useState('');
   const [progress, setProgress] = React.useState(0);
   const [counter, setCounter] = React.useState(0);
@@ -342,6 +342,6 @@ function UploadButton({ servicesManager, commandsManager }) {
       </div>
     </div>
   );
-}
+};
 
-export default UploadButton;
+export default UploadPanel;

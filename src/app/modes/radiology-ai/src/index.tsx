@@ -37,7 +37,7 @@ const extensionDependencies = {
   'upload-core': '^0.0.1',
 };
 
-function modeFactory({ modeConfiguration }) {
+const modeFactory = ({ modeConfiguration }) => {
   return {
     id,
     routeName: 'radiology-ai',
@@ -134,6 +134,6 @@ function modeFactory({ modeConfiguration }) {
 
     hotkeys: [...hotkeys.defaults.hotkeyBindings],
   };
-}
+};
 
 export default { id, modeFactory, extensionDependencies };

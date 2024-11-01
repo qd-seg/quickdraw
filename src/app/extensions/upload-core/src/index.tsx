@@ -1,27 +1,26 @@
-import React from 'react';
-import { Types } from '@ohif/core';
+import * as React from 'react';
+
 import { id } from './id';
 import UploadPanel from './components/UploadPanel';
 
-const uploadCoreExtension: Types.Extensions.Extension = {
+const extension = {
   id,
-  preRegistration: ({ servicesManager, commandsManager, configuration = {} }) => {},
-  getPanelModule: ({ servicesManager, commandsManager, extensionManager }) => {
+
+  getPanelModule: ({ servicesManager, commandsManager }) => {
     return [
       {
         name: 'upload',
         iconName: 'logo-ohif-small',
         iconLabel: 'Upload',
         label: 'Upload',
-        // Create a component wrapper to inject the segmentation ID as a prop
         component: () => {
-            return <UploadPanel 
-              servicesManager={servicesManager} 
-              commandsManager={commandsManager}
-              />;
-        }
-      }
+          return (
+            <UploadPanel servicesManager={servicesManager} commandsManager={commandsManager} />
+          );
+        },
+      },
     ];
   },
-}
-export default uploadCoreExtension;
+};
+
+export default extension;

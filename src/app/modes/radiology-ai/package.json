@@ -6,9 +6,7 @@
   "license": "",
   "main": "dist/umd/radiology-ai/index.umd.js",
   "files": [
-    "dist/**",
-    "public/**",
-    "README.md"
+    "dist/**"
   ],
   "repository": "",
   "keywords": [
@@ -19,11 +17,6 @@
     "node": ">=14",
     "npm": ">=6",
     "yarn": ">=1.16.0"
-  },
-  "scripts": {
-    "dev": "cross-env NODE_ENV=development webpack --config .webpack/webpack.dev.js --watch --output-pathinfo",
-    "build": "cross-env NODE_ENV=production webpack --config .webpack/webpack.prod.js",
-    "start": "yarn run dev"
   },
   "peerDependencies": {
     "@ohif/core": "^3.9.0-beta.101"
