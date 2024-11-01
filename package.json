@@ -2,10 +2,18 @@
     "private": true,
     "workspaces": [ "src/**" ],
     "scripts": {
-        "init:env": "python -m venv .venv",
-        "init:dts": "cd lib/app && tsc --declarationMap --outDir ../../types/app || true",
+        "init:submodules": "git submodule update --init",
+        "init:venv": "python -m venv .venv",
+        "init:declarations": "cd lib/app && tsc --declarationMap --outDir ../../types/app || true",
         "install:python": "pip install -r src/api/requirements.txt",
-        "install:nodejs": "yarn install"
+        "install:node": "yarn install && cd lib/app && yarn install --frozen-lockfile",
+        "link:modes": "cd lib/app && yarn run cli link-mode ../../src/app/modes/*",
+        "link:extensions": "cd lib/app && yarn run cli link-extension ../../src/app/extensions/*",
+        "dev:api": "cd src/api && python app.py",
+        "dev:dashboard": "cd src/dashboard && yarn run dev",
+        "dev:app": "cd lib/app && yarn run dev",
+        "build:dashboard": "cd src/dashboard && yarn run build && mkdir -p ../../dist/dashboard && mv dist/* ../../dist/dashboard",
+        "build:app": "cd lib/app && yarn run build && mkdir -p ../../dist/app && mv platform/app/dist/* ../../dist/app"
     },
     "devDependencies": {
         "@ohif/core": "^3.9.0-beta.101",
