@@ -1,3 +1,4 @@
+grpcio
 Flask==3.0.2
 gunicorn==22.0.0
 google-cloud-compute

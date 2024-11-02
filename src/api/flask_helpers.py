@@ -74,6 +74,7 @@ def get_instance(project_id, zone, instance_name):
         return None
     
 def delete_instance(project_id, zone, instance_name):
+    print('Deleting instance:', instance_name)
     request = compute_v1.DeleteInstanceRequest(project=project_id, zone=zone, instance=instance_name)
     response = get_compute_client().delete(request)
     return response.result(timeout=30)

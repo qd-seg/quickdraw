@@ -32,7 +32,7 @@ services:
     networks:
       - public
     volumes:
-      - src/api/model_instances.json:/usr/local/src/api/model_instances.json
+      - ./src/api/model_instances:/usr/local/src/api/model_instances
 
   dashboard:
     build:

@@ -8,6 +8,7 @@ import math as Math
 from dotenv import load_dotenv
 from flask_helpers import (
     list_instances, get_instance, delete_instance,
+    list_docker_images,
     generate_instance_name,
     setup_compute_instance,
     run_predictions,
@@ -31,6 +32,8 @@ _MACHINE_TYPE = os.getenv('MACHINE_TYPE')
 _SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
 _KEY_FILE = os.getenv('KEY_FILE')
 _REPOSITORY = os.getenv('REPOSITORY')
+
+_MODEL_INSTANCES_FILEPATH = 'model_instances/model_instances.json'
 
 auth_with_key_file_json(_KEY_FILE)
 
@@ -95,7 +98,7 @@ def emit_update_progressbar(value):
 def clear_unused_instances():
     '''Removes all Compute instances that do not have an existing model associated with them'''
     
-    filename = 'model_instances.json'
+    filename = _MODEL_INSTANCES_FILEPATH
     model_instances = read_json(filename)
     used_instance_names = [m.instance_name for m in model_instances]
     compute_instances = list_instances(_PROJECT_ID, _ZONE)
@@ -106,7 +109,7 @@ def clear_unused_instances():
 def get_existing_instance_for_model(model_name: str):
     '''Get the Instance associated with a model name, or None if it does not exist'''
     
-    filename = 'model_instances.json'
+    filename = _MODEL_INSTANCES_FILEPATH
     model_instances = read_json(filename)
     matching_instance = next((m for m in model_instances if m.model_name == model_name), None)
     if matching_instance is None:
@@ -115,7 +118,7 @@ def get_existing_instance_for_model(model_name: str):
     return get_instance(_PROJECT_ID, _ZONE, matching_instance.instance_name)
 
 def add_tracked_model_instance(model_name: str, instance_name: str):
-    filename = 'model_instances.json'
+    filename = _MODEL_INSTANCES_FILEPATH
     model_instances = read_json(filename)
     model_instances.append({
         'model_name': model_name,
@@ -169,7 +172,11 @@ def authenticateGoogleCloud():
         
     return jsonify({"message": message}), status_code
 
-## TODO
+@app.route('/listModels')
+def list_models():
+    # return jsonify({'hello': 'world'}), 200
+    return jsonify({'models': [d.name for d in list_docker_images(_PROJECT_ID, _ZONE, _REPOSITORY)]}), 200
+
 @app.route('/setupComputeWithModel', methods=['POST'])
 def setupComputeWithModel():
     # Extract the selected model name
