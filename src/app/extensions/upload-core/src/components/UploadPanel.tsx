@@ -1,7 +1,5 @@
 import * as React from 'react';
-
 import { Button, PanelSection, ProgressLoadingBar } from '@ohif/ui';
-
 import { Timestamp } from 'firebase/firestore';
 
 interface Document {
@@ -25,7 +23,7 @@ const checkedLabelStyle = {
   color: '#fff',
 };
 
-function UploadButton({ servicesManager, commandsManager }) {
+const UploadPanel = ({ servicesManager, commandsManager }) => {
   const [message, setMessage] = React.useState('');
   const [progress, setProgress] = React.useState(0);
   const [counter, setCounter] = React.useState(0);
@@ -41,18 +39,19 @@ function UploadButton({ servicesManager, commandsManager }) {
     predicting: false,
     authenticating: false,
   });
-  const segmentationService = servicesManager.services.segmentationService;
 
   const isActive = () => {
     return status.uploading || status.deleting || status.predicting || status.authenticating;
   };
+
+  const segmentationService = servicesManager.services.segmentationService;
 
   // // SEGMENTATION_UPDATED event listener: echang
   // this is the event listener for the SEGMENTATION_UPDATED event
   // it will be triggered whenever a segmentation is updated
   // useEffect(() => {
   //     if (!segmentationService) return;
-  
+
   //     // Define the event handler for segmentation updates
   //     const handleSegmentationUpdate = () => {
   //         const activeSegmentation = segmentationService.getActiveSegmentation();
@@ -60,10 +59,10 @@ function UploadButton({ servicesManager, commandsManager }) {
   //         setActiveSegmentationID(activeSegmentationID);
   //         console.log('SEGMENTATION_UPDATED event fired. Active segmentation ID:', activeSegmentationID);
   //     };
-  
+
   //     // Subscribe to the SEGMENTATION_UPDATED event
   //     segmentationService.subscribe(segmentationService.EVENTS.SEGMENTATION_UPDATED, handleSegmentationUpdate);
-  
+
   //     // Cleanup: Unsubscribe when component unmounts
   //     return () => {
   //       segmentationService.unsubscribe(segmentationService.EVENTS.SEGMENTATION_UPDATED, handleSegmentationUpdate);
@@ -167,10 +166,21 @@ function UploadButton({ servicesManager, commandsManager }) {
     }
   };
 
-  React.useEffect(() => authenticateUser() as undefined, []);
-  React.useEffect(() => isInstanceAvailable() as undefined, []);
-  React.useEffect(() => updateContainers() as undefined, []);
-  React.useEffect(() => updateDocuments() as undefined, []);
+  React.useEffect(() => {
+    authenticateUser();
+  }, []);
+
+  React.useEffect(() => {
+    isInstanceAvailable();
+  }, []);
+
+  React.useEffect(() => {
+    updateContainers();
+  }, []);
+
+  React.useEffect(() => {
+    updateDocuments();
+  }, []);
 
   return (
     <div style={{ margin: '2px' }}>
@@ -222,9 +232,8 @@ function UploadButton({ servicesManager, commandsManager }) {
 
               // downloads to local downloads folder by calling downloadSegmentation command through commandsManager
               commandsManager.runCommand('downloadSegmentation', {
-                  segmentationId: activeID,
-                });
-
+                segmentationId: activeID,
+              });
             }}
             children={status.uploading ? 'Saving...' : 'Save Modified Mask'}
             disabled={isActive()}
@@ -335,4 +344,4 @@ function UploadButton({ servicesManager, commandsManager }) {
   );
 };
 
-export default UploadButton;
+export default UploadPanel;

@@ -1,11 +1,11 @@
 {
-    "compilerOptions": {
-        "jsx": "react",
+  "compilerOptions": {
+    "jsx": "react",
 
-        "paths": {
-            "@ohif/ui": [ "../../../../types/app/platform/ui/src" ]
-        }
-    },
+    "paths": {
+      "@ohif/ui": ["../../../../types/app/platform/ui/src"]
+    }
+  },
 
-    "include": [ "src/**/*" ]
+  "include": ["src/**/*"]
 }
