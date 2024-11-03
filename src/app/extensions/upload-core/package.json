@@ -24,6 +24,8 @@
     "react-dom": "^18.3.1"
   },
   "dependencies": {
-    "@babel/runtime": "^7.20.13"
+    "@babel/runtime": "^7.20.13",
+    "react-spinners": "^0.14.1",
+    "socket.io-client": "^4.8.1"
   }
 }

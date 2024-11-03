@@ -45,7 +45,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 bp = Blueprint('flask_backend', __name__)
 
 # Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", path='/api/socket.io' if __name__ == '__main__' else 'socket.io')
 
 # Serve React App
 @bp.route("/", defaults={"path": ""})  # Base path for the app
@@ -102,34 +102,47 @@ def clear_unused_instances():
     
     print('Clearing unused instances...')
     filename = _MODEL_INSTANCES_FILEPATH
-    model_instances = read_json(filename)
-    used_instance_names = [m.instance_name for m in model_instances]
+    model_instances = read_json(filename, default_as_dict=False)
+    used_instance_names = [m['instance_name'] for m in model_instances]
     compute_instances = list_instances(_PROJECT_ID, _ZONE)
     for instance in compute_instances:
         if instance.name not in used_instance_names:
+            print(' Deleting', instance.name)
             delete_instance(_PROJECT_ID, _ZONE, instance.name)
     
 def get_existing_instance_for_model(model_name: str):
     '''Get the Instance associated with a model name, or None if it does not exist'''
     
     filename = _MODEL_INSTANCES_FILEPATH
-    model_instances = read_json(filename)
-    matching_instance = next((m for m in model_instances if m.model_name == model_name), None)
+    model_instances = read_json(filename, default_as_dict=False)
+    matching_instance = next((m for m in model_instances if m['model_name'] == model_name), None)
     if matching_instance is None:
         print('No instance for model', model_name)
         return None
     
-    return get_instance(_PROJECT_ID, _ZONE, matching_instance.instance_name)
+    return get_instance(_PROJECT_ID, _ZONE, matching_instance['instance_name'])
 
 def add_tracked_model_instance(model_name: str, instance_name: str):
     filename = _MODEL_INSTANCES_FILEPATH
-    model_instances = read_json(filename)
+    model_instances = read_json(filename, default_as_dict=False)
     model_instances.append({
         'model_name': model_name,
         'instance_name': instance_name
     })
     write_json(filename, model_instances)
-
+    
+def remove_tracked_model_instance(model_name: str):
+    filename = _MODEL_INSTANCES_FILEPATH
+    model_instances = read_json(filename, default_as_dict=False)
+    model_instances = [x for x in model_instances if x['model_name'] != model_name]
+    write_json(filename, model_instances)
+    
+@bp.route('/testSocket')
+def test_socket():
+    emit_status_update('hello there')
+    emit_update_progressbar(50)
+    return jsonify({ 'message': 'OK' }), 200
+    
 ## TODO
 ##TODO: Change containers in upload button component to instancesrunning
 @bp.route("/instancesrunning", methods=["POST"])
@@ -199,9 +212,11 @@ def setupComputeWithModel():
     selectedModel = json_data.get('selectedModel')
     if selectedModel is None:
         print('no selectedModel')
-        return jsonify({ 'message': 'No model selected ' }), 500
+        return jsonify({ 'message': 'Please select a model' }), 400
     
     print('Setting up instance...')
+    emit_update_progressbar(10)
+    emit_status_update('Setting up instance...')
     
     existing_instance = get_existing_instance_for_model(selectedModel)
     new_instance_name = generate_instance_name('ohif-instance', 'predictor') if existing_instance is None else existing_instance.name
@@ -212,23 +227,29 @@ def setupComputeWithModel():
     # There needs to be some backup where it looks in other zones for resources, but
     #  this means that we will also need to store the zone separately for the model, and ALSO need to try other
     #  zones in the list_instances method, and anything else that uses _ZONE
-    new_instance = setup_compute_instance(
-        _PROJECT_ID,
-        _ZONE,
-        new_instance_name,
-        _MACHINE_TYPE,
-        _INSTANCE_LIMIT,
-        _SERVICE_ACCOUNT,
-        selectedModel,
-        _REPOSITORY,
-    )
     
     add_tracked_model_instance(selectedModel, new_instance_name)
+    try:
+        new_instance = setup_compute_instance(
+            _PROJECT_ID,
+            _ZONE,
+            new_instance_name,
+            _MACHINE_TYPE,
+            _INSTANCE_LIMIT,
+            _SERVICE_ACCOUNT,
+            selectedModel,
+            _REPOSITORY,
+        )
+    except Exception as e:
+        print(e)
+        new_instance = None
+        remove_tracked_model_instance(selectedModel)
     
     status_code = None
     if new_instance is not None:
-        emit_status_update("Instance created successfully")
         message = "Instance created successfully"
+        emit_update_progressbar(20)
+        emit_status_update(message)
         status_code = 200
     else:
         emit_status_update("Error Google Cloud is at its limit, please wait.")
@@ -262,20 +283,25 @@ def run_prediction():
     # check_instance()
     message = "No Instance running, please create an instance first"
     status_code = 500
-    emit_update_progressbar(0)
+    emit_update_progressbar(20)
     try:
         if (instance := get_existing_instance_for_model(selectedModel)) is not None:
             print('instance not none')
-            emit_update_progressbar(0)
+            emit_update_progressbar(25)
 
             ## TODO: pull the images from Orthanc into /dicom-images/
+            emit_status_update('Getting DICOM images...')
             os.makedirs('dicom-images', exist_ok=True)
             os.makedirs('dcm-prediction', exist_ok=True)
+            # ...
             ##
-            emit_update_progressbar(50)
-            run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT, _KEY_FILE, selectedDicomSeries, instance.name)
+            
+            emit_update_progressbar(35)
+            emit_status_update('Running predictions...')
+            run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT, _KEY_FILE, selectedDicomSeries, instance.name, progress_bar_update_callback=emit_update_progressbar)
             
             emit_update_progressbar(90)
+            emit_status_update('Storing predictions...')
             
             ## TODO: send predictions back to user or to orthanc. Note that predictions are located in /dcm-prediction/
             
@@ -288,6 +314,7 @@ def run_prediction():
             return jsonify({"message": 'Instance does not exist for model'}), 500
     # Catch any exceptions
     except Exception as e:
+        print(e)
         emit_status_update("Error running prediction")
         message = f"Error running prediction: {str(e)}"
         status_code = 500
@@ -392,9 +419,10 @@ if __name__ == "__main__":
     print('Running through main, prefixing routes with /api')
     app.register_blueprint(bp, url_prefix='/api')
     clear_unused_instances()
-    app.run(host='localhost', port=5421)
-#    socketio.run(app, debug=True)
+    # app.run(host='localhost', port=5421)
+    socketio.run(app, host='localhost', port=5421, debug=True)
 else:
     print('Not running through main, no prefixes for routes')
     clear_unused_instances()
     app.register_blueprint(bp)
+    socketio.run(app, debug=True)

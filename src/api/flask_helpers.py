@@ -7,20 +7,22 @@ from datetime import datetime
 import subprocess
 import time
 from enum import Enum
-from typing import List
+from typing import List, Union
 import json 
 from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 
 # _USERNAME = os.environ.get('USER')
 _USERNAME = 'cmsc435'
+_MAX_TIMEOUT_NORMAL_REQUEST = 60
+_MAX_TIMEOUT_COMPUTE_REQUEST = 360
 
-def read_json(filename):
+def read_json(filename, default_as_dict=True) -> Union[List, dict]:
     """Reads a JSON file and returns its content."""
     try:
         with open(filename, 'r') as file:
             return json.load(file)
     except FileNotFoundError:
-        return {}
+        return {} if default_as_dict else []
 
 def write_json(filename, data):
     """Writes data to a JSON file."""
@@ -57,12 +59,12 @@ def list_instances(project_id, zone):
 def start_instance(project_id, zone, instance_name):
     request = compute_v1.StartInstanceRequest(project=project_id, zone=zone, instance=instance_name)
     response = get_compute_client().start(request)
-    return response.result(timeout=30)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
 
 def stop_instance(project_id, zone, instance_name):
     request = compute_v1.StopInstanceRequest(discard_local_ssd=False, project=project_id, zone=zone, instance=instance_name)
     response = get_compute_client().stop(request)
-    return response.result(timeout=30)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
 
 def get_instance(project_id, zone, instance_name):    
     request = compute_v1.GetInstanceRequest(instance=instance_name, project=project_id, zone=zone)
@@ -78,7 +80,7 @@ def delete_instance(project_id, zone, instance_name):
     print('Deleting instance:', instance_name)
     request = compute_v1.DeleteInstanceRequest(project=project_id, zone=zone, instance=instance_name)
     response = get_compute_client().delete(request)
-    return response.result(timeout=30)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
     
 class IPType(Enum):
     INTERNAL = "internal"
@@ -147,7 +149,7 @@ def create_instance_helper(
     request = compute_v1.InsertInstanceRequest(instance_resource=instance, project=project_id, zone=zone)
     response = get_compute_client().insert(request)
     print('Sent create instance request')
-    return response.result(timeout=30)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
 
 ## NOTE: should probably change this name. This is only a helper function. Use setup_compute_instance() instead
 def create_new_instance(instance_name, project_id, zone, machine_type, instance_limit, service_account_email):
@@ -157,11 +159,7 @@ def create_new_instance(instance_name, project_id, zone, machine_type, instance_
     if instance_count >= instance_limit:
         return "Google Cloud is at its limit, please wait.", 500
     
-    if instance_count == 0:
-        global _INSTANCE_NAME
-        instance_name = generate_instance_name()
-        _INSTANCE_NAME = instance_name
-        
+    if instance_count == 0:        
         vm_instance = create_instance_helper(
             project_id=project_id,
             zone=zone,
@@ -203,7 +201,7 @@ def delete_docker_image(project_id: str, zone: str, models_repo: str, image_name
     request = artifactregistry.DeletePackageRequest(name=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}/packages/{image_name}')
     try:
         response = get_registry_client().delete_package(request)
-        return response.result(timeout=30)
+        return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
     except Exception as e:
         print('Could not get docker image of name', image_name)
         print(e)
@@ -274,7 +272,7 @@ def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_
     # startup_script_metadata = compute_v1.Items(key='startup-script', value=setup_script)
     # startup_metadata = compute_v1.Metadata(items=[startup_script_metadata], fingerprint=instance.metadata.fingerprint)
     # startup_request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=startup_metadata, project=_PROJECT_ID, zone=_ZONE)
-    return first_metadata_request.result(timeout=30)
+    return first_metadata_request.result(timeout=_MAX_TIMEOUT_NORMAL_REQUEST)
 
 def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, key_filepath: str, dicom_image_directory: str, dicom_series_name: str, instance_name: str, run_auth=True) -> bool:
     if run_auth:
@@ -322,7 +320,7 @@ def setup_compute_instance(project_id: str, zone: str, instance_name: str | None
     return instance
 
 # Run predictions on existing compute instance. Assumes DICOM images have already been uploaded to ./dicom-images/
-def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, dicom_series_name: str, instance_name: str, skip_predictions: bool = False) -> bool:
+def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, dicom_series_name: str, instance_name: str, skip_predictions: bool = False, progress_bar_update_callback = None) -> bool:
     print('Predicting', dicom_series_name)
     try:
         username = _USERNAME
@@ -341,10 +339,14 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                             f'--metadata=dicom-image={dicom_series_name},username={username}'], check=True)
             
             # Copy over DICOM images from server to instance
+            if progress_bar_update_callback is not None:
+                progress_bar_update_callback(45)
             if not upload_dicom_to_instance(project_id, zone, service_account, key_filepath, f'./dicom-images/{dicom_series_name}', dicom_series_name, instance_name, run_auth=False):
                 raise Exception()
             
-            # Run startup script (compute-setup-script.sh). This blocks until predictions are made
+            if progress_bar_update_callback is not None:
+                progress_bar_update_callback(60)
+            # Run startup script (compute-setup-script.sh), which makes predictions. This blocks until predictions are made
             subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
                             f'--project={project_id}', 
                             f'--zone={zone}',
@@ -354,6 +356,8 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         # If the prediction takes too long and the access token expires, that may cause an issue.
         # Copy over DICOM images (predictions) from instance to server
         # subprocess.run(['mkdir', '-p', './dcm-prediction/'])
+        if progress_bar_update_callback is not None:
+                progress_bar_update_callback(85)
         os.makedirs('dcm-prediction', exist_ok=True)
         subprocess.run(['gcloud', 'compute', 'scp',
                         f'--project={project_id}', 

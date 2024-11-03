@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { Button, PanelSection, ProgressLoadingBar } from '@ohif/ui';
 // import { Timestamp } from 'firebase/firestore';
+import io from 'socket.io-client';
+import { MoonLoader } from 'react-spinners';
 
 // interface Document {
 //     id: string;
@@ -23,9 +25,14 @@ const checkedLabelStyle = {
     color: '#fff',
 };
 
+// NOTE: this is a placeholder for dev
+// const urlPrefix = 'http://localhost:5421';
+const urlPrefix = '';
+
 const UploadPanel = ({ servicesManager, commandsManager }) => {
     const [message, setMessage] = React.useState('');
     const [progress, setProgress] = React.useState(0);
+    const [progressBarText, setProgressBarText] = React.useState('');
     const [counter, setCounter] = React.useState(0);
 
     const [containers, setContainers] = React.useState<[string, boolean][]>([]);
@@ -39,6 +46,7 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
         deleting: false,
         predicting: false,
         authenticating: false,
+        loadingModels: false,
     });
 
     const isActive = () => {
@@ -46,7 +54,7 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
     };
 
     const canRunPrediction = () => {
-        return (selectedModelIndex !== undefined) && isActive();
+        return (selectedModelIndex !== undefined) && !isActive();
     };
 
     const segmentationService = servicesManager.services.segmentationService;
@@ -132,28 +140,36 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
     // };
 
     const runPrediction = async () => {
-        if (selectedModelIndex === undefined) return;
+        if (selectedModelIndex === undefined) {
+            alert('Please select a model');
+            return;
+        };
+
+        setProgress(0);
+        setProgressBarText('...');
         setStatus({ ...status, predicting: true });
 
         try {
             // Note: the localhost routes are temporary until we fix the issue of routes on development not working
-            await fetch('/api/setupComputeWithModel', {
-            // await fetch('http://localhost:5421/api/setupComputeWithModel', {
+            await fetch(`${urlPrefix}/api/setupComputeWithModel`, {
+                // await fetch('http://localhost:5421/api/setupComputeWithModel', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ selectedModel: allModels[selectedModelIndex]?.name}), // TODO
+                body: JSON.stringify({ selectedModel: allModels[selectedModelIndex]?.name }), // TODO
             })
-            await fetch('/api/run', {
-            // await fetch('http://localhost:5421/api/run', {
+            await fetch(`${urlPrefix}/api/run`, {
+                // await fetch('http://localhost:5421/api/run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ selectedModel: allModels[selectedModelIndex]?.name, selectedDicomSeries: 'PANCREAS_0005' }), // TODO: PLACEHOLDER
             });
         } catch (error) {
             console.error('Error:', error);
+            setProgress(0);
         } finally {
             setStatus({ ...status, predicting: false, deleting: false });
-
+            setProgress(0);
+            setProgressBarText('');
             setCounter(counter + 1);
         }
     };
@@ -181,8 +197,9 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
     // };
 
     const listModels = () => {
+        setStatus({ ...status, loadingModels: true });
         // fetch('http://localhost:5421/api/listModels')
-        fetch('/api/listModels')
+        fetch(`${urlPrefix}/api/listModels`)
             .then(res => res.json())
             .then((value) => {
                 console.log(value);
@@ -191,6 +208,9 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
             .catch((err) => {
                 console.error(err);
             })
+            .finally(() => {
+                setStatus({ ...status, loadingModels: false });
+            });
     };
 
     // React.useEffect(() => {
@@ -213,6 +233,32 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
         listModels();
     }, []);
 
+    // Set up socket for progress updates
+    React.useEffect(() => {
+        console.log('Init socket')
+        const sock = io(`${urlPrefix}`, { path: '/api/socket.io' });
+
+        sock.on('progress_update', (data) => {
+            // console.log(data);
+            setProgress(data?.value || 0);
+        });
+
+        sock.on('status_update', (data) => {
+            // console.log(data);
+            if (data?.message) {
+                // alert(data.message);
+                setProgressBarText(data.message);
+            }
+        });
+
+        return () => {
+            console.log('Disconnecting socket')
+            setProgress(0);
+            setProgressBarText('');
+            sock.disconnect();
+        }
+    }, []);
+
     return (
         <div style={{ margin: '2px' }}>
             <div className="w-full text-center text-white">
@@ -233,11 +279,6 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
                         margin: '5px',
                     }}
                 >
-                    <Button
-                        onClick={listModels}
-                        children={'List Models'}
-                        disabled={false}
-                    />
                     {/* <br />
                     <Button
                         onClick={uploadInstance}
@@ -246,11 +287,21 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
                     /> */}
 
                     <br />
+
+                    {selectedModelIndex === undefined && <span className='text-white text-sm text-center w-100' style={{marginTop: '-18px'}}>No model selected</span>}
                     <Button
                         onClick={runPrediction}
-                        children={status.deleting ? 'Running Prediction...' : 'Run Prediction'}
-                        disabled={canRunPrediction()}
+                        children={status.predicting ? 'Running Prediction...' : 'Run Prediction'}
+                        disabled={!canRunPrediction()}
+                        startIcon={status.predicting ?
+                            <MoonLoader size={16} color={'#eee'} /> : <></>
+                        }
                     />
+                    {(status.predicting && progress > 0) &&
+                        <div>
+                            {progressBarText && <div className='w-full text-center text-white'>{progressBarText}</div>}
+                            <ProgressLoadingBar progress={progress} />
+                        </div>}
 
                     {/* <br />
                     <Button
@@ -276,9 +327,8 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
                     />
 
                     <br />
-                    <Button onClick={() => {/*updateContainers*/}} children="Refresh Containers" disabled={isActive()} />
+                    {/* <Button onClick={() => { fetch(`${urlPrefix}/api/testSocket`) }} children="Test Progress Bar" disabled={isActive()} /> */}
 
-                    {progress > 0 && <ProgressLoadingBar progress={progress} />}
 
                     <div style={{ color: '#90cdf4', margin: '5px' }}>
                         <p>{message}</p>
@@ -289,6 +339,13 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
             <br />
             <div className="w-full text-center text-white">
                 <PanelSection title={'Models'}>
+                    <Button
+                        onClick={listModels}
+                        children={'Refresh Model List'}
+                        disabled={status.loadingModels}
+                        startIcon={status.loadingModels ?
+                            <MoonLoader size={16} color={'#eee'} /> : <></>
+                        } />
                     <div style={{ maxHeight: '250px', overflowY: 'auto', fontSize: '13px' }}>
                         {allModels.map((model, index) => (
                             <div
@@ -356,7 +413,7 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
                     color: 'white',
                 }}
             >
-                <h5>Running Containers</h5>
+                {/* <h5>Running Containers</h5>
                 <div style={{ marginTop: '1em', width: '100%', textAlign: 'center' }}>
                     {containers &&
                         containers.map(([name, isActive], index) => (
@@ -372,7 +429,7 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
                                 {isActive ? `${name} (Your Container)` : name}
                             </div>
                         ))}
-                </div>
+                </div> */}
             </div>
         </div>
     );
