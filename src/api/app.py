@@ -1,4 +1,4 @@
-from flask import Flask, send_from_directory, request, jsonify, url_for
+from flask import Flask, send_from_directory, request, jsonify, url_for, Blueprint
 from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 import os
@@ -19,7 +19,7 @@ from gcloud_auth import auth_with_key_file_json
 from werkzeug.middleware.proxy_fix import ProxyFix
 app = Flask(__name__)
 
-# @app.route("/")
+# @bp.route("/")
 # def index():
 #     return ({}, 200)
 
@@ -42,12 +42,14 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 # Enable Cross-Origin Resource Sharing (CORS)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
+bp = Blueprint('flask_backend', __name__)
+
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Serve React App
-@app.route("/", defaults={"path": ""})  # Base path for the app
-@app.route("/<path:path>")  # Handling additional paths under the base
+@bp.route("/", defaults={"path": ""})  # Base path for the app
+@bp.route("/<path:path>")  # Handling additional paths under the base
 def serve(path):
     """
     Serve the React app.
@@ -98,6 +100,7 @@ def emit_update_progressbar(value):
 def clear_unused_instances():
     '''Removes all Compute instances that do not have an existing model associated with them'''
     
+    print('Clearing unused instances...')
     filename = _MODEL_INSTANCES_FILEPATH
     model_instances = read_json(filename)
     used_instance_names = [m.instance_name for m in model_instances]
@@ -113,6 +116,7 @@ def get_existing_instance_for_model(model_name: str):
     model_instances = read_json(filename)
     matching_instance = next((m for m in model_instances if m.model_name == model_name), None)
     if matching_instance is None:
+        print('No instance for model', model_name)
         return None
     
     return get_instance(_PROJECT_ID, _ZONE, matching_instance.instance_name)
@@ -128,7 +132,7 @@ def add_tracked_model_instance(model_name: str, instance_name: str):
 
 ## TODO
 ##TODO: Change containers in upload button component to instancesrunning
-@app.route("/instancesrunning", methods=["POST"])
+@bp.route("/instancesrunning", methods=["POST"])
 def get_containers():
     """
     Get all the current running instances.
@@ -148,7 +152,7 @@ def get_containers():
         return jsonify({"message": f"Error getting containers: {str(e)}"}), 500
 
 ## TODO: this might be able to be removed?
-@app.route("/authenticateUser", methods=["POST"])
+@bp.route("/authenticateUser", methods=["POST"])
 def authenticateGoogleCloud():
     """
     Authenticate user to use our google cloud services.
@@ -172,32 +176,49 @@ def authenticateGoogleCloud():
         
     return jsonify({"message": message}), status_code
 
-@app.route('/listModels')
+@bp.route('/listModels', methods=['GET'])
 def list_models():
     # return jsonify({'hello': 'world'}), 200
-    return jsonify({'models': [d.name for d in list_docker_images(_PROJECT_ID, _ZONE, _REPOSITORY)]}), 200
+    docker_packages = list_docker_images(_PROJECT_ID, _ZONE, _REPOSITORY, specific_tags=False)
+    # print(docker_packages)
+    return jsonify({'models': [
+        {
+            'name': d.name.split('/')[-1],
+            'updateTime': d.update_time.rfc3339(),
+        } for d in docker_packages]}), 200
 
-@app.route('/setupComputeWithModel', methods=['POST'])
+@bp.route('/setupComputeWithModel', methods=['POST'])
 def setupComputeWithModel():
     # Extract the selected model name
     if request.is_json:
         json_data = request.get_json()
     else:
+        print('not json')
         return jsonify({ 'message': 'Something went wrong' }), 500
     
-    selectedModel = json_data.get('selected_model')
+    selectedModel = json_data.get('selectedModel')
     if selectedModel is None:
+        print('no selectedModel')
         return jsonify({ 'message': 'No model selected ' }), 500
+    
+    print('Setting up instance...')
     
     existing_instance = get_existing_instance_for_model(selectedModel)
     new_instance_name = generate_instance_name('ohif-instance', 'predictor') if existing_instance is None else existing_instance.name
             
+    # TODO: Big issue: sometimes a Google Cloud Platform zone will run out of resources, and we will get:
+    # 503 SERVICE UNAVAILABLE ZONE_RESOURCE_POOL_EXHAUSTED: 
+    # The zone 'projects/radiology-b0759/zones/us-east4-b' does not have enough resources available to fulfill the request
+    # There needs to be some backup where it looks in other zones for resources, but
+    #  this means that we will also need to store the zone separately for the model, and ALSO need to try other
+    #  zones in the list_instances method, and anything else that uses _ZONE
     new_instance = setup_compute_instance(
         _PROJECT_ID,
         _ZONE,
         new_instance_name,
         _MACHINE_TYPE,
         _INSTANCE_LIMIT,
+        _SERVICE_ACCOUNT,
         selectedModel,
         _REPOSITORY,
     )
@@ -216,7 +237,7 @@ def setupComputeWithModel():
         
     return jsonify({"message": message}), status_code
 
-@app.route("/run", methods=["POST"])
+@bp.route("/run", methods=["POST"])
 def run_prediction():
     """
     Run the prediction on the Google Cloud instance.
@@ -230,7 +251,12 @@ def run_prediction():
     selectedModel = json_data["selectedModel"]
     selectedDicomSeries = json_data["selectedDicomSeries"]
     
+    print('params:')
+    print(selectedModel)
+    print(selectedDicomSeries)
+    
     if selectedModel is None or selectedDicomSeries is None:
+        print(selectedModel, selectedDicomSeries, 'wrong')
         return jsonify({'message': 'Model or images not provided'}), 500
 
     # check_instance()
@@ -239,6 +265,7 @@ def run_prediction():
     emit_update_progressbar(0)
     try:
         if (instance := get_existing_instance_for_model(selectedModel)) is not None:
+            print('instance not none')
             emit_update_progressbar(0)
 
             ## TODO: pull the images from Orthanc into /dicom-images/
@@ -270,7 +297,7 @@ def run_prediction():
     return jsonify({"message": message}), status_code
 
 # Model upload is done through CLI
-# @app.route("/uploadImage", methods=["POST"])
+# @bp.route("/uploadImage", methods=["POST"])
 # def uploadModel():
 #     """
 #     Upload a model by pushing the docker image
@@ -326,7 +353,7 @@ def run_prediction():
 #     return jsonify({"message": message}), status_code
 
 
-@app.route("/deleteModel", methods=["POST"])
+@bp.route("/deleteModel", methods=["POST"])
 def deleteModel():
     """
     Delete a model from Artifact Registry
@@ -358,10 +385,16 @@ def deleteModel():
         status_code = 500
     emit_status_update(message)
     return jsonify({"message": message}), status_code
- 
 
+# This setup is intended to prefix all routes to /api/{...} when running in development mode,
+# since in production, there is a reverse proxy that serves these routes at /api
 if __name__ == "__main__":
+    print('Running through main, prefixing routes with /api')
+    app.register_blueprint(bp, url_prefix='/api')
     clear_unused_instances()
-    app.run()
+    app.run(host='localhost', port=5421)
 #    socketio.run(app, debug=True)
-
+else:
+    print('Not running through main, no prefixes for routes')
+    clear_unused_instances()
+    app.register_blueprint(bp)

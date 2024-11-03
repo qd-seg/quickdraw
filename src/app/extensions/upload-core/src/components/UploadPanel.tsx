@@ -1,14 +1,14 @@
 import * as React from 'react';
 import { Button, PanelSection, ProgressLoadingBar } from '@ohif/ui';
-import { Timestamp } from 'firebase/firestore';
+// import { Timestamp } from 'firebase/firestore';
 
-interface Document {
-    id: string;
-    date?: Timestamp;
-    description?: string;
+// interface Document {
+//     id: string;
+//     date?: Timestamp;
+//     description?: string;
 
-    [key: string]: any;
-}
+//     [key: string]: any;
+// }
 
 const labelStyle = {
     display: 'inline-block',
@@ -29,9 +29,10 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
     const [counter, setCounter] = React.useState(0);
 
     const [containers, setContainers] = React.useState<[string, boolean][]>([]);
-    const [documents, setDocuments] = React.useState<Document[]>([]);
+    // const [documents, setDocuments] = React.useState<Document[]>([]);
 
-    const [model, setModel] = React.useState(undefined);
+    const [selectedModelIndex, setSelectedModelIndex] = React.useState<number | undefined>(undefined);
+    const [allModels, setAllModels] = React.useState<any[]>([]);
 
     const [status, setStatus] = React.useState({
         uploading: false,
@@ -42,6 +43,10 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
 
     const isActive = () => {
         return status.uploading || status.deleting || status.predicting || status.authenticating;
+    };
+
+    const canRunPrediction = () => {
+        return (selectedModelIndex !== undefined) && isActive();
     };
 
     const segmentationService = servicesManager.services.segmentationService;
@@ -69,128 +74,143 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
     //     };
     //   }, [segmentationService]);
 
-    const authenticateUser = async () => {
-        setStatus({ ...status, authenticating: true });
+    // const authenticateUser = async () => {
+    //     setStatus({ ...status, authenticating: true });
 
-        try {
-            await fetch('/api/authenticate', { method: 'POST' });
-        } catch (error) {
-            setMessage('Unable to Authenticate');
+    //     try {
+    //         await fetch('/api/authenticate', { method: 'POST' });
+    //     } catch (error) {
+    //         setMessage('Unable to Authenticate');
 
-            console.error('Error:', error);
-        } finally {
-            setStatus({ ...status, authenticating: false });
-        }
-    };
+    //         console.error('Error:', error);
+    //     } finally {
+    //         setStatus({ ...status, authenticating: false });
+    //     }
+    // };
 
-    const isInstanceAvailable = async () => {
-        try {
-            await fetch('/api/instances/available', { method: 'POST' });
-        } catch (error) {
-            setMessage('Unable to Authenticate');
+    // const isInstanceAvailable = async () => {
+    //     try {
+    //         await fetch('/api/instances/available', { method: 'POST' });
+    //     } catch (error) {
+    //         setMessage('Unable to Authenticate');
 
-            console.error('Error:', error);
-        }
-    };
+    //         console.error('Error:', error);
+    //     }
+    // };
 
-    const updateContainers = async () => {
-        try {
-            const response = await fetch('/api/instances/running', { method: 'POST' });
-            const data = await response.json();
+    // const updateContainers = async () => {
+    //     try {
+    //         const response = await fetch('/api/instances/running', { method: 'POST' });
+    //         const data = await response.json();
 
-            setContainers(data.containers);
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    };
+    //         setContainers(data.containers);
+    //     } catch (error) {
+    //         console.error('Error:', error);
+    //     }
+    // };
 
-    const uploadInstance = async () => {
-        setStatus({ ...status, uploading: true });
+    // const uploadInstance = async () => {
+    //     setStatus({ ...status, uploading: true });
 
-        const url = new URL(window.location.href);
-        const UIDs = url.searchParams.get('StudyInstanceUIDs');
-        const firstUID = UIDs.split(/[^\d.]+/)[0];
+    //     const url = new URL(window.location.href);
+    //     const UIDs = url.searchParams.get('StudyInstanceUIDs');
+    //     const firstUID = UIDs.split(/[^\d.]+/)[0];
 
-        try {
-            await fetch('/api/instances/upload', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ firstUID }),
-            });
-        } catch (error) {
-            console.error('Error:', error);
-        } finally {
-            setStatus({ ...status, uploading: false });
+    //     try {
+    //         await fetch('/api/instances/upload', {
+    //             method: 'POST',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             body: JSON.stringify({ firstUID }),
+    //         });
+    //     } catch (error) {
+    //         console.error('Error:', error);
+    //     } finally {
+    //         setStatus({ ...status, uploading: false });
 
-            updateContainers();
-        }
-    };
+    //         updateContainers();
+    //     }
+    // };
 
     const runPrediction = async () => {
+        if (selectedModelIndex === undefined) return;
         setStatus({ ...status, predicting: true });
 
         try {
-            await fetch('/api/run', {
+            // Note: the localhost routes are temporary until we fix the issue of routes on development not working
+            await fetch('/api/setupComputeWithModel', {
+            // await fetch('http://localhost:5421/api/setupComputeWithModel', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ selectedModel: model }),
+                body: JSON.stringify({ selectedModel: allModels[selectedModelIndex]?.name}), // TODO
+            })
+            await fetch('/api/run', {
+            // await fetch('http://localhost:5421/api/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selectedModel: allModels[selectedModelIndex]?.name, selectedDicomSeries: 'PANCREAS_0005' }), // TODO: PLACEHOLDER
             });
         } catch (error) {
             console.error('Error:', error);
         } finally {
-            setStatus({ ...status, deleting: false });
+            setStatus({ ...status, predicting: false, deleting: false });
 
             setCounter(counter + 1);
         }
     };
 
-    const deleteInstance = async () => {
-        setStatus({ ...status, deleting: true });
+    // const deleteInstance = async () => {
+    //     setStatus({ ...status, deleting: true });
 
-        try {
-            await fetch('/api/instances/delete', { method: 'POST' });
-        } catch (error) {
-            console.error('Error:', error);
-        } finally {
-            setStatus({ ...status, deleting: false });
+    //     try {
+    //         await fetch('/api/instances/delete', { method: 'POST' });
+    //     } catch (error) {
+    //         console.error('Error:', error);
+    //     } finally {
+    //         setStatus({ ...status, deleting: false });
 
-            updateContainers();
-        }
-    };
+    //         updateContainers();
+    //     }
+    // };
 
     /* TODO: */
-    const updateDocuments = async () => {
-        try {
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    };
+    // const updateDocuments = async () => {
+    //     try {
+    //     } catch (error) {
+    //         console.error('Error:', error);
+    //     }
+    // };
 
     const listModels = () => {
+        // fetch('http://localhost:5421/api/listModels')
         fetch('/api/listModels')
             .then(res => res.json())
             .then((value) => {
                 console.log(value);
+                setAllModels(value.models);
             })
             .catch((err) => {
                 console.error(err);
             })
     };
 
-    React.useEffect(() => {
-        authenticateUser();
-    }, []);
+    // React.useEffect(() => {
+    //     authenticateUser();
+    // }, []);
+
+    // React.useEffect(() => {
+    //     isInstanceAvailable();
+    // }, []);
+
+    // React.useEffect(() => {
+    //     updateContainers();
+    // }, []);
+
+    // React.useEffect(() => {
+    //     updateDocuments();
+    // }, []);
 
     React.useEffect(() => {
-        isInstanceAvailable();
-    }, []);
-
-    React.useEffect(() => {
-        updateContainers();
-    }, []);
-
-    React.useEffect(() => {
-        updateDocuments();
+        listModels();
     }, []);
 
     return (
@@ -218,26 +238,26 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
                         children={'List Models'}
                         disabled={false}
                     />
-                    <br />
+                    {/* <br />
                     <Button
                         onClick={uploadInstance}
                         children={status.uploading ? 'Uploading...' : 'Upload Images to Server'}
                         disabled={isActive()}
-                    />
+                    /> */}
 
                     <br />
                     <Button
                         onClick={runPrediction}
                         children={status.deleting ? 'Running Prediction...' : 'Run Prediction'}
-                        disabled={isActive()}
+                        disabled={canRunPrediction()}
                     />
 
-                    <br />
+                    {/* <br />
                     <Button
                         onClick={deleteInstance}
                         children={status.deleting ? 'Deleting...' : 'Delete Current Instance'}
                         disabled={isActive()}
-                    />
+                    /> */}
 
                     <br />
                     <Button
@@ -256,7 +276,7 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
                     />
 
                     <br />
-                    <Button onClick={updateContainers} children="Refresh Containers" disabled={isActive()} />
+                    <Button onClick={() => {/*updateContainers*/}} children="Refresh Containers" disabled={isActive()} />
 
                     {progress > 0 && <ProgressLoadingBar progress={progress} />}
 
@@ -270,7 +290,7 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
             <div className="w-full text-center text-white">
                 <PanelSection title={'Models'}>
                     <div style={{ maxHeight: '250px', overflowY: 'auto', fontSize: '13px' }}>
-                        {documents.map((document, index) => (
+                        {allModels.map((model, index) => (
                             <div
                                 key={index}
                                 style={{
@@ -287,22 +307,20 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
                                         padding: '5px',
                                     }}
                                 >
-                                    <label style={model === document.id ? checkedLabelStyle : labelStyle}>
+                                    <label style={selectedModelIndex === index ? checkedLabelStyle : labelStyle}>
                                         <input
                                             type="radio"
-                                            value={document.id}
-                                            checked={model === document.id}
-                                            onChange={() => setModel(document.id)}
+                                            value={model.name}
+                                            checked={selectedModelIndex === index}
+                                            onChange={() => setSelectedModelIndex(index)}
                                         />
-                                        {document.id}
+                                        {model.name}
                                     </label>
                                 </div>
                                 <button
                                     onClick={() => {
                                         alert(
-                                            `Description: ${document.description}\nDate Uploaded: ${document.dateUploaded
-                                                .toDate()
-                                                .toLocaleDateString()}`
+                                            `Date Uploaded: ${model.updateTime}`
                                         );
                                     }}
                                     style={{
@@ -320,10 +338,10 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
                     </div>
                 </PanelSection>
                 <br />
-                {model && (
+                {(selectedModelIndex !== undefined) && (
                     <div>
                         <h2>Selected Model:</h2>
-                        <p>{model}</p>
+                        <p>{allModels[selectedModelIndex].name}</p>
                     </div>
                 )}
             </div>

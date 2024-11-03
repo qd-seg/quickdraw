@@ -9,6 +9,7 @@ import time
 from enum import Enum
 from typing import List
 import json 
+from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 
 # _USERNAME = os.environ.get('USER')
 _USERNAME = 'cmsc435'
@@ -35,7 +36,7 @@ def generate_instance_name(prefix="myinstance", description="webserver"):
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     # Alternatively, use a UUID for a shorter unique identifier
     # unique_id = str(uuid.uuid4())[:8]
-    print(timestamp)
+    print('Generated instance name at:', timestamp)
     # Construct the instance name
     instance_name = f"{prefix}-{description}-{timestamp}"
 
@@ -69,7 +70,7 @@ def get_instance(project_id, zone, instance_name):
         response = get_compute_client().get(request)
         return response
     except Exception as e:
-        print(e)
+        # print(e)
         print('Could not get instance of name', instance_name)
         return None
     
@@ -149,7 +150,7 @@ def create_instance_helper(
     return response.result(timeout=30)
 
 ## NOTE: should probably change this name. This is only a helper function. Use setup_compute_instance() instead
-def create_new_instance(instance_name, project_id, zone, machine_type, instance_limit):
+def create_new_instance(instance_name, project_id, zone, machine_type, instance_limit, service_account_email):
     # compute_client = compute_v1.InstancesClient()
     instance_count = count_instances(project_id, zone)
     print(instance_count, 'instances running.')
@@ -168,17 +169,25 @@ def create_new_instance(instance_name, project_id, zone, machine_type, instance_
             machine_type=machine_type,
             disk_type=f'projects/{project_id}/zones/{zone}/diskTypes/pd-standard',
             source_image='projects/cos-cloud/global/images/cos-101-17162-386-59',
-            disk_size=50
+            disk_size=50,
+            service_account=service_account_email
         )
         
         return vm_instance
 
 ## Docker Images and Artifact Registry
-def list_docker_images(project_id: str, zone: str, models_repo: str):
-    request = artifactregistry.ListDockerImagesRequest(parent=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}')
-    response = get_registry_client().list_docker_images(request)
-    return list(response)
+def list_docker_images(project_id: str, zone: str, models_repo: str, specific_tags: bool = False):
+    '''Lists all Docker images. If specific_tags, list all tags. Otherwise, list all packages.'''
+    if specific_tags:
+        request = artifactregistry.ListDockerImagesRequest(parent=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}')
+        response = get_registry_client().list_docker_images(request)
+        return list(response)
 
+    else:
+        request = artifactregistry.ListPackagesRequest(parent=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}')
+        response = get_registry_client().list_packages(request)
+        return list(response)
+    
 def get_docker_image(project_id: str, zone: str, models_repo: str, image_name: str):
     request = artifactregistry.GetDockerImageRequest(name=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}/dockerImages/{image_name}:latest')
     try:
@@ -297,10 +306,10 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
     return True
 
 # Creates an instance and pulls the model from registry to it. Returns if successfully created or not
-def setup_compute_instance(project_id: str, zone: str, instance_name: str | None, machine_type: str, instance_limit: int, image_name: str, models_repo: str = None, skip_metadata=False) -> compute_v1.Instance | None:
+def setup_compute_instance(project_id: str, zone: str, instance_name: str | None, machine_type: str, instance_limit: int, service_account_email: str, image_name: str, models_repo: str = None, skip_metadata=False) -> compute_v1.Instance | None:
     instance = get_instance(project_id, zone, instance_name)
     if instance is None:
-        create_new_instance(instance_name, project_id, zone, machine_type, instance_limit)
+        create_new_instance(instance_name, project_id, zone, machine_type, instance_limit, service_account_email)
         instance = get_instance(project_id, zone, instance_name)
 
     if not skip_metadata:
@@ -385,6 +394,14 @@ if __name__ == '__main__':
     _REPOSITORY = os.getenv('REPOSITORY')
 
     auth_with_key_file_json(_KEY_FILE)
+    
+    # docker_packages = list_docker_images(_PROJECT_ID, _ZONE, _REPOSITORY, specific_tags=False)
+    # print({'models': [
+    #     {
+    #         'name': d.name.split('/')[-1],
+    #         'updateTime': d.update_time.rfc3339(),
+    #     } for d in docker_packages]})
+    # exit()
     
     # TODO: these variables will have to come from somewhere, likely the frontend API requests
     COMPUTE_INSTANCE_NAME = 'myinstance-webserver-20241028191333' # set this to None to create a new instance. (you might have to re-run the program after doing this. It's a little bugged)
