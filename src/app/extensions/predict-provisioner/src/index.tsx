@@ -1,7 +1,7 @@
 import * as React from 'react';
 
 import { id } from './id';
-import UploadPanel from './components/UploadPanel';
+import PredictionPanel from './components/PredictionPanel';
 
 const extension = {
   id,
@@ -9,13 +9,13 @@ const extension = {
   getPanelModule: ({ servicesManager, commandsManager }) => {
     return [
       {
-        name: 'upload',
+        name: 'predict',
         iconName: 'logo-ohif-small',
         iconLabel: 'Upload',
-        label: 'Upload',
+        label: 'Predict',
         component: () => {
           return (
-            <UploadPanel servicesManager={servicesManager} commandsManager={commandsManager} />
+            <PredictionPanel servicesManager={servicesManager} commandsManager={commandsManager} />
           );
         },
       },

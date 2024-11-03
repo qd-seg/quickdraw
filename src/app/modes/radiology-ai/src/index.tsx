@@ -26,7 +26,7 @@ const segmentation = {
 };
 
 const uploadCore = {
-  panel: 'upload-core.panelModule.upload',
+  panel: 'predict-provisioner.panelModule.upload',
 };
 
 const extensionDependencies = {
@@ -34,7 +34,7 @@ const extensionDependencies = {
   '@ohif/extension-cornerstone': '^3.0.0',
   '@ohif/extension-cornerstone-dicom-seg': '^3.0.0',
   '@ohif/extension-cornerstone-dicom-rt': '^3.0.0',
-  'upload-core': '^0.0.1',
+  'predict-provisioner': '^0.0.1',
 };
 
 const modeFactory = ({ modeConfiguration }) => {
