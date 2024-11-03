@@ -25,8 +25,8 @@ const segmentation = {
   viewport: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
 };
 
-const uploadCore = {
-  panel: 'predict-provisioner.panelModule.upload',
+const prediction = {
+  panel: 'predict-provisioner.panelModule.predict',
 };
 
 const extensionDependencies = {
@@ -111,7 +111,7 @@ const modeFactory = ({ modeConfiguration }) => {
             id: ohif.layout,
             props: {
               leftPanels: [ohif.leftPanel],
-              rightPanels: [segmentation.panelTool, uploadCore.panel],
+              rightPanels: [segmentation.panelTool, prediction.panel],
               viewports: [
                 {
                   namespace: cornerstone.viewport,

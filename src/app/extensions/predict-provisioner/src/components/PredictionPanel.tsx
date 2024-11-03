@@ -439,4 +439,4 @@ const PredictionPanel = ({ servicesManager, commandsManager }) => {
   );
 };
 
-export default UploadPanel;
+export default PredictionPanel;

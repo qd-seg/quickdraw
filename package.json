@@ -1,7 +1,8 @@
 {
   "private": true,
   "workspaces": [
-    "src/**"
+    "src/app/extensions/predict-provisioner",
+    "src/app/modes/radiology-ai"
   ],
   "scripts": {
     "init:submodules": "git submodule update --init",
