@@ -1,0 +1,76 @@
+services:
+  surrogate:
+    image: nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}
+    restart: unless-stopped
+    depends_on:
+      - broker
+      - viewer
+      - postgresql
+      - orthanc
+    networks:
+      - public
+    volumes:
+      - ./build/configuration/nginx/surrogate.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - 80:80
+      - 443:443
+
+  broker:
+    image: broker
+    build:
+      dockerfile: ./build/directives/common/broker.dockerfile
+      context: .
+      args:
+        - ALPINE_VERSION=${ALPINE_VERSION}
+        - PYTHON_VERSION=${PYTHON_VERSION}
+    networks:
+      - public
+    volumes:
+      - ./platform/broker/src:/usr/local/src/broker/src
+
+  viewer:
+    image: viewer
+    build:
+      dockerfile: ./build/directives/common/viewer.dockerfile
+      context: .
+      args:
+        - ALPINE_VERSION=${ALPINE_VERSION}
+        - NODE_VERSION=${NODE_VERSION}
+        - VIEWER_VERSION=${VIEWER_VERSION}
+    networks:
+      - public
+    volumes:
+      - ./platform/viewer/extensions/predict-provisioner/src:/usr/local/src/extensions/predict-provisioner/src
+      - ./platform/viewer/extensions/upload-core/src:/usr/local/src/extensions/upload-core/src
+      - ./platform/viewer/modes/radiology-ai/src:/usr/local/src/modes/radiology-ai/src
+      - ./build/configuration/viewer/default.js:/usr/local/src/viewer/platform/app/public/config/default.js
+
+  postgresql:
+    image: postgres:${POSTGRESQL_VERSION}
+    restart: unless-stopped
+    networks:
+      - private
+    volumes:
+      - index:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+
+  orthanc:
+    image: orthancteam/orthanc:${ORTHANC_VERSION}
+    restart: unless-stopped
+    depends_on:
+      - postgresql
+    networks:
+      - public
+      - private
+    volumes:
+      - store:/var/lib/orthanc/db
+      - ./build/configuration/orthanc/default.json:/etc/orthanc/default.json
+
+volumes:
+  index:
+  store:
+
+networks:
+  public:
+  private:

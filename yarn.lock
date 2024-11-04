@@ -55,7 +55,7 @@
     core-js-pure "^3.30.2"
     regenerator-runtime "^0.14.0"
 
-"@babel/runtime@^7.0.0", "@babel/runtime@^7.12.0", "@babel/runtime@^7.12.5", "@babel/runtime@^7.18.3", "@babel/runtime@^7.20.13", "@babel/runtime@^7.3.1", "@babel/runtime@^7.5.5", "@babel/runtime@^7.8.7", "@babel/runtime@^7.9.2":
+"@babel/runtime@^7.0.0", "@babel/runtime@^7.12.0", "@babel/runtime@^7.12.5", "@babel/runtime@^7.18.3", "@babel/runtime@^7.20.13", "@babel/runtime@^7.5.5", "@babel/runtime@^7.8.7", "@babel/runtime@^7.9.2":
   version "7.26.0"
   resolved "https://registry.npmjs.org/@babel/runtime/-/runtime-7.26.0.tgz"
   integrity sha512-FDSOghenHTiToteC/QRlv2q3DhPZ/oOXTBoirfWNx1Cx3TMVcGWQtMMmQcSvb/JjpNeGzx8Pq/b4fKEJuWm1sw==
@@ -259,14 +259,6 @@
     react-shepherd "6.1.1"
     shepherd.js "13.0.3"
     validate.js "^0.12.0"
-
-"@ohif/mode-segmentation@^3.8.5":
-  version "3.8.5"
-  resolved "https://registry.npmjs.org/@ohif/mode-segmentation/-/mode-segmentation-3.8.5.tgz"
-  integrity sha512-ith+bTQwKBWNcS7cziy9EwztCTjE9cQIqu+ofhRqqOfXuF9CdhAmroNOgQK4EJPM0iBYL3n6qeZKWfsIjMfMLQ==
-  dependencies:
-    "@babel/runtime" "^7.20.13"
-    i18next "^17.0.3"
 
 "@ohif/ui@^3.8.5":
   version "3.8.5"
@@ -1317,13 +1309,6 @@ hoist-non-react-statics@^3.2.1, hoist-non-react-statics@^3.3.1, hoist-non-react-
   integrity sha512-/gGivxi8JPKWNm/W0jSmzcMPpfpPLc3dY/6GxhX2hQ9iGj3aDfklV4ET7NjKpSinLpJ5vafa9iiGIEZg10SfBw==
   dependencies:
     react-is "^16.7.0"
-
-i18next@^17.0.3:
-  version "17.3.1"
-  resolved "https://registry.npmjs.org/i18next/-/i18next-17.3.1.tgz"
-  integrity sha512-4nY+yaENaoZKmpbiDXPzucVHCN3hN9Z9Zk7LyQXVOKVIpnYOJ3L/yxHJlBPtJDq3PGgjFwA0QBFm/26Z0iDT5A==
-  dependencies:
-    "@babel/runtime" "^7.3.1"
 
 import-fresh@^3.2.1:
   version "3.3.0"
