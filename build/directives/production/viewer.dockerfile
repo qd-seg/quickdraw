@@ -1,7 +1,9 @@
+# check=skip=InvalidDefaultArgInFrom
+
 ARG ALPINE_VERSION
 ARG NGINX_VERSION
 
-FROM viewer as pack
+FROM viewer AS pack
 
 COPY ./build/configuration/viewer/default.js /usr/local/src/viewer/platform/app/public/config/default.js
 COPY ./platform/viewer/extensions/predict-provisioner /usr/local/src/extensions/predict-provisioner

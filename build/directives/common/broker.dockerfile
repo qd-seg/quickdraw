@@ -1,3 +1,5 @@
+# check=skip=InvalidDefaultArgInFrom
+
 ARG ALPINE_VERSION
 ARG PYTHON_VERSION
 
