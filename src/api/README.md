@@ -29,10 +29,15 @@ You should have already created a Python virtual environment and installed the r
 A Dockerized model `organ-segmentation-model` is already available on radiology-b0759's Google Cloud Artifact Registry. Only follow the below instructions if you do not have access to that project, or if you would like to create your own:
 - Create Dockerfile with an ENTRYPOINT that is that python file ran to make predictions. Ex: `ENTRYPOINT ["python", "predict.py"]`
 - `predict.py` should take 1 required command-line argument, which is the name of the DICOM series that will be fed to the model
-- `predict.py` **MUST** take in inputs from `./images` and output to `./model_outputs`, relative to the directory that `predict.py` is stored (probably `/app/`)
-- `docker build -t <image-name>`
+- `predict.py` **MUST** take in inputs from `./images` and output to `./model_outputs/<dicom-series-name>/<output>.[dcm|npz]`, relative to the directory that `predict.py` is stored (probably `/app/`)
+- `docker build -t <image-name> .`
 
-Your image should appear if you run `docker images`. If so, you can push it directly to Registry:
+Your image should appear if you run `docker images`. To test it:
+- Manually create directories `images/` and `model-outputs/` in your model's root path
+- Place a DICOM series into `images/`
+- `docker run -v <model-root-path>/images:/app/images -v <model-root-path>/model_outputs:/app/model_outputs <dicom-series-name> [OPTIONAL-ARGS]` 
+  
+You can push the model directly to Registry:
 - `python3 upload_model.py <image-name> --direct-push`
 
 Or, if you wish to save the image to a tarball first:

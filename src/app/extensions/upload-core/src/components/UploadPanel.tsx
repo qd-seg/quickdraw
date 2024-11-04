@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Button, PanelSection, ProgressLoadingBar } from '@ohif/ui';
 // import { Timestamp } from 'firebase/firestore';
 import io from 'socket.io-client';
-import { MoonLoader } from 'react-spinners';
+import { MoonLoader, ClockLoader, PulseLoader, FadeLoader, BarLoader, BeatLoader } from 'react-spinners';
 
 // interface Document {
 //     id: string;
@@ -26,8 +26,8 @@ const checkedLabelStyle = {
 };
 
 // NOTE: this is a placeholder for dev
-// const urlPrefix = 'http://localhost:5421';
-const urlPrefix = '';
+const urlPrefix = 'http://localhost:5421';
+// const urlPrefix = '';
 
 const UploadPanel = ({ servicesManager, commandsManager }) => {
     const [message, setMessage] = React.useState('');
@@ -56,6 +56,15 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
     const canRunPrediction = () => {
         return (selectedModelIndex !== undefined) && !isActive();
     };
+
+    // const isModelRunning: (modelIndex: number) => Promise<boolean> = (modelIndex) => {
+    //     return fetch(`${urlPrefix}/api/isModelRunning`)
+    //         .then(res => res.json())
+    //         .then(data => data?.running)
+    //         .catch((err) => {
+    //             console.error(err);
+    //         });
+    // };
 
     const segmentationService = servicesManager.services.segmentationService;
 
@@ -139,6 +148,7 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
     //     }
     // };
 
+    // TODO: handling user going back during a prediction job. Should have useeffect: check for running jobs
     const runPrediction = async () => {
         if (selectedModelIndex === undefined) {
             alert('Please select a model');
@@ -204,6 +214,7 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
             .then((value) => {
                 console.log(value);
                 setAllModels(value.models);
+                setSelectedModelIndex(undefined);
             })
             .catch((err) => {
                 console.error(err);
@@ -251,6 +262,11 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
             }
         });
 
+        sock.on('model_instances_update', (data) => {
+            console.log('update instances !')
+            listModels();
+        });
+
         return () => {
             console.log('Disconnecting socket')
             setProgress(0);
@@ -288,7 +304,7 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
 
                     <br />
 
-                    {selectedModelIndex === undefined && <span className='text-white text-sm text-center w-100' style={{marginTop: '-18px'}}>No model selected</span>}
+                    {selectedModelIndex === undefined && <span className='text-white text-sm text-center w-100' style={{ marginTop: '-18px' }}>No model selected</span>}
                     <Button
                         onClick={runPrediction}
                         children={status.predicting ? 'Running Prediction...' : 'Run Prediction'}
@@ -370,8 +386,19 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
                                             value={model.name}
                                             checked={selectedModelIndex === index}
                                             onChange={() => setSelectedModelIndex(index)}
+                                            disabled={!!model.running}
                                         />
-                                        {model.name}
+
+                                        <span>
+                                            {model.name}
+                                        </span>
+                                        {model.running &&
+                                            <span className='text-sm'>
+                                                <span className='ml-3 mr-1' style={{ color: '#ddd' }}>
+                                                    - In use
+                                                </span>
+                                                <BeatLoader size={4} margin={1} color={'#eee'} />
+                                            </span>}
                                     </label>
                                 </div>
                                 <button

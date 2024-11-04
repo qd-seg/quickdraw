@@ -1,7 +1,9 @@
 ## This is a script for manually uploading the model to artifact registry
 # Only meant to be used in the CLI, not with Flask
 
-from api.flask_helpers import upload_docker_image_to_artifact_registry
+from flask_helpers import upload_docker_image_to_artifact_registry, auth_with_key_file_json
+from dotenv import load_dotenv
+import os
 
 if __name__ == '__main__':
     import argparse
@@ -22,4 +24,16 @@ if __name__ == '__main__':
     if skip_push:
         print('Will be skipping push')
         
-    upload_docker_image_to_artifact_registry(image_name, tarball_path, LOG=True, skip_push=skip_push, override_existing=override_existing, direct_push=direct_push)
+    load_dotenv(override=True)
+    _INSTANCE_LIMIT = 1
+    _PROJECT_ID = os.getenv('PROJECT_ID')
+    _ZONE = os.getenv('ZONE')
+    _REGION = '-'.join(_ZONE.split('-')[:-1])
+    _MACHINE_TYPE = os.getenv('MACHINE_TYPE')
+    _SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
+    _KEY_FILE = os.getenv('KEY_FILE')
+    _REPOSITORY = os.getenv('REPOSITORY')
+
+    auth_with_key_file_json(_KEY_FILE)
+        
+    upload_docker_image_to_artifact_registry(_PROJECT_ID, _ZONE, _REPOSITORY, image_name, tarball_path, LOG=True, skip_push=skip_push, override_existing=override_existing, direct_push=direct_push)

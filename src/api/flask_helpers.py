@@ -246,9 +246,9 @@ def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, 
     
 # Uploads a Dockerized ML model to Google Artifact Registry
 # NOTE: image_name MUST be the same as the name used for docker build + docker save
-def upload_docker_image_to_artifact_registry(image_name: str, tarball_path: str, LOG=False, skip_push=False, override_existing=False, direct_push=False):
+def upload_docker_image_to_artifact_registry(project_id: str, zone: str, models_repo: str, image_name: str, tarball_path: str, LOG=False, skip_push=False, override_existing=False, direct_push=False):
     credentials = get_credentials()
-    return upload_docker_image_to_artifact_registry_helper(credentials.token, image_name, tarball_path, LOG=LOG, skip_push=skip_push, override_existing=override_existing, direct_push=direct_push)
+    return upload_docker_image_to_artifact_registry_helper(project_id, zone, models_repo, credentials.token, image_name, tarball_path, LOG=LOG, skip_push=skip_push, override_existing=override_existing, direct_push=direct_push)
     
 ## Connecting Compute and Registry
 # Put setup script and other metadata into instance
@@ -289,7 +289,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
         subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
                         f'--project={project_id}', 
                         f'--zone={zone}',
-                        f'--command=mkdir -p /home/{username}/images && mkdir -p /home/{username}/model_outputs && rm -rf /home/{username}/images/{dicom_series_name}'], check=True, input='\n', text=True)
+                        f'--command=mkdir -p /home/{username}/images && mkdir -p /home/{username}/model_outputs/{dicom_series_name} && rm -rf /home/{username}/images/{dicom_series_name}'], check=True, input='\n', text=True)
         # Upload
         subprocess.run(['gcloud', 'compute', 'scp',
                         f'--project={project_id}', 
@@ -358,12 +358,13 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         # subprocess.run(['mkdir', '-p', './dcm-prediction/'])
         if progress_bar_update_callback is not None:
                 progress_bar_update_callback(85)
-        os.makedirs('dcm-prediction', exist_ok=True)
+        os.makedirs(f'dcm-prediction/{dicom_series_name}', exist_ok=True)
         subprocess.run(['gcloud', 'compute', 'scp',
                         f'--project={project_id}', 
                         f'--zone={zone}',
-                        f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_name}-multiorgan-segmentation.dcm',
-                        './dcm-prediction/'])
+                        '--recurse',
+                        f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_name}/',
+                        f'./dcm-prediction/'])
         
         # Delete files on Instance
         print('Deleting unnecessary files on VM')
@@ -373,12 +374,14 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                         f'--command=rm -rf /home/{username}/images && rm -rf /home/{username}/model_outputs'], check=True, input='\n', text=True)
         
         # Stop the instance
+        print('Stopping Instance')
         stop_instance(project_id, zone, instance_name)
         
         # TODO: upload predictions to Orthanc
     except Exception as e:
         print('Something went wrong with running predictions:')
         print(e)
+        stop_instance(project_id, zone, instance_name)
         return False
     
     return True

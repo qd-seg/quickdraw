@@ -57,7 +57,7 @@ echo running with user: ${USERNAME}
 
 # The commented block above is for -d
 # Was using -d (detached) before but to be honest not sure why? Not using it for now. Might need to change later.
-docker run -e PYTHONUNBUFFERED=1 -v /home/${USERNAME}/images:/app/images -v /home/${USERNAME}/model_outputs:/app/model_outputs ${DOCKER_IMAGE_NAME} ${DICOM_IMAGE}
+docker run -e PYTHONUNBUFFERED=1 -v /home/${USERNAME}/images:/app/images -v /home/${USERNAME}/model_outputs/${DICOM_IMAGE}:/app/model_outputs/${DICOM_IMAGE} ${DOCKER_IMAGE_NAME} ${DICOM_IMAGE} --out-mask
 if [ $? -ne 0 ]; then
     echo "Something went wrong with docker run"
     exit 1

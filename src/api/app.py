@@ -127,9 +127,32 @@ def add_tracked_model_instance(model_name: str, instance_name: str):
     model_instances = read_json(filename, default_as_dict=False)
     model_instances.append({
         'model_name': model_name,
-        'instance_name': instance_name
+        'instance_name': instance_name,
+        'running': False,
     })
     write_json(filename, model_instances)
+    
+def set_tracked_model_instance_running(model_name: str, running: bool):
+    filename = _MODEL_INSTANCES_FILEPATH
+    model_instances = read_json(filename, default_as_dict=False)
+    for model_instance in model_instances:
+        if model_instance['model_name'] == model_name:
+            model_instance['running'] = running
+            print('Set model', model_name, 'to running:', running)
+            
+    write_json(filename, model_instances)
+    socketio.emit('model_instances_update')
+    
+def is_tracked_model_instance_running(model_name: str):
+    filename = _MODEL_INSTANCES_FILEPATH
+    model_instances = read_json(filename, default_as_dict=False)
+    for model_instance in model_instances:
+        print(model_instance)
+        if model_instance['model_name'] == model_name:
+            print('found', model_name, model_instance.get('running', False))
+            return model_instance.get('running', False)
+        
+    return False
     
 def remove_tracked_model_instance(model_name: str):
     filename = _MODEL_INSTANCES_FILEPATH
@@ -198,7 +221,23 @@ def list_models():
         {
             'name': d.name.split('/')[-1],
             'updateTime': d.update_time.rfc3339(),
+            'running': is_tracked_model_instance_running(d.name.split('/')[-1])
         } for d in docker_packages]}), 200
+    
+@bp.route('/isModelRunning', methods=['GET'])
+def is_model_running():
+    if request.is_json:
+        json_data = request.get_json()
+    else:
+        print('not json')
+        return jsonify({ 'message': 'Something went wrong' }), 500
+    
+    selectedModel = json_data.get('selectedModel')
+    if selectedModel is None:
+        print('no selectedModel')
+        return jsonify({ 'message': 'Please select a model' }), 400
+    
+    return jsonify({ 'running': is_tracked_model_instance_running(selectedModel) }), 200
 
 @bp.route('/setupComputeWithModel', methods=['POST'])
 def setupComputeWithModel():
@@ -228,7 +267,9 @@ def setupComputeWithModel():
     #  this means that we will also need to store the zone separately for the model, and ALSO need to try other
     #  zones in the list_instances method, and anything else that uses _ZONE
     
-    add_tracked_model_instance(selectedModel, new_instance_name)
+    if existing_instance is None:
+        add_tracked_model_instance(selectedModel, new_instance_name)
+        
     try:
         new_instance = setup_compute_instance(
             _PROJECT_ID,
@@ -286,7 +327,11 @@ def run_prediction():
     emit_update_progressbar(20)
     try:
         if (instance := get_existing_instance_for_model(selectedModel)) is not None:
+            if is_tracked_model_instance_running(selectedModel):
+                raise Exception(f'Selected model {selectedModel} already running')
+            
             print('instance not none')
+            set_tracked_model_instance_running(selectedModel, True)
             emit_update_progressbar(25)
 
             ## TODO: pull the images from Orthanc into /dicom-images/
@@ -302,6 +347,7 @@ def run_prediction():
             
             emit_update_progressbar(90)
             emit_status_update('Storing predictions...')
+            print('Storing predictions...')
             
             ## TODO: send predictions back to user or to orthanc. Note that predictions are located in /dcm-prediction/
             
@@ -309,8 +355,10 @@ def run_prediction():
             status_code = 200
             
             # TODO: maybe delete instance here? it gets paused anyway so not sure if needed
+            set_tracked_model_instance_running(selectedModel, False)
         else:
             # TODO: maybe handle this differently
+            set_tracked_model_instance_running(selectedModel, False)
             return jsonify({"message": 'Instance does not exist for model'}), 500
     # Catch any exceptions
     except Exception as e:
