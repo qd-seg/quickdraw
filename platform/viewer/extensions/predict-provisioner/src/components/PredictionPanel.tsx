@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { Button, PanelSection, ProgressLoadingBar } from '@ohif/ui';
 import { createReportAsync } from '@ohif/extension-default';
+import { DicomMetadataStore } from '@ohif/core';
+
 // import { Timestamp } from 'firebase/firestore';
 import io from 'socket.io-client';
 import { MoonLoader, BeatLoader } from 'react-spinners';
@@ -124,53 +126,57 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
           }
       };
       
-      // This function gets the IDs of the current image on the screen that corresponds to Orthanc IDs. 
-    function GetSeriesInstanceID() {
+    // This function gets the IDs of the current image on the screen that corresponds to Orthanc IDs. 
+    // Will return a JSON object with: {is_default_study: bool,patient_id: str, study_id: str, series_id: str}
+    function GetCurrentDisplayIDs() {
         try {
             // get services
             const viewportGridService = servicesManager.services.viewportGridService;
             const displaySetService = servicesManager.services.displaySetService;
             const activeViewportId = viewportGridService.getActiveViewportId()
-            const viewportState = viewportGridService.getState();
-            console.log('viewportState:', viewportState);
-        
+
             // get active displaySets
             const displaySets= displaySetService.getActiveDisplaySets();
-            console.log('displaySets:', displaySets);
-
             const currentViewportDisplaySetUID = viewportGridService.getDisplaySetsUIDsForViewport(activeViewportId)[0];
+
             // search for displaySetInstanceUID = currentViewportDisplaySetUID in displaySets array
             const currentDisplaySet = displaySets.find(displaySet => displaySet.displaySetInstanceUID === currentViewportDisplaySetUID);
-            // console.log('currentDisplaySet:', currentDisplaySet);
-            const currentSeriesInstanceUID = currentDisplaySet?.SeriesInstanceUID;
+
+            const currentStudyInstanceUID = currentDisplaySet?.StudyInstanceUID;        // get current Study Instance ID
+            const study = DicomMetadataStore.getStudy(currentStudyInstanceUID);
+
+            const currentPatientUID = study?.series[0].PatientID;                                // get current Patient ID
+            const currentSeriesInstanceUID = currentDisplaySet?.SeriesInstanceUID;      // try getting current Series Instance ID
             const currentSopInstanceUID = currentDisplaySet?.SOPInstanceUID;
-            // console.log('currentSeriesInstanceUID:', currentSeriesInstanceUID);
-            // console.log('currentSOPInstanceUID:', currentSopInstanceUID);
+            
+            // OHIF does something weird where if you don't have the segmentation loaded, you will get the correct Series Instance ID, but once you load the segmentation, it displays a "CT scan" instead of the actual seg
+            // So, if the currentSeriesInstanceUID is undefined or SOPInstanceUID is undefined, we need to get the SeriesInstanceUID from the loaded segmentation
+            if (!currentSeriesInstanceUID || !currentSopInstanceUID) {  
+                const uid = currentDisplaySet?.getUID();                                // get uid from loaded segmentation
 
-            if (!currentSeriesInstanceUID || !currentSopInstanceUID) {
-                // get uid from loaded segmentation
-                const uid = currentDisplaySet?.getUID();
-                // console.log('uid:', uid);
-                // search for referencedVolumeURI in unloaded displaySets
-                const referencedDisplaySet = displaySets.find(displaySet => displaySet.referencedVolumeURI === uid);
-
+                // search for referencedVolumeURI in unloaded displaySets and get the referenced displaySet
+                const referencedDisplaySet = displaySets.find(displaySet => displaySet.referencedVolumeURI === uid); 
+                
+                // if there are no display sets that include the referencedVolumeURI, then it is a default study / default screen with no segmentations. This is the one we should use for model predictions. 
                 if (!referencedDisplaySet) {
-                    console.log('Default Study')
-                    // console.log('SeriesInstanceUID: ', currentSeriesInstanceUID)
-                    return currentSeriesInstanceUID;
+                    return JSON.stringify({ is_default_study: true, patient_id: currentPatientUID, study_id: currentStudyInstanceUID, series_id: currentSeriesInstanceUID });
+
+                // if there is a display set that includes referencedVolumeURI, then we are looking at a CT scan with a segmentation loaded. We need to get the SeriesInstanceUID from the loaded segmentation. 
                 } else {
-                    // console.log('referencedDisplaySet:', referencedDisplaySet);
+                    // get the seriesInstanceUID and SOPInstanceUID from the referenced displaySet
                     const newSeriesInstanceUID = referencedDisplaySet?.SeriesInstanceUID;
-                    const newSopInstanceUID = referencedDisplaySet?.SOPInstanceUID;
-                    // console.log('newSeriesInstanceUID:', newSeriesInstanceUID);
-                    // console.log('newSOPInstanceUID:', newSopInstanceUID);
-                    return newSeriesInstanceUID;
-                } 
+                    // const newSopInstanceUID = referencedDisplaySet?.SOPInstanceUID;
+                    return JSON.stringify({ is_default_study: false, patient_id: currentPatientUID, study_id: currentStudyInstanceUID, series_id: newSeriesInstanceUID });
+                }
+            
+            // This is the case where we have a segmentation viewed, but not loaded. This will return the correct SeriesInstanceUID.  
             } else {
-                return currentSeriesInstanceUID;
+                
+                return JSON.stringify({ is_default_study: false, patient_id: currentPatientUID, study_id: currentStudyInstanceUID, series_id: currentSeriesInstanceUID });
             }
+
         } catch (error) {
-            console.error('Error in GetSeriesInstanceID:', error);
+            console.error('Error in GetCurrentDisplayIDs:', error);
         }
     };
 
@@ -412,7 +418,7 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                     <br />
                     <Button
                         onClick={() => {
-                            console.log(GetSeriesInstanceID());
+                            console.log(GetCurrentDisplayIDs());
                         }}
                         children={status.uploading ? 'Getting SeriesInstanceID...' : 'Get SeriesInstanceID'}
                         disabled={isActive()}
