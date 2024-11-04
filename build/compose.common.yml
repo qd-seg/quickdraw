@@ -25,7 +25,13 @@ services:
     networks:
       - public
     volumes:
+      - cache:/var/cache/broker
       - ../platform/broker/src:/usr/local/src/broker/src
+    environment:
+      - SERVICE_ACCOUNT=/run/secrets/account
+      - CACHE_DIRECTORY=/var/cache/broker
+    secrets:
+      - account
 
   viewer:
     image: viewer
@@ -64,7 +70,12 @@ services:
 volumes:
   index:
   store:
+  cache:
 
 networks:
   public:
   private:
+
+secrets:
+  account:
+    file: ${SERVICE_ACCOUNT}

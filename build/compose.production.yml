@@ -6,7 +6,8 @@ services:
 
   broker:
     image: broker
-    command: gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src --worker-class eventlet app:app
+    command:
+      gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src --worker-class eventlet app:app
     extends:
       file: compose.common.yml
       service: broker
@@ -38,7 +39,12 @@ services:
 volumes:
   index:
   store:
+  cache:
 
 networks:
   public:
   private:
+
+secrets:
+  account:
+    file: ${SERVICE_ACCOUNT}
