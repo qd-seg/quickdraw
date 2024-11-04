@@ -1,26 +1,22 @@
 {
   "private": true,
   "workspaces": [
-    "src/**"
+    "src/app/extensions/predict-provisioner",
+    "src/app/extensions/upload-core",
+    "src/app/modes/radiology-ai"
   ],
   "scripts": {
-    "init:submodules": "git submodule update --init",
-    "init:venv": "python -m venv .venv",
-    "init:declarations": "cd lib/app && tsc --declarationMap --outDir ../../types/app || true",
-    "install:python": "pip install -r src/api/requirements.txt",
-    "install:node": "yarn install && cd lib/app && yarn install --frozen-lockfile",
-    "link:modes": "cd lib/app && yarn run cli link-mode ../../src/app/modes/*",
-    "link:extensions": "cd lib/app && yarn run cli link-extension ../../src/app/extensions/*",
-    "dev:api": "cd src/api && python app.py",
-    "dev:dashboard": "cd src/dashboard && yarn run dev",
-    "dev:app": "cd lib/app && yarn run dev",
-    "build:dashboard": "cd src/dashboard && yarn run build && mkdir -p ../../dist/dashboard && mv dist/* ../../dist/dashboard",
-    "build:app": "cd lib/app && yarn run build && mkdir -p ../../dist/app && mv platform/app/dist/* ../../dist/app"
+    "start": "yarn run start:development",
+    "build:common": "docker compose -f ./build/compose.common.yml --env-file ./build/versions.env build",
+    "build:development": "yarn run build:common && docker compose -f ./build/compose.development.yml --env-file ./build/versions.env build",
+    "build:production": "yarn run build:common && docker compose -f ./build/compose.production.yml --env-file ./build/versions.env build",
+    "start:development": "docker compose -f ./build/compose.development.yml --env-file ./build/versions.env up",
+    "start:production": "docker compose -f ./build/compose.production.yml --env-file ./build/versions.env up -d",
+    "stop:production": "docker compose -f ./build/compose.production.yml --env-file ./build/versions.env stop",
+    "clean:production": "docker compose -f ./build/compose.production.yml --env-file ./build/versions.env down",
+    "clean:development": "docker compose -f ./build/compose.development.yml --env-file ./build/versions.env down"
   },
   "devDependencies": {
-    "@ohif/core": "^3.9.0-beta.101",
-    "@ohif/mode-segmentation": "^3.8.5",
-    "@ohif/ui": "^3.8.5",
     "@types/react": "^18.3.12",
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.8",
