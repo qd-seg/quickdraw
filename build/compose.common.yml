@@ -28,10 +28,12 @@ services:
       - cache:/var/cache/broker
       - ../platform/broker/src:/usr/local/src/broker/src
     environment:
-      - SERVICE_ACCOUNT=/run/secrets/account
+      - SERVICE_ACCOUNT=/run/secrets/service_account
+      - SERVICE_CONFIGURATION=/run/secrets/service_configuration
       - CACHE_DIRECTORY=/var/cache/broker
     secrets:
-      - account
+      - service_account
+      - service_configuration
 
   viewer:
     image: viewer
@@ -77,5 +79,7 @@ networks:
   private:
 
 secrets:
-  account:
+  service_account:
     file: ${SERVICE_ACCOUNT}
+  service_configuration:
+    file: ${SERVICE_CONFIGURATION}

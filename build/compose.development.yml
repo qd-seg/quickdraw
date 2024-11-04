@@ -46,5 +46,7 @@ networks:
   private:
 
 secrets:
-  account:
+  service_account:
     file: ${SERVICE_ACCOUNT}
+  service_configuration:
+    file: ${SERVICE_CONFIGURATION}
