@@ -26,8 +26,8 @@ const checkedLabelStyle = {
 };
 
 // NOTE: this is a placeholder for dev
-const urlPrefix = 'http://localhost:5421';
-// const urlPrefix = '';
+// const urlPrefix = 'http://localhost:5421';
+const urlPrefix = '';
 
 const UploadPanel = ({ servicesManager, commandsManager }) => {
     const [message, setMessage] = React.useState('');
