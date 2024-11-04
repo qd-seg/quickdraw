@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Button, PanelSection, ProgressLoadingBar } from '@ohif/ui';
+import { createReportAsync } from '@ohif/extension-default';
 // import { Timestamp } from 'firebase/firestore';
 import io from 'socket.io-client';
 import { MoonLoader, BeatLoader } from 'react-spinners';
@@ -29,7 +30,7 @@ const checkedLabelStyle = {
 // const urlPrefix = 'http://localhost:5421';
 const urlPrefix = '';
 
-const UploadPanel = ({ servicesManager, commandsManager }) => {
+const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => {
     const [message, setMessage] = React.useState('');
     const [progress, setProgress] = React.useState(0);
     const [progressBarText, setProgressBarText] = React.useState('');
@@ -68,28 +69,110 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
 
     const segmentationService = servicesManager.services.segmentationService;
 
-    // // SEGMENTATION_UPDATED event listener: echang
-    // this is the event listener for the SEGMENTATION_UPDATED event
-    // it will be triggered whenever a segmentation is updated
-    // useEffect(() => {
-    //     if (!segmentationService) return;
+    // This function exports the active segmentation and exports it to Orthanc. This is used for saving the modified mask. 
+    async function ExportAndSaveMask() {
+        try {
+            // Use segmentationService to get the ID of the active segmentation
+            const activeID = segmentationService.getActiveSegmentation()?.id;
+            if (!activeID) {
+                console.warn('No active segmentation found.');
+                return;
+            }
+            console.log('Active Segmentation:', activeID);
+    
+            // Retrieve active data sources from the extension manager
+            if (!extensionManager) {
+                console.error('Extension manager not found.');
+                return;
+            }
+            const datasources = extensionManager.getActiveDataSource();
+            if (!datasources.length) {
+                console.error('No active data sources found.');
+                return;
+            }
+            console.log('Active DataSource:', datasources);
+    
+            // Create report and retrieve displaySetInstanceUIDs
+            const displaySetInstanceUIDs = await createReportAsync({
+                servicesManager,
+                getReport: () =>
+                    commandsManager.runCommand('storeSegmentation', {
+                        segmentationId: activeID,
+                        dataSource: datasources[0],
+                    }),
+                reportType: 'Segmentation',
+            });
+    
+            if (!displaySetInstanceUIDs) {
+                console.error('Failed to obtain displaySetInstanceUIDs.');
+                return;
+            }
+    
+            // Remove the exported segmentation and set the viewport display sets
+            const viewportGridService = servicesManager.services.viewportGridService;
+            
+            segmentationService.remove(activeID);
+            viewportGridService.setDisplaySetsForViewport({
+                viewportId: viewportGridService.getActiveViewportId(),
+                displaySetInstanceUIDs,
+            });
+            console.log('DisplaySets updated:', displaySetInstanceUIDs);
+            console.log('Segmentation saved and viewport updated.');
+    
+          } catch (error) {
+              console.error('Error in ExportAndSaveMask:', error);
+          }
+      };
+      
+      // This function gets the IDs of the current image on the screen that corresponds to Orthanc IDs. 
+    function GetSeriesInstanceID() {
+        try {
+            // get services
+            const viewportGridService = servicesManager.services.viewportGridService;
+            const displaySetService = servicesManager.services.displaySetService;
+            const activeViewportId = viewportGridService.getActiveViewportId()
+            const viewportState = viewportGridService.getState();
+            console.log('viewportState:', viewportState);
+        
+            // get active displaySets
+            const displaySets= displaySetService.getActiveDisplaySets();
+            console.log('displaySets:', displaySets);
 
-    //     // Define the event handler for segmentation updates
-    //     const handleSegmentationUpdate = () => {
-    //         const activeSegmentation = segmentationService.getActiveSegmentation();
-    //         const activeSegmentationID = activeSegmentation ? activeSegmentation.id : null;
-    //         setActiveSegmentationID(activeSegmentationID);
-    //         console.log('SEGMENTATION_UPDATED event fired. Active segmentation ID:', activeSegmentationID);
-    //     };
+            const currentViewportDisplaySetUID = viewportGridService.getDisplaySetsUIDsForViewport(activeViewportId)[0];
+            // search for displaySetInstanceUID = currentViewportDisplaySetUID in displaySets array
+            const currentDisplaySet = displaySets.find(displaySet => displaySet.displaySetInstanceUID === currentViewportDisplaySetUID);
+            // console.log('currentDisplaySet:', currentDisplaySet);
+            const currentSeriesInstanceUID = currentDisplaySet?.SeriesInstanceUID;
+            const currentSopInstanceUID = currentDisplaySet?.SOPInstanceUID;
+            // console.log('currentSeriesInstanceUID:', currentSeriesInstanceUID);
+            // console.log('currentSOPInstanceUID:', currentSopInstanceUID);
 
-    //     // Subscribe to the SEGMENTATION_UPDATED event
-    //     segmentationService.subscribe(segmentationService.EVENTS.SEGMENTATION_UPDATED, handleSegmentationUpdate);
+            if (!currentSeriesInstanceUID || !currentSopInstanceUID) {
+                // get uid from loaded segmentation
+                const uid = currentDisplaySet?.getUID();
+                // console.log('uid:', uid);
+                // search for referencedVolumeURI in unloaded displaySets
+                const referencedDisplaySet = displaySets.find(displaySet => displaySet.referencedVolumeURI === uid);
 
-    //     // Cleanup: Unsubscribe when component unmounts
-    //     return () => {
-    //       segmentationService.unsubscribe(segmentationService.EVENTS.SEGMENTATION_UPDATED, handleSegmentationUpdate);
-    //     };
-    //   }, [segmentationService]);
+                if (!referencedDisplaySet) {
+                    console.log('Default Study')
+                    // console.log('SeriesInstanceUID: ', currentSeriesInstanceUID)
+                    return currentSeriesInstanceUID;
+                } else {
+                    // console.log('referencedDisplaySet:', referencedDisplaySet);
+                    const newSeriesInstanceUID = referencedDisplaySet?.SeriesInstanceUID;
+                    const newSopInstanceUID = referencedDisplaySet?.SOPInstanceUID;
+                    // console.log('newSeriesInstanceUID:', newSeriesInstanceUID);
+                    // console.log('newSOPInstanceUID:', newSopInstanceUID);
+                    return newSeriesInstanceUID;
+                } 
+            } else {
+                return currentSeriesInstanceUID;
+            }
+        } catch (error) {
+            console.error('Error in GetSeriesInstanceID:', error);
+        }
+    };
 
     // const authenticateUser = async () => {
     //     setStatus({ ...status, authenticating: true });
@@ -329,14 +412,16 @@ const UploadPanel = ({ servicesManager, commandsManager }) => {
                     <br />
                     <Button
                         onClick={() => {
-                            // use segmentationService to get the id of the active segmentation
-                            const activeID = segmentationService.getActiveSegmentation()?.id;
-                            console.log('Active Segmentation:', activeID);
+                            console.log(GetSeriesInstanceID());
+                        }}
+                        children={status.uploading ? 'Getting SeriesInstanceID...' : 'Get SeriesInstanceID'}
+                        disabled={isActive()}
+                    />
 
-                            // downloads to local downloads folder by calling downloadSegmentation command through commandsManager
-                            commandsManager.runCommand('downloadSegmentation', {
-                                segmentationId: activeID,
-                            });
+                    <br />
+                    <Button
+                        onClick={() => {
+                            ExportAndSaveMask();
                         }}
                         children={status.uploading ? 'Saving...' : 'Save Modified Mask'}
                         disabled={isActive()}
