@@ -124,5 +124,6 @@ cache
 # !!Temporary!!
 venv
 serviceAccountKeys.json
+flaskVars.json
 dcm-prediction
 dicom-images

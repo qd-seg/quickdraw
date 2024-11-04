@@ -23,15 +23,27 @@ app = Flask(__name__)
 # def index():
 #     return ({}, 200)
 
-load_dotenv(override=True)
-_INSTANCE_LIMIT = 1
-_PROJECT_ID = os.getenv('PROJECT_ID')
-_ZONE = os.getenv('ZONE')
+env_vars = read_json('flaskVars.json')
+_SERVICE_ACCOUNT_KEYS = env_vars['serviceAccountKeys']
+_KEY_FILE = 'serviceAccountKeys.json'
+write_json(_KEY_FILE, _SERVICE_ACCOUNT_KEYS)
+_PROJECT_ID = _SERVICE_ACCOUNT_KEYS['project_id']
+_ZONE = env_vars['zone']
 _REGION = '-'.join(_ZONE.split('-')[:-1])
-_MACHINE_TYPE = os.getenv('MACHINE_TYPE')
-_SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
-_KEY_FILE = os.getenv('KEY_FILE')
-_REPOSITORY = os.getenv('REPOSITORY')
+_MACHINE_TYPE = env_vars['machineType']
+_REPOSITORY = env_vars['repository']
+_SERVICE_ACCOUNT_EMAIL = _SERVICE_ACCOUNT_KEYS['client_email']
+_INSTANCE_LIMIT = 1
+
+# load_dotenv(override=True)
+# _INSTANCE_LIMIT = 1
+# _PROJECT_ID = os.getenv('PROJECT_ID')
+# _ZONE = os.getenv('ZONE')
+# _REGION = '-'.join(_ZONE.split('-')[:-1])
+# _MACHINE_TYPE = os.getenv('MACHINE_TYPE')
+# _SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
+# _KEY_FILE = os.getenv('KEY_FILE')
+# _REPOSITORY = os.getenv('REPOSITORY')
 
 _MODEL_INSTANCES_FILEPATH = 'model_instances/model_instances.json'
 
@@ -277,7 +289,7 @@ def setupComputeWithModel():
             new_instance_name,
             _MACHINE_TYPE,
             _INSTANCE_LIMIT,
-            _SERVICE_ACCOUNT,
+            _SERVICE_ACCOUNT_EMAIL,
             selectedModel,
             _REPOSITORY,
         )
@@ -343,7 +355,7 @@ def run_prediction():
             
             emit_update_progressbar(35)
             emit_status_update('Running predictions...')
-            run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT, _KEY_FILE, selectedDicomSeries, instance.name, progress_bar_update_callback=emit_update_progressbar)
+            run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT_EMAIL, _KEY_FILE, selectedDicomSeries, instance.name, progress_bar_update_callback=emit_update_progressbar)
             
             emit_update_progressbar(90)
             emit_status_update('Storing predictions...')

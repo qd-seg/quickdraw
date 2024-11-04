@@ -390,15 +390,26 @@ if __name__ == '__main__':
     # credentials = get_credentials(_KEY_FILE)
     # compute_client = get_compute_client(credentials)
     # setup_model_compute('asdf', None)
-    load_dotenv(override=True)
-    _INSTANCE_LIMIT = 1
-    _PROJECT_ID = os.getenv('PROJECT_ID')
-    _ZONE = os.getenv('ZONE')
+    # load_dotenv(override=True)
+    # _INSTANCE_LIMIT = 1
+    # _PROJECT_ID = os.getenv('PROJECT_ID')
+    # _ZONE = os.getenv('ZONE')
+    # _REGION = '-'.join(_ZONE.split('-')[:-1])
+    # _MACHINE_TYPE = os.getenv('MACHINE_TYPE')
+    # _SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
+    # _KEY_FILE = os.getenv('KEY_FILE')
+    # _REPOSITORY = os.getenv('REPOSITORY')
+    env_vars = read_json('flaskVars.json')
+    _SERVICE_ACCOUNT_KEYS = env_vars['serviceAccountKeys']
+    _KEY_FILE = 'serviceAccountKeys.json'
+    write_json(_KEY_FILE, _SERVICE_ACCOUNT_KEYS)
+    _PROJECT_ID = _SERVICE_ACCOUNT_KEYS['project_id']
+    _ZONE = env_vars['zone']
     _REGION = '-'.join(_ZONE.split('-')[:-1])
-    _MACHINE_TYPE = os.getenv('MACHINE_TYPE')
-    _SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
-    _KEY_FILE = os.getenv('KEY_FILE')
-    _REPOSITORY = os.getenv('REPOSITORY')
+    _MACHINE_TYPE = env_vars['machineType']
+    _REPOSITORY = env_vars['repository']
+    _SERVICE_ACCOUNT_EMAIL = _SERVICE_ACCOUNT_KEYS['client_email']
+    _INSTANCE_LIMIT = 1
 
     auth_with_key_file_json(_KEY_FILE)
     
@@ -426,6 +437,6 @@ if __name__ == '__main__':
     COMPUTE_INSTANCE_NAME = instance.name
     print(COMPUTE_INSTANCE_NAME)
     
-    run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT, _KEY_FILE, f'{DICOM_SERIES_TO_PREDICT}', COMPUTE_INSTANCE_NAME, skip_predictions=False)
+    run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT_EMAIL, _KEY_FILE, f'{DICOM_SERIES_TO_PREDICT}', COMPUTE_INSTANCE_NAME, skip_predictions=False)
     
     # print(get_instance_ip_address(instance, IPType.EXTERNAL))
