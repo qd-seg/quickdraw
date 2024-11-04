@@ -492,4 +492,4 @@ else:
     print('Not running through main, no prefixes for routes')
     clear_unused_instances()
     app.register_blueprint(bp)
-    socketio.run(app, debug=True)
+    # socketio.run(app, debug=True)
