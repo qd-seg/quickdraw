@@ -20,9 +20,9 @@ services:
       file: compose.common.yml
       service: viewer
     volumes:
-      - ./platform/viewer/extensions/predict-provisioner/src:/usr/local/src/extensions/predict-provisioner/src
-      - ./platform/viewer/extensions/upload-core/src:/usr/local/src/extensions/upload-core/src
-      - ./platform/viewer/modes/radiology-ai/src:/usr/local/src/modes/radiology-ai/src
+      - ../platform/viewer/extensions/predict-provisioner/src:/usr/local/src/extensions/predict-provisioner/src
+      - ../platform/viewer/extensions/upload-core/src:/usr/local/src/extensions/upload-core/src
+      - ../platform/viewer/modes/radiology-ai/src:/usr/local/src/modes/radiology-ai/src
     ports:
       - 3000:3000
 

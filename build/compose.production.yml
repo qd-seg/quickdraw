@@ -14,8 +14,8 @@ services:
   viewer:
     image: static
     build:
-      dockerfile: ./build/directives/production/viewer.dockerfile
-      context: .
+      dockerfile: ../directives/production/viewer.dockerfile
+      context: ../
       args:
         - ALPINE_VERSION=${ALPINE_VERSION}
         - NGINX_VERSION=${NGINX_VERSION}
@@ -23,7 +23,7 @@ services:
       file: compose.common.yml
       service: viewer
     volumes:
-      - ./build/configuration/nginx/static.conf:/etc/nginx/conf.d/default.conf
+      - ./configuration/nginx/static.conf:/etc/nginx/conf.d/default.conf
 
   postgresql:
     extends:
