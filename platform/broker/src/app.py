@@ -17,6 +17,8 @@ from flask_helpers import (
 )
 from gcloud_auth import auth_with_key_file_json
 from werkzeug.middleware.proxy_fix import ProxyFix
+from orthanc_get import getRTStructs
+
 app = Flask(__name__)
 
 # @bp.route("/")
@@ -412,6 +414,27 @@ def deleteModel():
         status_code = 500
     emit_status_update(message)
     return jsonify({"message": message}), status_code
+
+
+@bp.route('/getDICEScores', methods=['POST'])
+def getDICEScores():
+    # Extract the selected model name
+    if request.is_json:
+        json_data = request.get_json()
+    else:
+        print('not json')
+        return jsonify({ 'message': 'Something went wrong' }), 500
+
+    patient_id = json_data.get('patient_id')
+    study_id = json_data.get('patient_id')
+    if patient_id is None or study_id is None:
+        print('no selectedModel')
+        return jsonify({ 'message': 'Please select a model' }), 400
+
+    score_dict = getRTStructs(patient_id,study_id)
+
+    return jsonify(score_dict), 200
+
 
 # This setup is intended to prefix all routes to /api/{...} when running in development mode,
 # since in production, there is a reverse proxy that serves these routes at /api
