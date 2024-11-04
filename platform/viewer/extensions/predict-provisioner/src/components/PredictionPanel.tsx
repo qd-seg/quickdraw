@@ -127,7 +127,7 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
       };
       
     // This function gets the IDs of the current image on the screen that corresponds to Orthanc IDs. 
-    // Will return a JSON object with: {isDefaultStudy: bool,patientID: str, studyInstanceUID: str, seriesInstanceUID: str}
+    // Will return a JSON object with: {is_default_study: bool,patient_id: str, study_id: str, series_id: str}
     function GetCurrentDisplayIDs() {
         try {
             // get services
@@ -159,20 +159,20 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                 
                 // if there are no display sets that include the referencedVolumeURI, then it is a default study / default screen with no segmentations. This is the one we should use for model predictions. 
                 if (!referencedDisplaySet) {
-                    return JSON.stringify({ isDefaultStudy: true, boolpatientID: currentPatientUID, studyInstanceUID: currentStudyInstanceUID, seriesInstanceUID: currentSeriesInstanceUID });
+                    return JSON.stringify({ is_default_study: true, patient_id: currentPatientUID, study_id: currentStudyInstanceUID, series_id: currentSeriesInstanceUID });
 
                 // if there is a display set that includes referencedVolumeURI, then we are looking at a CT scan with a segmentation loaded. We need to get the SeriesInstanceUID from the loaded segmentation. 
                 } else {
                     // get the seriesInstanceUID and SOPInstanceUID from the referenced displaySet
                     const newSeriesInstanceUID = referencedDisplaySet?.SeriesInstanceUID;
                     // const newSopInstanceUID = referencedDisplaySet?.SOPInstanceUID;
-                    return JSON.stringify({ isDefaultStudy: false, patientID: currentPatientUID, studyInstanceUID: currentStudyInstanceUID, seriesInstanceUID: newSeriesInstanceUID });
+                    return JSON.stringify({ is_default_study: false, patient_id: currentPatientUID, study_id: currentStudyInstanceUID, series_id: newSeriesInstanceUID });
                 }
             
             // This is the case where we have a segmentation viewed, but not loaded. This will return the correct SeriesInstanceUID.  
             } else {
                 
-                return JSON.stringify({ isDefaultStudy: false, patientID: currentPatientUID, studyInstanceUID: currentStudyInstanceUID, seriesInstanceUID: currentSeriesInstanceUID });
+                return JSON.stringify({ is_default_study: false, patient_id: currentPatientUID, study_id: currentStudyInstanceUID, series_id: currentSeriesInstanceUID });
             }
 
         } catch (error) {
