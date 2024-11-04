@@ -17,8 +17,8 @@ services:
   broker:
     image: broker
     build:
-      dockerfile: ./directives/common/broker.dockerfile
-      context: ../
+      dockerfile: ./build/directives/common/broker.dockerfile
+      context: ..
       args:
         - ALPINE_VERSION=${ALPINE_VERSION}
         - PYTHON_VERSION=${PYTHON_VERSION}
@@ -30,8 +30,8 @@ services:
   viewer:
     image: viewer
     build:
-      dockerfile: ./directives/common/viewer.dockerfile
-      context: ../
+      dockerfile: ./build/directives/common/viewer.dockerfile
+      context: ..
       args:
         - ALPINE_VERSION=${ALPINE_VERSION}
         - NODE_VERSION=${NODE_VERSION}

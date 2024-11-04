@@ -1,7 +1,7 @@
 ARG ALPINE_VERSION
 ARG PYTHON_VERSION
 
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} as compile
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS compile
 
 RUN apk update
 RUN apk add --no-cache curl bash gcc libc6-compat
@@ -14,7 +14,7 @@ RUN rm -f google-cloud-cli-linux-x86_64.tar.gz
 
 RUN /usr/local/src/gcloud/install.sh
 
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} as serve
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS serve
 
 RUN apk update
 RUN apk add --no-cache g++

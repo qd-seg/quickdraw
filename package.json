@@ -7,14 +7,14 @@
   ],
   "scripts": {
     "start": "yarn run start:development",
-    "build:common": "docker compose -f ./build/compose.common.yml --env-file ./build/versions.env build",
-    "build:development": "yarn run build:common && docker compose -f ./build/compose.development.yml --env-file ./build/versions.env build",
-    "build:production": "yarn run build:common && docker compose -f ./build/compose.production.yml --env-file ./build/versions.env build",
-    "start:development": "docker compose -f ./build/compose.development.yml --env-file ./build/versions.env up",
-    "start:production": "docker compose -f ./build/compose.production.yml --env-file ./build/versions.env up -d",
-    "stop:production": "docker compose -f ./build/compose.production.yml --env-file ./build/versions.env stop",
-    "clean:production": "docker compose -f ./build/compose.production.yml --env-file ./build/versions.env down",
-    "clean:development": "docker compose -f ./build/compose.development.yml --env-file ./build/versions.env down"
+    "build:common": "docker compose -f ./build/compose.common.yml --env-file ./build/configuration/versions.env build",
+    "build:development": "yarn run build:common && docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env build",
+    "build:production": "yarn run build:common && docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env build",
+    "start:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env up",
+    "start:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env up -d",
+    "stop:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env stop",
+    "clean:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env down",
+    "clean:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env down"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

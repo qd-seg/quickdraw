@@ -14,7 +14,7 @@ services:
   viewer:
     image: static
     build:
-      dockerfile: ../directives/production/viewer.dockerfile
+      dockerfile: ./build/directives/production/viewer.dockerfile
       context: ../
       args:
         - ALPINE_VERSION=${ALPINE_VERSION}
