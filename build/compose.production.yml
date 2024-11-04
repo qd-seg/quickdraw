@@ -1,0 +1,44 @@
+services:
+  surrogate:
+    extends:
+      file: compose.common.yml
+      service: surrogate
+
+  broker:
+    image: broker
+    command: gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src app:app
+    extends:
+      file: compose.common.yml
+      service: broker
+
+  viewer:
+    image: static
+    build:
+      dockerfile: ../directives/production/viewer.dockerfile
+      context: ../
+      args:
+        - ALPINE_VERSION=${ALPINE_VERSION}
+        - NGINX_VERSION=${NGINX_VERSION}
+    extends:
+      file: compose.common.yml
+      service: viewer
+    volumes:
+      - ./configuration/nginx/static.conf:/etc/nginx/conf.d/default.conf
+
+  postgresql:
+    extends:
+      file: compose.common.yml
+      service: postgresql
+
+  orthanc:
+    extends:
+      file: compose.common.yml
+      service: orthanc
+
+volumes:
+  index:
+  store:
+
+networks:
+  public:
+  private:

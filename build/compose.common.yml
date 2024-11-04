@@ -1,0 +1,70 @@
+services:
+  surrogate:
+    image: nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}
+    depends_on:
+      - broker
+      - viewer
+      - postgresql
+      - orthanc
+    networks:
+      - public
+    volumes:
+      - ./configuration/nginx/surrogate.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - 80:80
+      - 443:443
+
+  broker:
+    image: broker
+    build:
+      dockerfile: ./directives/common/broker.dockerfile
+      context: ../
+      args:
+        - ALPINE_VERSION=${ALPINE_VERSION}
+        - PYTHON_VERSION=${PYTHON_VERSION}
+    networks:
+      - public
+    volumes:
+      - ../platform/broker/src:/usr/local/src/broker/src
+
+  viewer:
+    image: viewer
+    build:
+      dockerfile: ./directives/common/viewer.dockerfile
+      context: ../
+      args:
+        - ALPINE_VERSION=${ALPINE_VERSION}
+        - NODE_VERSION=${NODE_VERSION}
+        - VIEWER_VERSION=${VIEWER_VERSION}
+    networks:
+      - public
+    volumes:
+      - ./configuration/viewer/default.js:/usr/local/src/viewer/platform/app/public/config/default.js
+
+  postgresql:
+    image: postgres:${POSTGRESQL_VERSION}
+    networks:
+      - private
+    volumes:
+      - index:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+
+  orthanc:
+    image: orthancteam/orthanc:${ORTHANC_VERSION}
+    depends_on:
+      - postgresql
+    networks:
+      - public
+      - private
+    volumes:
+      - store:/var/lib/orthanc/db
+      - ./configuration/orthanc/default.json:/etc/orthanc/default.json
+
+volumes:
+  index:
+  store:
+
+networks:
+  public:
+  private:
