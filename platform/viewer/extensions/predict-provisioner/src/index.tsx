@@ -6,7 +6,7 @@ import PredictionPanel from './components/PredictionPanel';
 const extension = {
   id,
 
-  getPanelModule: ({ servicesManager, commandsManager }) => {
+  getPanelModule: ({ servicesManager, commandsManager, extensionManager }) => {
     return [
       {
         name: 'predict',
@@ -15,7 +15,7 @@ const extension = {
         label: 'Predict',
         component: () => {
           return (
-            <PredictionPanel servicesManager={servicesManager} commandsManager={commandsManager} />
+            <PredictionPanel servicesManager={servicesManager} commandsManager={commandsManager} extensionManager={extensionManager}/>
           );
         },
       },
