@@ -4,7 +4,7 @@
   "AuthenticationEnabled": false,
   "RemoteAccessAllowed": true,
 
-  "HttpPort": 3000,
+  "HttpPort": 80,
   "RestApiWriteToFileSystemEnabled": true,
 
   "OrthancExplorer2": {

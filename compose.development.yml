@@ -1,0 +1,45 @@
+services:
+  surrogate:
+    extends:
+      file: compose.common.yml
+      service: surrogate
+
+  broker:
+    image: broker
+    command: gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src --reload app:app
+    extends:
+      file: compose.common.yml
+      service: broker
+
+  viewer:
+    image: viewer
+    command:
+      sh -c "cd /usr/local/src/viewer/platform/app && npx cross-env NODE_ENV=development webpack
+      serve --config .webpack/webpack.pwa.js --port=80"
+    extends:
+      file: compose.common.yml
+      service: viewer
+    volumes:
+      - ./platform/viewer/extensions/predict-provisioner/src:/usr/local/src/extensions/predict-provisioner/src
+      - ./platform/viewer/extensions/upload-core/src:/usr/local/src/extensions/upload-core/src
+      - ./platform/viewer/modes/radiology-ai/src:/usr/local/src/modes/radiology-ai/src
+    ports:
+      - 3000:3000
+
+  postgresql:
+    extends:
+      file: compose.common.yml
+      service: postgresql
+
+  orthanc:
+    extends:
+      file: compose.common.yml
+      service: orthanc
+
+volumes:
+  index:
+  store:
+
+networks:
+  public:
+  private:

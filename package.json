@@ -5,9 +5,18 @@
     "src/app/extensions/upload-core",
     "src/app/modes/radiology-ai"
   ],
+  "scripts": {
+    "start": "yarn run start:development",
+    "build:common": "docker compose -f compose.common.yml --env-file versions.env build",
+    "build:development": "yarn run build:common && docker compose -f compose.development.yml --env-file versions.env build",
+    "build:production": "yarn run build:common && docker compose -f compose.production.yml --env-file versions.env build",
+    "start:development": "docker compose -f compose.development.yml --env-file versions.env up",
+    "start:production": "docker compose -f compose.production.yml --env-file versions.env up -d",
+    "stop:production": "docker compose -f compose.production.yml --env-file versions.env stop",
+    "clean:production": "docker compose -f compose.production.yml --env-file versions.env down",
+    "clean:development": "docker compose -f compose.development.yml --env-file versions.env down"
+  },
   "devDependencies": {
-    "@ohif/core": "^3.9.0-beta.101",
-    "@ohif/ui": "^3.8.5",
     "@types/react": "^18.3.12",
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.8",

@@ -1,7 +1,6 @@
 services:
   surrogate:
     image: nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}
-    restart: unless-stopped
     depends_on:
       - broker
       - viewer
@@ -40,14 +39,10 @@ services:
     networks:
       - public
     volumes:
-      - ./platform/viewer/extensions/predict-provisioner/src:/usr/local/src/extensions/predict-provisioner/src
-      - ./platform/viewer/extensions/upload-core/src:/usr/local/src/extensions/upload-core/src
-      - ./platform/viewer/modes/radiology-ai/src:/usr/local/src/modes/radiology-ai/src
       - ./build/configuration/viewer/default.js:/usr/local/src/viewer/platform/app/public/config/default.js
 
   postgresql:
     image: postgres:${POSTGRESQL_VERSION}
-    restart: unless-stopped
     networks:
       - private
     volumes:
@@ -57,7 +52,6 @@ services:
 
   orthanc:
     image: orthancteam/orthanc:${ORTHANC_VERSION}
-    restart: unless-stopped
     depends_on:
       - postgresql
     networks:
