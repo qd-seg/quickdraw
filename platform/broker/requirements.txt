@@ -7,3 +7,6 @@ google-auth
 python-dotenv
 flask-cors
 flask-socketio
+pyorthanc
+rt_utils
+numpy
