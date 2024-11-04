@@ -7,3 +7,4 @@ google-auth
 python-dotenv
 flask-cors
 flask-socketio
+eventlet

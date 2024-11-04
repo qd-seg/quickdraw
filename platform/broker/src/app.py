@@ -117,10 +117,16 @@ def clear_unused_instances():
     model_instances = read_json(filename, default_as_dict=False)
     used_instance_names = [m['instance_name'] for m in model_instances]
     compute_instances = list_instances(_PROJECT_ID, _ZONE)
+    remaining_instances = []
     for instance in compute_instances:
-        if instance.name not in used_instance_names:
+        if instance.name in used_instance_names:
+            remaining_instances.append(instance)
+        else:
             print(' Deleting', instance.name)
             delete_instance(_PROJECT_ID, _ZONE, instance.name)
+            
+    write_json(filename, remaining_instances)
+            
     
 def get_existing_instance_for_model(model_name: str):
     '''Get the Instance associated with a model name, or None if it does not exist'''
@@ -475,6 +481,7 @@ def deleteModel():
 
 # This setup is intended to prefix all routes to /api/{...} when running in development mode,
 # since in production, there is a reverse proxy that serves these routes at /api
+# NOTE: this should never really be run unless manually testing only the flask side
 if __name__ == "__main__":
     print('Running through main, prefixing routes with /api')
     app.register_blueprint(bp, url_prefix='/api')
