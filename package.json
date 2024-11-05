@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "start": "yarn run start:development",
-    "install:python": "pip install -r ./platform/broker/requirement.txt",
+    "install:python": "pip install -r ./platform/broker/requirements.txt",
     "install:nodejs": "yarn install",
     "build:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env build",
     "build:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env build",
