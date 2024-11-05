@@ -111,7 +111,7 @@ def emit_update_progressbar(value):
  
 def clear_unused_instances():
     '''Removes all Compute instances that do not have an existing model associated with them'''
-    
+    ## TODO: should also look at non-running instances and set running to false
     print('Clearing unused instances...')
     filename = _MODEL_INSTANCES_FILEPATH
     model_instances = read_json(filename, default_as_dict=False)
@@ -120,12 +120,14 @@ def clear_unused_instances():
     remaining_instances = []
     for instance in compute_instances:
         if instance.name in used_instance_names:
-            remaining_instances.append(instance)
+            remaining_instances.append([m for m in model_instances if m['instance_name'] == instance.name][0])
         else:
             print(' Deleting', instance.name)
-            delete_instance(_PROJECT_ID, _ZONE, instance.name)
+            # TODO: temp: don't delete for now while debugging
+            # delete_instance(_PROJECT_ID, _ZONE, instance.name)
             
     write_json(filename, remaining_instances)
+    print('done clearing', flush=True)
             
     
 def get_existing_instance_for_model(model_name: str):
@@ -361,7 +363,9 @@ def run_prediction():
             
             emit_update_progressbar(35)
             emit_status_update('Running predictions...')
-            run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT_EMAIL, _KEY_FILE, selectedDicomSeries, instance.name, progress_bar_update_callback=emit_update_progressbar)
+            ran_preds = run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT_EMAIL, _KEY_FILE, selectedDicomSeries, instance.name, progress_bar_update_callback=emit_update_progressbar)
+            if not ran_preds:
+                raise Exception('Predictions failed')
             
             emit_update_progressbar(90)
             emit_status_update('Storing predictions...')

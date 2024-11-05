@@ -6,7 +6,7 @@ services:
 
   broker:
     image: broker
-    command: gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src --worker-class eventlet --reload app:app
+    command: gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src --worker-class eventlet -w 1 --worker-class eventlet --log-level debug --capture-output --reload app:app
     extends:
       file: compose.common.yml
       service: broker

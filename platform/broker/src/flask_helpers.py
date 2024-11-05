@@ -13,8 +13,8 @@ from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 
 # _USERNAME = os.environ.get('USER')
 _USERNAME = 'cmsc435'
-_MAX_TIMEOUT_NORMAL_REQUEST = 60
-_MAX_TIMEOUT_COMPUTE_REQUEST = 360
+_MAX_TIMEOUT_NORMAL_REQUEST = 90
+_MAX_TIMEOUT_COMPUTE_REQUEST = 640
 
 def read_json(filename, default_as_dict=True) -> Union[List, dict]:
     """Reads a JSON file and returns its content."""
@@ -289,6 +289,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
         subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
                         f'--project={project_id}', 
                         f'--zone={zone}',
+                        '--quiet',
                         f'--command=mkdir -p /home/{username}/images && mkdir -p /home/{username}/model_outputs/{dicom_series_name} && rm -rf /home/{username}/images/{dicom_series_name}'], check=True, input='\n', text=True)
         # Upload
         subprocess.run(['gcloud', 'compute', 'scp',
@@ -299,6 +300,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
                         f'{username}@{instance_name}:/home/{username}/images/{dicom_series_name}'], check=True)
     except Exception as e:
         print('DICOM upload failed')
+        print(e, flush=True)
         return False
     
     return True
@@ -380,7 +382,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         # TODO: upload predictions to Orthanc
     except Exception as e:
         print('Something went wrong with running predictions:')
-        print(e)
+        print(e, flush=True)
         stop_instance(project_id, zone, instance_name)
         return False
     

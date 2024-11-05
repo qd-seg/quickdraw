@@ -303,6 +303,7 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                 console.error(err);
             })
             .finally(() => {
+                console.log(status);
                 setStatus({ ...status, loadingModels: false });
             });
     };
@@ -333,7 +334,8 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
         const sock = io(`${urlPrefix}`, { path: '/api/socket.io' });
 
         sock.on('progress_update', (data) => {
-            // console.log(data);
+            console.log('progress');
+            console.log(data);
             setProgress(data?.value || 0);
         });
 

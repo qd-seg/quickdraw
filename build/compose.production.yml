@@ -6,7 +6,9 @@ services:
 
   broker:
     image: broker
-    command: gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src --worker-class eventlet app:app
+    command: gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src -w 1 app:app
+    environment:
+      - PYTHONUNBUFFERED=1
     extends:
       file: compose.common.yml
       service: broker
