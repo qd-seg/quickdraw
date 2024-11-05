@@ -1,4 +1,5 @@
 grpcio
+setuptools
 Flask==3.0.2
 gunicorn==22.0.0
 google-cloud-compute
@@ -11,7 +12,6 @@ pyorthanc
 rt_utils
 numpy
 pydicom
-cv2
+opencv-python
 highdicom
-requests
 eventlet
