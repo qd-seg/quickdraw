@@ -4,27 +4,46 @@ import os
 import shutil
 from dice_score_get import get_DICE_score
 
-def getRTStructs(patient_id,study_id):
+def getRTStructs(patient_id,study_UID,series_UID):
     #orthanc_url = 'http://localhost:8042'
     orthanc_url = "http://localhost/store"
     orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
-    patient = pyorthanc.Patient(patient_id,orthanc)
-    #study_id = patient.get_main_information()["Studies"][0] #JUST FOR TESTING
-    study = pyorthanc.Study(study_id,orthanc).get_main_information()
-    study_folder_name = study["MainDicomTags"]["StudyDescription"]
-    DICOM_file_modality = orthanc.get_series_id(study['Series'][0])["MainDicomTags"]["Modality"]#Assumes that the dicom is the first series in the array 
-   
 
-    #start = os.path.dirname(os.path.realpath(__file__))
-    start = "."#current file directory
-    print("hello:",start)
-    patient.download('patient.zip', with_progres=False)
+    patient_file_id = pyorthanc.find_patients(orthanc,query={'PatientID': patient_id})[0]#there should only be one
+    patient = pyorthanc.Patient(patient_file_id.get_main_information()["ID"],orthanc)
+
+    study = pyorthanc.find_studies(orthanc, query={"StudyInstanceUID" : study_UID})[0]#there should only be one study
+    study_info = study.get_main_information()
+    study_folder_name = study_info["MainDicomTags"]["StudyDescription"]
+
+    series_IDs = study_info["Series"]
+
+    dicom_images_order_num = None #will be the order of it's downloaded folder 
+    ground_truth_order_num = None #will be the order of it's downloaded folder 
+    predicted_mask_order_num = None #will be the order of it's downloaded folder 
+    for i in range(len(series_IDs)):
+        file = pyorthanc.Series(series_IDs[i],orthanc)
+        file_info = file.get_main_information()
+        if "CT" == file_info["MainDicomTags"]["Modality"]: #CT is the dicom image series
+            dicom_images_order_num = i
+        
+        if "ground_truth" in file.labels: #ground truth series
+            ground_truth_order_num = i
+
+        if file_info["MainDicomTags"]["SeriesInstanceUID"] == series_UID:
+            predicted_mask_order_num = i
+        
+    if dicom_images_order_num == None or ground_truth_order_num == None or predicted_mask_order_num == None:
+        return {}#FAILURE   
+
+    start = os.path.dirname(os.path.realpath(__file__))
+    patient.download(start+'/patient.zip', with_progres=False)
     with zipfile.ZipFile(start+'/patient.zip', 'r') as zip_ref:
         zip_ref.extractall(start)
-    
-    
-    first_folder = patient.get_main_information()["MainDicomTags"]["PatientName"]
-    first_folder = first_folder + " "+first_folder
+      
+    patient_name = patient.get_main_information()["MainDicomTags"]["PatientName"]
+    patient_id = patient.get_main_information()["MainDicomTags"]["PatientID"]
+    first_folder = patient_name + " " + patient_id
     study_dir = start+"/"+first_folder +"/"+study_folder_name
 
     DICOM_dir = study_dir
@@ -32,16 +51,11 @@ def getRTStructs(patient_id,study_id):
     RTSTRUCT2 = study_dir
     
     folders = os.listdir(study_dir)
-    for i in range(len(folders)):
-        if DICOM_file_modality in folders[i]:
-            DICOM_dir += "/"+folders[i]
-            folders.pop(i)
-            break
-    RTSTRUCT1 += "/"+folders[0]
-    RTSTRUCT1 += "/" + os.listdir(RTSTRUCT1)[0]
-    RTSTRUCT2 += "/"+folders[1]
-    RTSTRUCT2 += "/" + os.listdir(RTSTRUCT2)[0]
-    
+    DICOM_dir += "/"+folders[dicom_images_order_num]
+    RTSTRUCT1 += "/"+folders[ground_truth_order_num]
+    RTSTRUCT1 += "/" + os.listdir(RTSTRUCT1)[dicom_images_order_num]
+    RTSTRUCT2 += "/"+folders[predicted_mask_order_num]
+    RTSTRUCT2 += "/" + os.listdir(RTSTRUCT2)[dicom_images_order_num]
     
     dice_list = get_DICE_score(DICOM_dir,RTSTRUCT1,RTSTRUCT2)
 

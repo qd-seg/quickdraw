@@ -18,6 +18,7 @@ from flask_helpers import (
 from gcloud_auth import auth_with_key_file_json
 from werkzeug.middleware.proxy_fix import ProxyFix
 from orthanc_get import getRTStructs
+import orthanc_functions
 
 app = Flask(__name__)
 
@@ -418,7 +419,6 @@ def deleteModel():
 
 @bp.route('/getDICEScores', methods=['POST'])
 def getDICEScores():
-    # Extract the selected model name
     if request.is_json:
         json_data = request.get_json()
     else:
@@ -426,14 +426,51 @@ def getDICEScores():
         return jsonify({ 'message': 'Something went wrong' }), 500
 
     patient_id = json_data.get('patient_id')
-    study_id = json_data.get('patient_id')
-    if patient_id is None or study_id is None:
-        print('no selectedModel')
-        return jsonify({ 'message': 'Please select a model' }), 400
+    study_UID = json_data.get('study_UID')
+    series_UID = json_data.get('series_UID')
+    if patient_id is None or study_UID is None or series_UID is None:
+        return jsonify({ 'message': 'Need ID\'s' }), 400
 
-    score_dict = getRTStructs(patient_id,study_id)
+    score_dict = getRTStructs(patient_id,study_UID,series_UID)
 
     return jsonify(score_dict), 200
+
+
+@bp.route('/getGroundTruthSeries', methods=['POST'])
+def getGroundTruthSeries():
+    if request.is_json:
+        json_data = request.get_json()
+    else:
+        print('not json')
+        return jsonify({ 'message': 'Something went wrong' }), 500
+    
+    study_UID = json_data.get('study_UID')
+    if study_UID is None:
+        return jsonify({ 'message': 'Need ID\'s' }), 400
+
+    truth_list = orthanc_functions.get_tags(study_UID)
+    
+    return jsonify({"truth_list":truth_list}), 200
+
+
+@bp.route('/switchTruthLabel', methods=['POST'])
+def switchTruthLabel():
+    if request.is_json:
+        json_data = request.get_json()
+    else:
+        print('not json')
+        return jsonify({ 'message': 'Something went wrong' }), 500
+    
+    series_UID = json_data.get('series_UID')
+    if series_UID is None:
+        return jsonify({ 'message': 'Need ID\'s' }), 400
+
+    orthanc_functions.change_tags(series_UID)
+    
+    return jsonify({"message":"success"}), 200
+
+
+
 
 
 # This setup is intended to prefix all routes to /api/{...} when running in development mode,
