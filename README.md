@@ -2,13 +2,56 @@
 
 ### Requirements:
 
+- [Python 3.10.13](https://www.python.org/downloads/)
+- [Node 20.9.0](https://nodejs.org/en/download/)
 - [Yarn 1.22.22](https://classic.yarnpkg.com/en/docs/install/)
-- [Docker 27.2.0]("https://docs.docker.com/engine/install/")
+- [Docker 27.2.0](https://docs.docker.com/engine/install/)
 
 While the necessary tooling can be installed manually, it is recommended to simply install these
 tools with similar versions in order to streamline both the development and deployment processes.
 
 ### Environment Setup:
+
+#### Create a Python Virtual Environment
+
+A virutal environment will create will allow for sandboxed installation of packages, avoiding
+version conflicts with packages which may have already been installed.
+
+```
+> python3 -m venv .venv
+```
+
+#### Activate the Virtual Environment
+
+This process is dependent on the operating system and shell of the development environment.
+
+##### Linux and MacOS
+
+```
+> source .venv/bin/activate
+```
+
+##### Windows CMD
+
+```
+> .venv\Scripts\activate.bat
+```
+
+##### Windows PowerShell
+
+```
+> .venv\Scripts\activate.ps1
+```
+
+Note that the virtual environment must be activated any time a new shell is created.
+
+#### Install Python Libraries
+
+Install the necessary Python libraries to the virtual environment.
+
+```
+> yarn run install:python
+```
 
 #### Install NodeJS Packages
 
@@ -17,7 +60,7 @@ provides features to install all required packages together. Installing these de
 allow for partial type checking within the OHIF plugin portion of this project.
 
 ```
-> yarn install
+> yarn run install:nodejs
 ```
 
 ### Development
