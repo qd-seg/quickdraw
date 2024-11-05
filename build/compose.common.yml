@@ -17,21 +17,29 @@ services:
   broker:
     image: broker
     build:
-      dockerfile: ./directives/common/broker.dockerfile
-      context: ../
+      dockerfile: ./build/directives/common/broker.dockerfile
+      context: ..
       args:
         - ALPINE_VERSION=${ALPINE_VERSION}
         - PYTHON_VERSION=${PYTHON_VERSION}
     networks:
       - public
     volumes:
+      - cache:/var/cache/broker
       - ../platform/broker/src:/usr/local/src/broker/src
+    environment:
+      - SERVICE_ACCOUNT=/run/secrets/service_account
+      - SERVICE_CONFIGURATION=/run/secrets/service_configuration
+      - CACHE_DIRECTORY=/var/cache/broker
+    secrets:
+      - service_account
+      - service_configuration
 
   viewer:
     image: viewer
     build:
-      dockerfile: ./directives/common/viewer.dockerfile
-      context: ../
+      dockerfile: ./build/directives/common/viewer.dockerfile
+      context: ..
       args:
         - ALPINE_VERSION=${ALPINE_VERSION}
         - NODE_VERSION=${NODE_VERSION}
@@ -64,7 +72,14 @@ services:
 volumes:
   index:
   store:
+  cache:
 
 networks:
   public:
   private:
+
+secrets:
+  service_account:
+    file: ${SERVICE_ACCOUNT}
+  service_configuration:
+    file: ${SERVICE_CONFIGURATION}

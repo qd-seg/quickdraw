@@ -6,7 +6,8 @@ services:
 
   broker:
     image: broker
-    command: gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src app:app
+    command:
+      gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src -w 1 app:app
     extends:
       file: compose.common.yml
       service: broker
@@ -14,7 +15,7 @@ services:
   viewer:
     image: static
     build:
-      dockerfile: ../directives/production/viewer.dockerfile
+      dockerfile: ./build/directives/production/viewer.dockerfile
       context: ../
       args:
         - ALPINE_VERSION=${ALPINE_VERSION}
@@ -38,7 +39,14 @@ services:
 volumes:
   index:
   store:
+  cache:
 
 networks:
   public:
   private:
+
+secrets:
+  service_account:
+    file: ${SERVICE_ACCOUNT}
+  service_configuration:
+    file: ${SERVICE_CONFIGURATION}

@@ -1,7 +1,9 @@
+# check=skip=InvalidDefaultArgInFrom
+
 ARG ALPINE_VERSION
 ARG NODE_VERSION
 
-FROM alpine:${ALPINE_VERSION} as pull
+FROM alpine:${ALPINE_VERSION} AS pull
 
 ARG VIEWER_VERSION
 

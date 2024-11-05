@@ -13,8 +13,36 @@ from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 
 # _USERNAME = os.environ.get('USER')
 _USERNAME = 'cmsc435'
-_MAX_TIMEOUT_NORMAL_REQUEST = 60
-_MAX_TIMEOUT_COMPUTE_REQUEST = 360
+_MAX_TIMEOUT_NORMAL_REQUEST = 90
+_MAX_TIMEOUT_COMPUTE_REQUEST = 640
+
+def read_env_vars():
+    # print(os.environ.get('SERVICE_CONFIGURATION'), os.environ.get('SERVICE_ACCOUNT'))
+    service_config = read_json(os.environ.get('SERVICE_CONFIGURATION'))#+'.json')
+    service_accnt = read_json(os.environ.get('SERVICE_ACCOUNT'))#+'.json')
+    # print(service_config)
+    # print(service_accnt, flush=True)
+    return {
+        'key_file': os.environ.get('SERVICE_ACCOUNT'),
+        'project_id': service_accnt['project_id'],
+        'zone': service_config['zone'],
+        'region': service_config['zone'].split('-')[:-1],
+        'machine_type': service_config['machineType'],
+        'repository': service_config['repository'],
+        'service_account_email': service_accnt['client_email'],
+        'instance_limit': 1,
+    }
+    # print(env_vars)
+    # _SERVICE_ACCOUNT_KEYS = env_vars['serviceAccountKeys']
+    # _KEY_FILE = 'serviceAccountKeys.json'
+    # write_json(_KEY_FILE, _SERVICE_ACCOUNT_KEYS)
+    # _PROJECT_ID = _SERVICE_ACCOUNT_KEYS['project_id']
+    # _ZONE = env_vars['zone']
+    # _REGION = '-'.join(_ZONE.split('-')[:-1])
+    # _MACHINE_TYPE = env_vars['machineType']
+    # _REPOSITORY = env_vars['repository']
+    # _SERVICE_ACCOUNT_EMAIL = _SERVICE_ACCOUNT_KEYS['client_email']
+    # _INSTANCE_LIMIT = 1
 
 def read_json(filename, default_as_dict=True) -> Union[List, dict]:
     """Reads a JSON file and returns its content."""
@@ -246,9 +274,9 @@ def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, 
     
 # Uploads a Dockerized ML model to Google Artifact Registry
 # NOTE: image_name MUST be the same as the name used for docker build + docker save
-def upload_docker_image_to_artifact_registry(image_name: str, tarball_path: str, LOG=False, skip_push=False, override_existing=False, direct_push=False):
+def upload_docker_image_to_artifact_registry(project_id: str, zone: str, models_repo: str, image_name: str, tarball_path: str, LOG=False, skip_push=False, override_existing=False, direct_push=False):
     credentials = get_credentials()
-    return upload_docker_image_to_artifact_registry_helper(credentials.token, image_name, tarball_path, LOG=LOG, skip_push=skip_push, override_existing=override_existing, direct_push=direct_push)
+    return upload_docker_image_to_artifact_registry_helper(project_id, zone, models_repo, credentials.token, image_name, tarball_path, LOG=LOG, skip_push=skip_push, override_existing=override_existing, direct_push=direct_push)
     
 ## Connecting Compute and Registry
 # Put setup script and other metadata into instance
@@ -289,7 +317,8 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
         subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
                         f'--project={project_id}', 
                         f'--zone={zone}',
-                        f'--command=mkdir -p /home/{username}/images && mkdir -p /home/{username}/model_outputs && rm -rf /home/{username}/images/{dicom_series_name}'], check=True, input='\n', text=True)
+                        '--quiet',
+                        f'--command=mkdir -p /home/{username}/images && mkdir -p /home/{username}/model_outputs/{dicom_series_name} && rm -rf /home/{username}/images/{dicom_series_name}'], check=True, input='\n', text=True)
         # Upload
         subprocess.run(['gcloud', 'compute', 'scp',
                         f'--project={project_id}', 
@@ -299,6 +328,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
                         f'{username}@{instance_name}:/home/{username}/images/{dicom_series_name}'], check=True)
     except Exception as e:
         print('DICOM upload failed')
+        print(e, flush=True)
         return False
     
     return True
@@ -358,12 +388,13 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         # subprocess.run(['mkdir', '-p', './dcm-prediction/'])
         if progress_bar_update_callback is not None:
                 progress_bar_update_callback(85)
-        os.makedirs('dcm-prediction', exist_ok=True)
+        os.makedirs(f'dcm-prediction/{dicom_series_name}', exist_ok=True)
         subprocess.run(['gcloud', 'compute', 'scp',
                         f'--project={project_id}', 
                         f'--zone={zone}',
-                        f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_name}-multiorgan-segmentation.dcm',
-                        './dcm-prediction/'])
+                        '--recurse',
+                        f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_name}/',
+                        f'./dcm-prediction/'])
         
         # Delete files on Instance
         print('Deleting unnecessary files on VM')
@@ -373,29 +404,30 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                         f'--command=rm -rf /home/{username}/images && rm -rf /home/{username}/model_outputs'], check=True, input='\n', text=True)
         
         # Stop the instance
+        print('Stopping Instance')
         stop_instance(project_id, zone, instance_name)
         
         # TODO: upload predictions to Orthanc
     except Exception as e:
         print('Something went wrong with running predictions:')
-        print(e)
+        print(e, flush=True)
+        stop_instance(project_id, zone, instance_name)
         return False
     
     return True
 
 if __name__ == '__main__':
-    # credentials = get_credentials(_KEY_FILE)
-    # compute_client = get_compute_client(credentials)
-    # setup_model_compute('asdf', None)
-    load_dotenv(override=True)
-    _INSTANCE_LIMIT = 1
-    _PROJECT_ID = os.getenv('PROJECT_ID')
-    _ZONE = os.getenv('ZONE')
-    _REGION = '-'.join(_ZONE.split('-')[:-1])
-    _MACHINE_TYPE = os.getenv('MACHINE_TYPE')
-    _SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
-    _KEY_FILE = os.getenv('KEY_FILE')
-    _REPOSITORY = os.getenv('REPOSITORY')
+    # env_vars = read_json('flaskVars.json')
+    env_vars = read_env_vars()
+    _KEY_FILE = env_vars['key_file']
+    _PROJECT_ID = env_vars['project_id']
+    _ZONE = env_vars['zone']
+    _REGION = env_vars['region']
+    _MACHINE_TYPE = env_vars['machine_type']
+    _REPOSITORY = env_vars['repository']
+    _SERVICE_ACCOUNT_EMAIL = env_vars['service_account_email']
+    _INSTANCE_LIMIT = env_vars['instance_limit']
+    
 
     auth_with_key_file_json(_KEY_FILE)
     
@@ -423,6 +455,6 @@ if __name__ == '__main__':
     COMPUTE_INSTANCE_NAME = instance.name
     print(COMPUTE_INSTANCE_NAME)
     
-    run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT, _KEY_FILE, f'{DICOM_SERIES_TO_PREDICT}', COMPUTE_INSTANCE_NAME, skip_predictions=False)
+    run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT_EMAIL, _KEY_FILE, f'{DICOM_SERIES_TO_PREDICT}', COMPUTE_INSTANCE_NAME, skip_predictions=False)
     
     # print(get_instance_ip_address(instance, IPType.EXTERNAL))
