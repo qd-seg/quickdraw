@@ -464,23 +464,7 @@ def convert_rt_struct_to_seg():
     result = process_conversion(dicom_series_path, rt_struct_path, seg_filename)
     
     #saving the mask is part of ohif functionality - dont have to take care of it 
-    if result:
-            
-          """   orthanc_url = "http://localhost/store"
-            orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
-
-            with open(result, 'rb') as f:
-                files = {'file': f}
-                response = requests.post(orthanc_url, files=files)
-
-            if response.status_code == 200:
-                print("DICOM SEG file uploaded to Orthanc successfully.")
-                print(response.json())  
-            else:
-                print("Failed to upload to Orthanc")
-                print(response.text) """
-          
-    else:
+    if not result:
         print('Conversion process failed')
         return jsonify({'message': 'Conversion failed'}), 500
 
