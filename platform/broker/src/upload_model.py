@@ -1,7 +1,7 @@
 ## This is a script for manually uploading the model to artifact registry
 # Only meant to be used in the CLI, not with Flask
 
-from flask_helpers import upload_docker_image_to_artifact_registry, auth_with_key_file_json, read_json, write_json
+from flask_helpers import upload_docker_image_to_artifact_registry, auth_with_key_file_json, read_env_vars
 from dotenv import load_dotenv
 import os
 
@@ -33,13 +33,15 @@ if __name__ == '__main__':
     # _SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
     # _KEY_FILE = os.getenv('KEY_FILE')
     # _REPOSITORY = os.getenv('REPOSITORY')
-    env_vars = read_json('flaskVars.json')
-    _SERVICE_ACCOUNT_KEYS = env_vars['serviceAccountKeys']
-    _KEY_FILE = 'serviceAccountKeys.json'
-    write_json(_KEY_FILE, _SERVICE_ACCOUNT_KEYS)
-    _PROJECT_ID = _SERVICE_ACCOUNT_KEYS['project_id']
+    env_vars = read_env_vars()
+    _KEY_FILE = env_vars['key_file']
+    _PROJECT_ID = env_vars['project_id']
     _ZONE = env_vars['zone']
+    _REGION = env_vars['region']
+    _MACHINE_TYPE = env_vars['machine_type']
     _REPOSITORY = env_vars['repository']
+    _SERVICE_ACCOUNT_EMAIL = env_vars['service_account_email']
+    _INSTANCE_LIMIT = env_vars['instance_limit']
 
     auth_with_key_file_json(_KEY_FILE)
         

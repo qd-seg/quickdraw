@@ -6,9 +6,8 @@ services:
 
   broker:
     image: broker
-    command: gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src -w 1 app:app
-    environment:
-      - PYTHONUNBUFFERED=1
+    command:
+      gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src -w 1 app:app
     extends:
       file: compose.common.yml
       service: broker
@@ -40,7 +39,14 @@ services:
 volumes:
   index:
   store:
+  cache:
 
 networks:
   public:
   private:
+
+secrets:
+  service_account:
+    file: ${SERVICE_ACCOUNT}
+  service_configuration:
+    file: ${SERVICE_CONFIGURATION}

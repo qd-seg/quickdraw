@@ -7,6 +7,7 @@ from flask_socketio import SocketIO  # Import SocketIO
 import math as Math
 from dotenv import load_dotenv
 from flask_helpers import (
+    read_env_vars,
     list_instances, get_instance, delete_instance,
     list_docker_images,
     generate_instance_name,
@@ -23,17 +24,15 @@ app = Flask(__name__)
 # def index():
 #     return ({}, 200)
 
-env_vars = read_json('flaskVars.json')
-_SERVICE_ACCOUNT_KEYS = env_vars['serviceAccountKeys']
-_KEY_FILE = 'serviceAccountKeys.json'
-write_json(_KEY_FILE, _SERVICE_ACCOUNT_KEYS)
-_PROJECT_ID = _SERVICE_ACCOUNT_KEYS['project_id']
+env_vars = read_env_vars()
+_KEY_FILE = env_vars['key_file']
+_PROJECT_ID = env_vars['project_id']
 _ZONE = env_vars['zone']
-_REGION = '-'.join(_ZONE.split('-')[:-1])
-_MACHINE_TYPE = env_vars['machineType']
+_REGION = env_vars['region']
+_MACHINE_TYPE = env_vars['machine_type']
 _REPOSITORY = env_vars['repository']
-_SERVICE_ACCOUNT_EMAIL = _SERVICE_ACCOUNT_KEYS['client_email']
-_INSTANCE_LIMIT = 1
+_SERVICE_ACCOUNT_EMAIL = env_vars['service_account_email']
+_INSTANCE_LIMIT = env_vars['instance_limit']
 
 # load_dotenv(override=True)
 # _INSTANCE_LIMIT = 1
