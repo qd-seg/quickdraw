@@ -309,6 +309,7 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                 console.error(err);
             })
             .finally(() => {
+                console.log('status');
                 console.log(status);
                 setStatus({ ...status, loadingModels: false });
             });

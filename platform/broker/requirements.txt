@@ -1,4 +1,5 @@
 grpcio
+setuptools
 Flask==3.0.2
 gunicorn==22.0.0
 google-cloud-compute
@@ -7,4 +8,10 @@ google-auth
 python-dotenv
 flask-cors
 flask-socketio
+pyorthanc
+rt_utils
+numpy
+pydicom
+opencv-python
+highdicom
 eventlet
