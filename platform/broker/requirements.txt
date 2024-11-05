@@ -13,4 +13,4 @@ numpy
 pydicom
 cv2
 highdicom
-requests
+
