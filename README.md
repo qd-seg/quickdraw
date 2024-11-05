@@ -78,4 +78,43 @@ see the [`default.js`](.docker/app/default.js) file.
 
 ##### Google Cloud Services
 
-TODO: Write subsection on how setup the service account and configuration in the propper directory.
+By default, the build process will look for `secrets/service_account.json` and
+`secrets/service_configuration.json` for authentication credentials and service configurations. The
+schemas for the two files are described below.
+
+```json
+// service_account.json
+
+{
+  "type": string,
+  "project_id": string,
+  "private_key_id": string,
+  "private_key": string,
+  "client_email": string,
+  "client_id": string,
+  "auth_uri": string,
+  "token_uri": string,
+  "auth_provider_x509_cert_url": string,
+  "client_x509_cert_url": string,
+  "universe_domain": string
+}
+```
+
+```json
+// service_configuration.json
+
+{
+  "zone": string,
+  "machineType": string,
+  "repository": string
+}
+```
+
+The paths in which the build process looks for these files can be overwritten by setting the
+`$SERVICE_ACCOUNT` or `$SERVICE_CONFIGURATION` environment variables. These can be prepended to the
+Yarn scripts described in [`package.json`](package.json). The path is expected to be absolute or
+relative to the `build` directory.
+
+```
+> SERVICE_ACCOUNT=/path/to/file SERVICE_CONFIGURATION=/path/to/file yarn run ...
+```
