@@ -7,14 +7,14 @@
   ],
   "scripts": {
     "start": "yarn run start:development",
-    "build:common": "docker compose -f ./build/compose.common.yml --env-file ./build/configuration/versions.env --env-file ./build/.env build",
-    "build:development": "yarn run build:common && docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/.env build",
-    "build:production": "yarn run build:common && docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/.env build",
-    "start:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/.env up",
-    "start:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/.env up -d",
-    "stop:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/.env stop",
-    "clean:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/.env down",
-    "clean:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/.env down"
+    "build:common": "docker compose -f ./build/compose.common.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env build",
+    "build:development": "yarn run build:common && docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env build",
+    "build:production": "yarn run build:common && docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env build",
+    "start:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env up",
+    "start:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env up -d",
+    "stop:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env stop",
+    "clean:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env down",
+    "clean:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env down"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
