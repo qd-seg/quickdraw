@@ -7,7 +7,11 @@ google-auth
 python-dotenv
 flask-cors
 flask-socketio
-eventlet
 pyorthanc
 rt_utils
 numpy
+pydicom
+cv2
+highdicom
+requests
+eventlet

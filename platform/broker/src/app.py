@@ -19,6 +19,11 @@ from flask_helpers import (
 from gcloud_auth import auth_with_key_file_json
 from werkzeug.middleware.proxy_fix import ProxyFix
 from orthanc_get import getRTStructs
+from seg_converter_main_func import process_conversion
+from getRTStructWithoutDICEDict import getRTStructWithoutDICEDict
+import requests
+import pyorthanc
+
 
 app = Flask(__name__)
 
@@ -503,6 +508,48 @@ def getDICEScores():
     score_dict = getRTStructs(patient_id,study_id)
 
     return jsonify(score_dict), 200
+
+@bp.route('/convert_rt_struct_to_seg', methods = ['POST'])
+def convert_rt_struct_to_seg():
+    if request.is_json:
+        json_data = request.get_json()
+    else:
+        print('not json')
+        return jsonify({ 'message': 'Something went wrong' }), 500
+   
+    patient_id = json_data.get('patient_id')
+    study_id = json_data.get('study_id')  #? not sure
+    if patient_id is None or study_id is None:
+        print('id is none cannot select rtstruct')
+        return jsonify({ 'message': 'Please select a model' }), 400
+
+    rt_struct_dicom_path_dict = getRTStructWithoutDICEDict(patient_id,study_id)
+    dicom_series_path = rt_struct_dicom_path_dict["DICOM_series_path"]
+    rt_struct_path = rt_struct_dicom_path_dict["RT_struct_path"]
+
+    if not dicom_series_path or not rt_struct_path:
+        return jsonify({"error": "Please provide both dicom_series_path and rt_struct_path"}), 400
+
+    seg_filename = "output_seg.dcm"  # Temporary filename for the converted SEG file
+    result = process_conversion(dicom_series_path, rt_struct_path, seg_filename)
+    if result:
+            
+            orthanc_url = "http://localhost/store"
+            orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
+
+            with open(result, 'rb') as f:
+                files = {'file': f}
+                response = requests.post(orthanc_url, files=files)
+
+            if response.status_code == 200:
+                print("DICOM SEG file uploaded to Orthanc successfully.")
+                print(response.json())  
+            else:
+                print("Failed to upload to Orthanc")
+                print(response.text)
+    else:
+        print('Conversion process failed')
+        return jsonify({'message': 'Conversion failed'}), 500
 
 
 # This setup is intended to prefix all routes to /api/{...} when running in development mode,
