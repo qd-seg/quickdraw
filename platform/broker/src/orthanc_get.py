@@ -4,7 +4,7 @@ import os
 import shutil
 from dice_score_get import get_DICE_score
 
-def getRTStructs(patient_id,study_UID,series_UID):
+def getRTStructs(patient_id,study_UID,truth_series_UID,pred_series_UID):
     #orthanc_url = 'http://localhost:8042'
     orthanc_url = "http://localhost/store"
     orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
@@ -27,10 +27,12 @@ def getRTStructs(patient_id,study_UID,series_UID):
         if "CT" == file_info["MainDicomTags"]["Modality"]: #CT is the dicom image series
             dicom_images_order_num = i
         
-        if "ground_truth" in file.labels: #ground truth series
-            ground_truth_order_num = i
+        #if "ground_truth" in file.labels: #ground truth series
+            #ground_truth_order_num = i
+        if file_info["MainDicomTags"]["SeriesInstanceUID"] == truth_series_UID:
+            predicted_mask_order_num = i
 
-        if file_info["MainDicomTags"]["SeriesInstanceUID"] == series_UID:
+        if file_info["MainDicomTags"]["SeriesInstanceUID"] == pred_series_UID:
             predicted_mask_order_num = i
         
     if dicom_images_order_num == None or ground_truth_order_num == None or predicted_mask_order_num == None:

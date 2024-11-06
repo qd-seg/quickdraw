@@ -425,13 +425,18 @@ def getDICEScores():
         print('not json')
         return jsonify({ 'message': 'Something went wrong' }), 500
 
-    patient_id = json_data.get('patient_id')
-    study_UID = json_data.get('study_UID')
-    series_UID = json_data.get('series_UID')
-    if patient_id is None or study_UID is None or series_UID is None:
+    ground_truth_dic = json_data.get('patient_id')
+    pred_dic = json_data.get('patient_id')
+
+    patient_id = ground_truth_dic["patient_id"]#same for both
+    study_UID = ground_truth_dic["study_id"] #same for both
+    truth_series_UID = ground_truth_dic["seriesInstanceUID"]
+    pred_series_UID = pred_dic["seriesInstanceUID"]
+    
+    if patient_id is None or study_UID is None or truth_series_UID is None or pred_series_UID is None:
         return jsonify({ 'message': 'Need ID\'s' }), 400
 
-    score_dict = getRTStructs(patient_id,study_UID,series_UID)
+    score_dict = getRTStructs(patient_id,study_UID,truth_series_UID,pred_series_UID)
 
     return jsonify(score_dict), 200
 
