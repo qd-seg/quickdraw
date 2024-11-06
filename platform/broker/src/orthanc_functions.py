@@ -65,3 +65,13 @@ def getDicomImages(patient_id,study_UID):
     study_dir = start+"/"+first_folder +"/"+study_folder_name
     image_folder = os.listdir(study_dir)[image_order_num]
     return [first_folder, study_dir + "/"+image_folder]
+
+
+def uploadSegFile(file_path):
+    orthanc = pyorthanc.Orthanc('http://localhost:8042', username='orthanc', password='orthanc')
+    with open(file_path, 'rb') as file:
+        orthanc.post_instances(file.read())
+
+    print(os.path.exists(file_path))
+    if os.path.exists(file_path):
+        os.remove(file_path)
