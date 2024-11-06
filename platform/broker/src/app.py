@@ -52,8 +52,16 @@ _INSTANCE_LIMIT = env_vars['instance_limit']
 # _REPOSITORY = os.getenv('REPOSITORY')
 
 _MODEL_INSTANCES_FILEPATH = 'model_instances/model_instances.json'
+_NO_GOOGLE_CLOUD = False
 
-auth_with_key_file_json(_KEY_FILE)
+try:
+    auth_with_key_file_json(_KEY_FILE)
+except Exception as e:
+    print('An error occurred in authentication. It is likely that you did ' +
+          'not provide a valid service account key file, or you are not connected to the internet. ' +
+          'The Flask server will continue to run, but no Google Cloud functionality will be available.')
+    print(e)
+    _NO_GOOGLE_CLOUD = True
 
 app = Flask(__name__, static_folder="./Viewers-master/platform/app/dist")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
@@ -339,10 +347,14 @@ def convert_cached_pred_result_to_seg(selectedDicomSeries):
             # TODO: there was an issue with the segmentation mask in the npz being malformed/corrupted in some way
             # Not sure why, rarely happens
             data = np.load(filepath)
-            temp_seg_path = os.path.join(dcm_prediction_dir, '_convert/', f'{f.split(".")[0]}.dcm')
+            temp_seg_path = os.path.join(dcm_prediction_dir, '_convert/')
+            os.makedirs(temp_seg_path, exist_ok=True)
             # TODO: this needs to be loaded from orthanc and cache. PLACEHOLDER
-            dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005')
-            convert_numpy_array_to_dicom_seg(dicom_series, data['data'], data['rois'], temp_seg_path)
+            # getRTStructWithoutDICEDict('PANCREAS_0005', 'PANCREAS_0005')
+            # dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005')
+            dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005 PANCREAS_0005')
+            print(dicom_series[0])
+            convert_numpy_array_to_dicom_seg(dicom_series, data['data'], data['rois'], os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'))
         
 @bp.route('/testConv')
 def test_conv():
@@ -580,6 +592,7 @@ if __name__ == "__main__":
     # socketio.run(app, host='localhost', port=5421, debug=True)
 else:
     print('Not running through main, no prefixes for routes')
-    clear_unused_instances()
+    if not _NO_GOOGLE_CLOUD:
+        clear_unused_instances()
     app.register_blueprint(bp)
     # socketio.run(app, debug=True)

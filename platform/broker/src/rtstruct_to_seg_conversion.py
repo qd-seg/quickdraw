@@ -163,6 +163,7 @@ def convert_numpy_array_to_dicom_seg(dicom_series, numpy_array, roi_names, seg_f
         return
 
     for i, roi_name in enumerate(roi_names):
+        print(roi_name)
         binary_mask = (numpy_array == i+1).astype(np.uint8)
         binary_mask = np.transpose(binary_mask, (2, 0, 1))
         pixel_array[:, :, :, i] = binary_mask

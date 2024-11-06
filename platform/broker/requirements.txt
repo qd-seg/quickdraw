@@ -11,7 +11,7 @@ flask-socketio
 pyorthanc
 rt_utils
 numpy
-pydicom
+pydicom==3.0.1
 opencv-python
-highdicom
+highdicom==0.23.0
 eventlet

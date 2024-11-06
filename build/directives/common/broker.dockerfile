@@ -38,4 +38,5 @@ ENV PATH="/usr/local/src/gcloud/bin:$PATH"
 
 WORKDIR /usr/local/src/broker
 
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
