@@ -7,8 +7,8 @@ services:
   broker:
     image: broker
     command:
-      gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src --worker-class eventlet -w 1 --worker-class eventlet --log-level debug --capture-output --reload
-      app:app
+      gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src --worker-class eventlet -w 1
+      --worker-class eventlet --log-level debug --capture-output --reload app:app
     environment:
       - PYTHONUNBUFFERED=1
     extends:
@@ -34,6 +34,8 @@ services:
       service: postgresql
 
   orthanc:
+    environment:
+      - VERBOSE_ENABLED=true
     extends:
       file: compose.common.yml
       service: orthanc
