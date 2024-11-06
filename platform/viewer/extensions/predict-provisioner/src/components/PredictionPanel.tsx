@@ -331,11 +331,13 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
 
                 } else {
                     // both segmentation and ground truth should be present at this point -> reconstruct JSON strings
-                    const groundTruthJSON = JSON.stringify({ patient_id: patient_id, study_id: study_id, seriesInstanceUID: currentGroundTruth.seriesInstanceUID });
-                    const currMaskJSON = JSON.stringify({ patient_id: patient_id, study_id: study_id, seriesInstanceUID: series_id });
+                    const groundTruthJSON ={ patient_id: patient_id, study_id: study_id, seriesInstanceUID: currentGroundTruth.seriesInstanceUID };
+                    const currMaskJSON = { patient_id: patient_id, study_id: study_id, seriesInstanceUID: series_id };
+
 
                     console.log("Ground Truth:", groundTruthJSON);
                     console.log("Segmentation:", currMaskJSON);
+                    
                     fetch(`${urlPrefix}/api/calculateDiceScore`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
