@@ -7,8 +7,7 @@ FROM alpine:${ALPINE_VERSION} AS pull
 
 ARG VIEWER_VERSION
 
-RUN apk update
-RUN apk add --no-cache git
+RUN apk update && apk add --no-cache git
 
 RUN git clone https://github.com/OHIF/Viewers /usr/local/src/viewer
 
@@ -18,6 +17,8 @@ RUN git fetch --all --tags --prune
 RUN git checkout v${VIEWER_VERSION}
 
 FROM node:${NODE_VERSION}-slim AS install
+
+RUN apt-get update && apt-get -y install python3 g++ make && rm -rf /var/lib/apt/lists/*
 
 COPY --from=pull /usr/local/src/viewer /usr/local/src/viewer
 COPY ./platform/viewer/extensions/predict-provisioner/package.json /usr/local/src/extensions/predict-provisioner/package.json
