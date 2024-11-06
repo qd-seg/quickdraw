@@ -35,7 +35,7 @@ def change_tags(series_UID):#make sure this is an RTstruct series
 
 
 
-def getDicomImages(patient_id,study_UID):
+def get_first_dicom_image_series_from_study(patient_id, study_UID, save_directory):
     orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
 
     patient_file_id = pyorthanc.find_patients(orthanc,query={'PatientID': patient_id})[0]#there should only be one
@@ -52,22 +52,35 @@ def getDicomImages(patient_id,study_UID):
         file_info = pyorthanc.Series(series_IDs[i],orthanc).get_main_information()
         if "CT" == file_info["MainDicomTags"]["Modality"]:
             image_order_num = i
-
-    #start = "." # current directory
-    start = os.path.dirname(os.path.realpath(__file__))
+            
+    start = os.path.join(save_directory, '_images')
     patient.download(start+'/patient.zip', with_progres=False)
     with zipfile.ZipFile(start + '/patient.zip', 'r') as zip_ref:
         zip_ref.extractall(start)
 
     first_folder = patient.get_main_information()["MainDicomTags"]["PatientName"]
-    first_folder = first_folder + " "+first_folder
-    study_dir = start+"/"+first_folder +"/"+study_folder_name
+    first_folder = first_folder + " " + first_folder # this might need changes. Currently the patient name is duplicated
+                                                     # in the folder name. But I think it might be study ID (not UID) and
+                                                     # Patient ID, or Patient Name
+    # study_dir = start+"/"+first_folder +"/"+study_folder_name
+    study_dir = os.path.join(start, first_folder, study_folder_name)
     image_folder = os.listdir(study_dir)[image_order_num]
-    return [first_folder, study_dir + "/"+image_folder]
+    return first_folder, study_dir + "/"+image_folder
+
+def get_dicom_series_by_id(series_instance_uid, save_directory):
+    a_series = pyorthanc.Series(series_instance_uid, pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc'))
+    print(save_directory)
+    zip_path = os.path.join(save_directory, 'series.zip')
+    a_series.download(zip_path, with_progres=False)
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        print('extracting', zip_ref.filename)
+        zip_ref.extractall(zip_path)
+        
+    return zip_path
 
 
 def uploadSegFile(file_path):
-    orthanc = pyorthanc.Orthanc('http://localhost:8042', username='orthanc', password='orthanc')
+    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
     with open(file_path, 'rb') as file:
         orthanc.post_instances(file.read())
 

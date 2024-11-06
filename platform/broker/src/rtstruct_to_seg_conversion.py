@@ -1,31 +1,17 @@
 import numpy as np
 import pydicom
+from pydicom import Dataset
 import os
+
+import pydicom.sequence
 import cv2 as cv
 from rt_utils import RTStructBuilder
 from highdicom.seg import Segmentation, SegmentDescription
 from pydicom.sr.coding import Code
 from pydicom.uid import generate_uid
-from rt_utils import image_helper
+from typing import List
+import monkey_patches
 
-# Monkey patch
-def monkey_patched_create_series_mask_from_contour_sequence(series_data, contour_sequence):
-    mask = image_helper.create_empty_series_mask(series_data)
-    transformation_matrix = image_helper.get_patient_to_pixel_transformation_matrix(series_data)
-
-    for i, series_slice in enumerate(series_data):
-        slice_contour_data = image_helper.get_slice_contour_data(series_slice, contour_sequence)
-        try:
-            if len(slice_contour_data):
-                mask[:, :, i] = image_helper.get_slice_mask_from_slice_contour_data(
-                    series_slice, slice_contour_data, transformation_matrix
-                )
-        except:
-            pass
-
-    return mask
-
-image_helper.create_series_mask_from_contour_sequence = monkey_patched_create_series_mask_from_contour_sequence
 
 # Function to convert RT struct to binary 3D mask
 def get_roi_masks(dicom_series_path, rt_struct_path):
@@ -129,7 +115,7 @@ def convert_mask_to_dicom_seg(dicom_series, binary_masks, roi_names, seg_filenam
         print(f"Error saving DICOM SEG file: {e}")
         return None
     
-def convert_numpy_array_to_dicom_seg(dicom_series, numpy_array, roi_names, seg_filename):
+def convert_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array, roi_names, seg_filename):
     '''
     Converts (NxMxH) numpy array into a DICOM SEG object.
     '''
@@ -163,7 +149,7 @@ def convert_numpy_array_to_dicom_seg(dicom_series, numpy_array, roi_names, seg_f
         return
 
     for i, roi_name in enumerate(roi_names):
-        print(roi_name)
+        # print(roi_name)
         binary_mask = (numpy_array == i+1).astype(np.uint8)
         binary_mask = np.transpose(binary_mask, (2, 0, 1))
         pixel_array[:, :, :, i] = binary_mask

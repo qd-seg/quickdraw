@@ -19,7 +19,7 @@ from flask_helpers import (
 from gcloud_auth import auth_with_key_file_json
 from werkzeug.middleware.proxy_fix import ProxyFix
 from orthanc_get import getRTStructs
-import orthanc_functions
+from orthanc_functions import change_tags, get_tags, get_dicom_series_by_id, get_first_dicom_image_series_from_study, uploadSegFile
 from seg_converter_main_func import process_conversion
 from getRTStructWithoutDICEDict import getRTStructWithoutDICEDict
 from rtstruct_to_seg_conversion import convert_mask_to_dicom_seg, load_dicom_series, convert_numpy_array_to_dicom_seg
@@ -349,12 +349,16 @@ def convert_cached_pred_result_to_seg(selectedDicomSeries):
             # Not sure why, rarely happens
             data = np.load(filepath)
             temp_seg_path = os.path.join(dcm_prediction_dir, '_convert/')
+            temp_images_path = os.path.join(dcm_prediction_dir, '_images')
             os.makedirs(temp_seg_path, exist_ok=True)
             # TODO: sometimes there is an out of memory issues and it SIGKILLS the flask process
-            # getRTStructWithoutDICEDict('PANCREAS_0005', 'PANCREAS_0005')
             # dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005')
             dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005 PANCREAS_0005')
-            print(dicom_series[0])
+            
+            # dicom_series_path = get_dicom_series_by_id('1.2.826.0.1.3680043.2.1125.1.64196995986655345161142945283707267', temp_images_path) # TODO: comes from frontend
+            # print(dicom_series_path)
+            
+            # dicom_series = load_dicom_series(dicom_series_path)
             convert_numpy_array_to_dicom_seg(dicom_series, data['data'], data['rois'], os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'))
         
 @bp.route('/testConv')
