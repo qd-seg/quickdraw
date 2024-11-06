@@ -19,6 +19,7 @@ from flask_helpers import (
 from gcloud_auth import auth_with_key_file_json
 from werkzeug.middleware.proxy_fix import ProxyFix
 from orthanc_get import getRTStructs
+import orthanc_functions
 from seg_converter_main_func import process_conversion
 from getRTStructWithoutDICEDict import getRTStructWithoutDICEDict
 from rtstruct_to_seg_conversion import convert_mask_to_dicom_seg, load_dicom_series, convert_numpy_array_to_dicom_seg
@@ -534,22 +535,61 @@ def deleteModel():
 
 @bp.route('/getDICEScores', methods=['POST'])
 def getDICEScores():
-    # Extract the selected model name
     if request.is_json:
         json_data = request.get_json()
     else:
         print('not json')
         return jsonify({ 'message': 'Something went wrong' }), 500
 
-    patient_id = json_data.get('patient_id')
-    study_id = json_data.get('patient_id')
-    if patient_id is None or study_id is None:
-        print('no selectedModel')
-        return jsonify({ 'message': 'Please select a model' }), 400
+    ground_truth_dic = json_data.get('patient_id')
+    pred_dic = json_data.get('patient_id')
 
-    score_dict = getRTStructs(patient_id,study_id)
+    patient_id = ground_truth_dic["patient_id"]#same for both
+    study_UID = ground_truth_dic["study_id"] #same for both
+    truth_series_UID = ground_truth_dic["seriesInstanceUID"]
+    pred_series_UID = pred_dic["seriesInstanceUID"]
+    
+    if patient_id is None or study_UID is None or truth_series_UID is None or pred_series_UID is None:
+        return jsonify({ 'message': 'Need ID\'s' }), 400
+
+    score_dict = getRTStructs(patient_id,study_UID,truth_series_UID,pred_series_UID)
 
     return jsonify(score_dict), 200
+
+
+@bp.route('/getGroundTruthSeries', methods=['POST'])
+def getGroundTruthSeries():
+    if request.is_json:
+        json_data = request.get_json()
+    else:
+        print('not json')
+        return jsonify({ 'message': 'Something went wrong' }), 500
+    
+    study_UID = json_data.get('study_UID')
+    if study_UID is None:
+        return jsonify({ 'message': 'Need ID\'s' }), 400
+
+    truth_list = orthanc_functions.get_tags(study_UID)
+    
+    return jsonify({"truth_list":truth_list}), 200
+
+
+@bp.route('/switchTruthLabel', methods=['POST'])
+def switchTruthLabel():
+    if request.is_json:
+        json_data = request.get_json()
+    else:
+        print('not json')
+        return jsonify({ 'message': 'Something went wrong' }), 500
+    
+    series_UID = json_data.get('series_UID')
+    if series_UID is None:
+        return jsonify({ 'message': 'Need ID\'s' }), 400
+
+    orthanc_functions.change_tags(series_UID)
+    
+    return jsonify({"message":"success"}), 200
+
 
 @bp.route('/convert_rt_struct_to_seg', methods = ['POST'])
 def convert_rt_struct_to_seg():
