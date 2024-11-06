@@ -33,7 +33,7 @@ if __name__ == '__main__':
     # _SERVICE_ACCOUNT = os.getenv('SERVICE_ACCOUNT')
     # _KEY_FILE = os.getenv('KEY_FILE')
     # _REPOSITORY = os.getenv('REPOSITORY')
-    env_vars = read_env_vars()
+    env_vars = read_env_vars(local=True)
     _KEY_FILE = env_vars['key_file']
     _PROJECT_ID = env_vars['project_id']
     _ZONE = env_vars['zone']

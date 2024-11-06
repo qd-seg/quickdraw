@@ -4,8 +4,9 @@ import { createReportAsync } from '@ohif/extension-default';
 import { DicomMetadataStore } from '@ohif/core';
 
 // import { Timestamp } from 'firebase/firestore';
-import io from 'socket.io-client';
+import io, { Socket } from 'socket.io-client';
 import { MoonLoader, BeatLoader } from 'react-spinners';
+import { DefaultEventsMap } from '@socket.io/component-emitter';
 
 // interface Document {
 //     id: string;
@@ -28,8 +29,6 @@ const checkedLabelStyle = {
     color: '#fff',
 };
 
-// NOTE: this is a placeholder for dev
-// const urlPrefix = 'http://localhost:5421';
 const urlPrefix = '';
 
 const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => {
@@ -81,7 +80,7 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                 return;
             }
             console.log('Active Segmentation:', activeID);
-    
+
             // Retrieve active data sources from the extension manager
             if (!extensionManager) {
                 console.error('Extension manager not found.');
@@ -93,7 +92,7 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                 return;
             }
             console.log('Active DataSource:', datasources);
-    
+
             // Create report and retrieve displaySetInstanceUIDs
             const displaySetInstanceUIDs = await createReportAsync({
                 servicesManager,
@@ -104,15 +103,15 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                     }),
                 reportType: 'Segmentation',
             });
-    
+
             if (!displaySetInstanceUIDs) {
                 console.error('Failed to obtain displaySetInstanceUIDs.');
                 return;
             }
-    
+
             // Remove the exported segmentation and set the viewport display sets
             const viewportGridService = servicesManager.services.viewportGridService;
-            
+
             segmentationService.remove(activeID);
             viewportGridService.setDisplaySetsForViewport({
                 viewportId: viewportGridService.getActiveViewportId(),
@@ -120,12 +119,12 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
             });
             console.log('DisplaySets updated:', displaySetInstanceUIDs);
             console.log('Segmentation saved and viewport updated.');
-    
-          } catch (error) {
-              console.error('Error in ExportAndSaveMask:', error);
-          }
-      };
-      
+
+        } catch (error) {
+            console.error('Error in ExportAndSaveMask:', error);
+        }
+    };
+
     // This function gets the IDs of the current image on the screen that corresponds to Orthanc IDs. 
     // Will return a JSON object with: {is_default_study: bool,patient_id: str, study_id: str, series_id: str}
     function GetCurrentDisplayIDs() {
@@ -136,7 +135,7 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
             const activeViewportId = viewportGridService.getActiveViewportId()
 
             // get active displaySets
-            const displaySets= displaySetService.getActiveDisplaySets();
+            const displaySets = displaySetService.getActiveDisplaySets();
             const currentViewportDisplaySetUID = viewportGridService.getDisplaySetsUIDsForViewport(activeViewportId)[0];
 
             // search for displaySetInstanceUID = currentViewportDisplaySetUID in displaySets array
@@ -148,30 +147,30 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
             const currentPatientUID = study?.series[0].PatientID;                                // get current Patient ID
             const currentSeriesInstanceUID = currentDisplaySet?.SeriesInstanceUID;      // try getting current Series Instance ID
             const currentSopInstanceUID = currentDisplaySet?.SOPInstanceUID;
-            
+
             // OHIF does something weird where if you don't have the segmentation loaded, you will get the correct Series Instance ID, but once you load the segmentation, it displays a "CT scan" instead of the actual seg
             // So, if the currentSeriesInstanceUID is undefined or SOPInstanceUID is undefined, we need to get the SeriesInstanceUID from the loaded segmentation
-            if (!currentSeriesInstanceUID || !currentSopInstanceUID) {  
+            if (!currentSeriesInstanceUID || !currentSopInstanceUID) {
                 const uid = currentDisplaySet?.getUID();                                // get uid from loaded segmentation
 
                 // search for referencedVolumeURI in unloaded displaySets and get the referenced displaySet
-                const referencedDisplaySet = displaySets.find(displaySet => displaySet.referencedVolumeURI === uid); 
-                
+                const referencedDisplaySet = displaySets.find(displaySet => displaySet.referencedVolumeURI === uid);
+
                 // if there are no display sets that include the referencedVolumeURI, then it is a default study / default screen with no segmentations. This is the one we should use for model predictions. 
                 if (!referencedDisplaySet) {
                     return JSON.stringify({ is_default_study: true, patient_id: currentPatientUID, study_id: currentStudyInstanceUID, series_id: currentSeriesInstanceUID });
 
-                // if there is a display set that includes referencedVolumeURI, then we are looking at a CT scan with a segmentation loaded. We need to get the SeriesInstanceUID from the loaded segmentation. 
+                    // if there is a display set that includes referencedVolumeURI, then we are looking at a CT scan with a segmentation loaded. We need to get the SeriesInstanceUID from the loaded segmentation. 
                 } else {
                     // get the seriesInstanceUID and SOPInstanceUID from the referenced displaySet
                     const newSeriesInstanceUID = referencedDisplaySet?.SeriesInstanceUID;
                     // const newSopInstanceUID = referencedDisplaySet?.SOPInstanceUID;
                     return JSON.stringify({ is_default_study: false, patient_id: currentPatientUID, study_id: currentStudyInstanceUID, series_id: newSeriesInstanceUID });
                 }
-            
-            // This is the case where we have a segmentation viewed, but not loaded. This will return the correct SeriesInstanceUID.  
+
+                // This is the case where we have a segmentation viewed, but not loaded. This will return the correct SeriesInstanceUID.  
             } else {
-                
+
                 return JSON.stringify({ is_default_study: false, patient_id: currentPatientUID, study_id: currentStudyInstanceUID, series_id: currentSeriesInstanceUID });
             }
 
@@ -237,7 +236,6 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
     //     }
     // };
 
-    // TODO: handling user going back during a prediction job. Should have useeffect: check for running jobs
     const runPrediction = async () => {
         if (selectedModelIndex === undefined) {
             alert('Please select a model');
@@ -247,21 +245,25 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
         setProgress(0);
         setProgressBarText('...');
         setStatus({ ...status, predicting: true });
+        setAllModels(allModels.map((model: any, index: number) => {
+            return {
+                ...model,
+                running: index === selectedModelIndex,
+            };
+        }));
 
         try {
-            // Note: the localhost routes are temporary until we fix the issue of routes on development not working
-            await fetch(`${urlPrefix}/api/setupComputeWithModel`, {
-                // await fetch('http://localhost:5421/api/setupComputeWithModel', {
+            const setupResponse = await fetch(`${urlPrefix}/api/setupComputeWithModel`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ selectedModel: allModels[selectedModelIndex]?.name }), // TODO
-            })
-            await fetch(`${urlPrefix}/api/run`, {
-                // await fetch('http://localhost:5421/api/run', {
+                body: JSON.stringify({ selectedModel: allModels[selectedModelIndex]?.name })
+            });
+            const runResponse = await fetch(`${urlPrefix}/api/run`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ selectedModel: allModels[selectedModelIndex]?.name, selectedDicomSeries: 'PANCREAS_0005' }), // TODO: PLACEHOLDER
             });
+            // if (runResponse.ok)
         } catch (error) {
             console.error('Error:', error);
             setProgress(0);
@@ -270,38 +272,26 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
             setProgress(0);
             setProgressBarText('');
             setCounter(counter + 1);
+            listModels();
         }
     };
 
-    // const deleteInstance = async () => {
-    //     setStatus({ ...status, deleting: true });
-
-    //     try {
-    //         await fetch('/api/instances/delete', { method: 'POST' });
-    //     } catch (error) {
-    //         console.error('Error:', error);
-    //     } finally {
-    //         setStatus({ ...status, deleting: false });
-
-    //         updateContainers();
-    //     }
-    // };
-
-    /* TODO: */
-    // const updateDocuments = async () => {
-    //     try {
-    //     } catch (error) {
-    //         console.error('Error:', error);
-    //     }
-    // };
-
-    const listModels = () => {
-        setStatus({ ...status, loadingModels: true });
-        // fetch('http://localhost:5421/api/listModels')
-        fetch(`${urlPrefix}/api/listModels`)
+    const testIdRoute = () => {
+        fetch(`${urlPrefix}/api/...`)
             .then(res => res.json())
             .then((value) => {
                 console.log(value);
+            })
+            .catch((err) => {
+                console.error(err);
+            });
+    };
+
+    const listModels = () => {
+        setStatus({ ...status, loadingModels: true });
+        fetch(`${urlPrefix}/api/listModels`)
+            .then(res => res.json())
+            .then((value) => {
                 setAllModels(value.models);
                 setSelectedModelIndex(undefined);
             })
@@ -309,8 +299,6 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                 console.error(err);
             })
             .finally(() => {
-                console.log('status');
-                console.log(status);
                 setStatus({ ...status, loadingModels: false });
             });
     };
@@ -337,33 +325,37 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
 
     // Set up socket for progress updates
     React.useEffect(() => {
-        console.log('Init socket')
-        const sock = io(`${urlPrefix}`, { path: '/api/socket.io' });
+        const USE_SOCK = false;
+        let sock: Socket<DefaultEventsMap, DefaultEventsMap> | undefined = undefined;
+        if (USE_SOCK) {
+            console.log('Init socket')
+            sock = io(`${urlPrefix}`, { path: '/api/socket.io' });
 
-        sock.on('progress_update', (data) => {
-            console.log('progress');
-            console.log(data);
-            setProgress(data?.value || 0);
-        });
+            sock.on('progress_update', (data) => {
+                console.log('progress');
+                console.log(data);
+                setProgress(data?.value || 0);
+            });
 
-        sock.on('status_update', (data) => {
-            // console.log(data);
-            if (data?.message) {
-                // alert(data.message);
-                setProgressBarText(data.message);
-            }
-        });
+            sock.on('status_update', (data) => {
+                // console.log(data);
+                if (data?.message) {
+                    // alert(data.message);
+                    setProgressBarText(data.message);
+                }
+            });
 
-        sock.on('model_instances_update', (data) => {
-            console.log('update instances !')
-            listModels();
-        });
+            sock.on('model_instances_update', (data) => {
+                console.log('update instances !')
+                listModels();
+            });
+        }
 
         return () => {
             console.log('Disconnecting socket')
             setProgress(0);
             setProgressBarText('');
-            sock.disconnect();
+            sock?.disconnect();
         }
     }, []);
 
@@ -396,7 +388,7 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
 
                     <br />
 
-                    {selectedModelIndex === undefined && <span className='text-white text-sm text-center w-100' style={{ marginTop: '-18px' }}>No model selected</span>}
+                    {selectedModelIndex === undefined && !status.predicting && <span className='text-white text-sm text-center w-100' style={{ marginTop: '-18px' }}>No model selected</span>}
                     <Button
                         onClick={runPrediction}
                         children={status.predicting ? 'Running Prediction...' : 'Run Prediction'}

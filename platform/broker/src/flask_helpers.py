@@ -16,14 +16,14 @@ _USERNAME = 'cmsc435'
 _MAX_TIMEOUT_NORMAL_REQUEST = 90
 _MAX_TIMEOUT_COMPUTE_REQUEST = 640
 
-def read_env_vars():
+def read_env_vars(local=False):
     # print(os.environ.get('SERVICE_CONFIGURATION'), os.environ.get('SERVICE_ACCOUNT'))
-    service_config = read_json(os.environ.get('SERVICE_CONFIGURATION'))#+'.json')
-    service_accnt = read_json(os.environ.get('SERVICE_ACCOUNT'))#+'.json')
+    service_config = read_json(os.path.join(os.getcwd(), '../../../secret/service_configuration.json') if local else os.environ.get('SERVICE_CONFIGURATION'))
+    service_accnt = read_json(os.path.join(os.getcwd(), '../../../secret/service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'))
     # print(service_config)
     # print(service_accnt, flush=True)
     return {
-        'key_file': os.environ.get('SERVICE_ACCOUNT'),
+        'key_file': os.path.join(os.getcwd(), '../../../secret/service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'),
         'project_id': service_accnt['project_id'],
         'zone': service_config['zone'],
         'region': service_config['zone'].split('-')[:-1],
@@ -312,6 +312,9 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
             return False
      
     try:
+        # if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
+        #     dicom_image_directory = os.path.abspath(os.path.join(cache_dir, dicom_image_directory))
+            
         username = _USERNAME
         # Create images/ directory
         subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
@@ -324,6 +327,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
                         f'--project={project_id}', 
                         f'--zone={zone}',
                         '--recurse',
+                        '--quiet',
                         dicom_image_directory,
                         f'{username}@{instance_name}:/home/{username}/images/{dicom_series_name}'], check=True)
     except Exception as e:
@@ -371,8 +375,16 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
             # Copy over DICOM images from server to instance
             if progress_bar_update_callback is not None:
                 progress_bar_update_callback(45)
-            if not upload_dicom_to_instance(project_id, zone, service_account, key_filepath, f'./dicom-images/{dicom_series_name}', dicom_series_name, instance_name, run_auth=False):
-                raise Exception()
+            if not upload_dicom_to_instance(
+                project_id, 
+                zone, 
+                service_account, 
+                key_filepath, 
+                f'./dicom-images/{dicom_series_name}', 
+                dicom_series_name, 
+                instance_name, 
+                run_auth=False):
+                    raise Exception()
             
             if progress_bar_update_callback is not None:
                 progress_bar_update_callback(60)
@@ -380,6 +392,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
             subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
                             f'--project={project_id}', 
                             f'--zone={zone}',
+                            '--quiet',
                             '--command=sudo google_metadata_script_runner startup'], check=True, input='\n', text=True)
             
         # NOTE: in the future, this may require a separate check to see if the service account is still authorized
@@ -388,24 +401,31 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         # subprocess.run(['mkdir', '-p', './dcm-prediction/'])
         if progress_bar_update_callback is not None:
                 progress_bar_update_callback(85)
-        os.makedirs(f'dcm-prediction/{dicom_series_name}', exist_ok=True)
+                
+        dcm_prediction_dir = f'dcm-prediction/'
+        if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
+            dcm_prediction_dir = os.path.abspath(os.path.join(cache_dir, dcm_prediction_dir))
+            
+        os.makedirs(dcm_prediction_dir, exist_ok=True)
         subprocess.run(['gcloud', 'compute', 'scp',
                         f'--project={project_id}', 
                         f'--zone={zone}',
                         '--recurse',
+                        '--quiet',
                         f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_name}/',
-                        f'./dcm-prediction/'])
+                        dcm_prediction_dir])
         
-        # Delete files on Instance
-        print('Deleting unnecessary files on VM')
-        subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
-                        f'--project={project_id}', 
-                        f'--zone={zone}',
-                        f'--command=rm -rf /home/{username}/images && rm -rf /home/{username}/model_outputs'], check=True, input='\n', text=True)
+        # # Delete files on Instance
+        # print('Deleting unnecessary files on VM')
+        # subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
+        #                 f'--project={project_id}', 
+        #                 f'--zone={zone}',
+        #                 '--quiet',
+        #                 f'--command=rm -rf /home/{username}/images && rm -rf /home/{username}/model_outputs'], check=True, input='\n', text=True)
         
-        # Stop the instance
-        print('Stopping Instance')
-        stop_instance(project_id, zone, instance_name)
+        # # Stop the instance
+        # print('Stopping Instance')
+        # stop_instance(project_id, zone, instance_name)
         
         # TODO: upload predictions to Orthanc
     except Exception as e:

@@ -21,8 +21,9 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from orthanc_get import getRTStructs
 from seg_converter_main_func import process_conversion
 from getRTStructWithoutDICEDict import getRTStructWithoutDICEDict
-
-
+from rtstruct_to_seg_conversion import convert_mask_to_dicom_seg, load_dicom_series, convert_numpy_array_to_dicom_seg
+import numpy as np
+import threading
 
 app = Flask(__name__)
 
@@ -62,7 +63,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 bp = Blueprint('flask_backend', __name__)
 
 # Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins="*", path='/api/socket.io' if __name__ == '__main__' else 'socket.io')
+# socketio = SocketIO(app, cors_allowed_origins="*", path='/api/socket.io' if __name__ == '__main__' else 'socket.io')
 
 # Serve React App
 @bp.route("/", defaults={"path": ""})  # Base path for the app
@@ -83,16 +84,16 @@ def serve(path):
         return send_from_directory(app.static_folder, "index.html")
 
 
-@socketio.on("connect")
-def handle_connect():
-    """Handle client connection."""
-    print("Client connected")
+# @socketio.on("connect")
+# def handle_connect():
+#     """Handle client connection."""
+#     print("Client connected")
 
 
-@socketio.on("disconnect")
-def handle_disconnect():
-    """Handle client disconnection."""
-    print("Client disconnected")
+# @socketio.on("disconnect")
+# def handle_disconnect():
+#     """Handle client disconnection."""
+#     print("Client disconnected")
 
 
 def emit_status_update(message):
@@ -102,7 +103,8 @@ def emit_status_update(message):
     Parameters:
         message (str): The status message to emit.
     """
-    socketio.emit("status_update", {"message": message})
+    # socketio.emit("status_update", {"message": message})
+    pass
 
 
 def emit_update_progressbar(value):
@@ -112,7 +114,8 @@ def emit_update_progressbar(value):
     Parameters:
         value (int): The new value for the progress bar.
     """
-    socketio.emit("progress_update", {"value": value})
+    # socketio.emit("progress_update", {"value": value})
+    pass
  
 def clear_unused_instances():
     '''Removes all Compute instances that do not have an existing model associated with them'''
@@ -166,7 +169,7 @@ def set_tracked_model_instance_running(model_name: str, running: bool):
             print('Set model', model_name, 'to running:', running)
             
     write_json(filename, model_instances)
-    socketio.emit('model_instances_update')
+    # socketio.emit('model_instances_update')
     
 def is_tracked_model_instance_running(model_name: str):
     filename = _MODEL_INSTANCES_FILEPATH
@@ -185,11 +188,11 @@ def remove_tracked_model_instance(model_name: str):
     model_instances = [x for x in model_instances if x['model_name'] != model_name]
     write_json(filename, model_instances)
     
-@bp.route('/testSocket')
-def test_socket():
-    emit_status_update('hello there')
-    emit_update_progressbar(50)
-    return jsonify({ 'message': 'OK' }), 200
+# @bp.route('/testSocket')
+# def test_socket():
+#     emit_status_update('hello there')
+#     emit_update_progressbar(50)
+#     return jsonify({ 'message': 'OK' }), 200
     
 ## TODO
 ##TODO: Change containers in upload button component to instancesrunning
@@ -324,6 +327,65 @@ def setupComputeWithModel():
         
     return jsonify({"message": message}), status_code
 
+def convert_cached_pred_result_to_seg(selectedDicomSeries):
+    print('Converting to SEG...')
+    # Convert to SEG
+    dcm_prediction_dir = f'dcm-prediction/{selectedDicomSeries}'
+    if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
+        dcm_prediction_dir = os.path.abspath(os.path.join(cache_dir, dcm_prediction_dir))
+    
+    for f in os.listdir(dcm_prediction_dir):
+        if os.path.isfile(filepath := os.path.join(dcm_prediction_dir, f)):
+            # TODO: there was an issue with the segmentation mask in the npz being malformed/corrupted in some way
+            # Not sure why, rarely happens
+            data = np.load(filepath)
+            temp_seg_path = os.path.join(dcm_prediction_dir, '_convert/', f'{f.split(".")[0]}.dcm')
+            # TODO: this needs to be loaded from orthanc and cache. PLACEHOLDER
+            dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005')
+            convert_numpy_array_to_dicom_seg(dicom_series, data['data'], data['rois'], temp_seg_path)
+        
+@bp.route('/testConv')
+def test_conv():
+    convert_cached_pred_result_to_seg('PANCREAS_0005')
+    return jsonify( {'message': 'ok'}), 200
+
+def run_pred_helper(instance, selectedModel, selectedDicomSeries):
+    try: 
+        print('instance not none')
+        set_tracked_model_instance_running(selectedModel, True)
+        emit_update_progressbar(25)
+
+        ## TODO: pull the images from Orthanc into /dicom-images/
+        emit_status_update('Getting DICOM images...')
+        # os.makedirs('dicom-images', exist_ok=True)
+        # os.makedirs('dcm-prediction', exist_ok=True)
+        # ...
+        ##
+        
+        emit_update_progressbar(35)
+        emit_status_update('Running predictions...')
+        ran_preds = run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT_EMAIL, _KEY_FILE, selectedDicomSeries, instance.name, progress_bar_update_callback=emit_update_progressbar)
+        if not ran_preds:
+            raise Exception('Predictions failed')
+        
+        emit_update_progressbar(90)
+        emit_status_update('Converting to SEG...')
+        convert_cached_pred_result_to_seg(selectedDicomSeries)
+        
+        ## TODO: send predictions back to user or to orthanc. Note that predictions are located in /dcm-prediction/
+        # ...
+        
+        # TODO: maybe delete instance here? it gets paused anyway so not sure if needed
+        set_tracked_model_instance_running(selectedModel, False)
+        
+        emit_update_progressbar(100)
+        emit_status_update('Prediction done')
+        return True
+    except Exception as e:
+        print(e)
+        set_tracked_model_instance_running(selectedModel, False)
+        return False
+    
 @bp.route("/run", methods=["POST"])
 def run_prediction():
     """
@@ -346,57 +408,29 @@ def run_prediction():
         print(selectedModel, selectedDicomSeries, 'wrong')
         return jsonify({'message': 'Model or images not provided'}), 500
 
-    # check_instance()
-    message = "No Instance running, please create an instance first"
-    status_code = 500
-    emit_update_progressbar(20)
     try:
+        emit_update_progressbar(20)
         if (instance := get_existing_instance_for_model(selectedModel)) is not None:
             if is_tracked_model_instance_running(selectedModel):
-                raise Exception(f'Selected model {selectedModel} already running')
+                # raise Exception(f'Selected model {selectedModel} already running')
+                return jsonify({ 'message': f'Selected model {selectedModel} already running' }), 500
             
-            print('instance not none')
-            set_tracked_model_instance_running(selectedModel, True)
-            emit_update_progressbar(25)
-
-            ## TODO: pull the images from Orthanc into /dicom-images/
-            emit_status_update('Getting DICOM images...')
-            os.makedirs('dicom-images', exist_ok=True)
-            os.makedirs('dcm-prediction', exist_ok=True)
-            # ...
-            ##
-            
-            emit_update_progressbar(35)
-            emit_status_update('Running predictions...')
-            ran_preds = run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT_EMAIL, _KEY_FILE, selectedDicomSeries, instance.name, progress_bar_update_callback=emit_update_progressbar)
-            if not ran_preds:
-                raise Exception('Predictions failed')
-            
-            emit_update_progressbar(90)
-            emit_status_update('Storing predictions...')
-            print('Storing predictions...')
-            
-            ## TODO: send predictions back to user or to orthanc. Note that predictions are located in /dcm-prediction/
-            
-            message = "Prediction complete"
-            status_code = 200
-            
-            # TODO: maybe delete instance here? it gets paused anyway so not sure if needed
-            set_tracked_model_instance_running(selectedModel, False)
+            thread = threading.Thread(target=run_pred_helper, args=(instance, selectedModel, selectedDicomSeries))
+            thread.start()
+            return jsonify({ 'message': 'Prediction job successfully started' }), 202
+        
         else:
             # TODO: maybe handle this differently
             set_tracked_model_instance_running(selectedModel, False)
-            return jsonify({"message": 'Instance does not exist for model'}), 500
+            return jsonify({ 'message': 'Instance does not exist' }), 500
+            
     # Catch any exceptions
     except Exception as e:
         print(e)
         emit_status_update("Error running prediction")
-        message = f"Error running prediction: {str(e)}"
-        status_code = 500
+        set_tracked_model_instance_running(selectedModel, False)
+        return jsonify({ 'message': f"Error running prediction: {str(e)}" }), 500
         
-    emit_update_progressbar(100)
-    emit_status_update(message)
-    return jsonify({"message": message}), status_code
 
 # Model upload is done through CLI
 # @bp.route("/uploadImage", methods=["POST"])
@@ -454,14 +488,11 @@ def run_prediction():
 #     emit_status_update(message)
 #     return jsonify({"message": message}), status_code
 
-
+# This currently is not called by anything
 @bp.route("/deleteModel", methods=["POST"])
 def deleteModel():
     """
     Delete a model from Artifact Registry
-
-    Returns:
-        something.
     """
 
     status_code = 500
@@ -546,7 +577,7 @@ if __name__ == "__main__":
     app.register_blueprint(bp, url_prefix='/api')
     clear_unused_instances()
     # app.run(host='localhost', port=5421)
-    socketio.run(app, host='localhost', port=5421, debug=True)
+    # socketio.run(app, host='localhost', port=5421, debug=True)
 else:
     print('Not running through main, no prefixes for routes')
     clear_unused_instances()
