@@ -44,12 +44,16 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
     const [selectedModelIndex, setSelectedModelIndex] = React.useState<number | undefined>(undefined);
     const [allModels, setAllModels] = React.useState<any[]>([]);
 
+    const [selectedMaskIndex, setSelectedMaskIndex] = React.useState<number | undefined>(undefined);
+    const [allMasks, setAllMasks] = React.useState<any[]>([]);
+
     const [status, setStatus] = React.useState({
         uploading: false,
         deleting: false,
         predicting: false,
         authenticating: false,
         loadingModels: false,
+        loadingMasks: false,
     });
 
     const isActive = () => {
@@ -180,6 +184,36 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
         }
     };
 
+    // This function gets the list of segmentations that are currently loaded in the viewer that could possibly be ground truth masks. Returns a JSON with {seriesInstanceUID: str, seriesDescription: str}
+    const GetListMasks = () => {
+        try {
+            // get services
+            const viewportGridService = servicesManager.services.viewportGridService;
+            const displaySetService = servicesManager.services.displaySetService;
+            const activeViewportId = viewportGridService.getActiveViewportId()
+
+            // get active displaySets
+            const displaySets = displaySetService.getActiveDisplaySets();
+            
+            // get all displaySets that are segmentations, either Modality: SEG or Modality: RTSTRUCT
+            const segmentations = displaySets.filter(displaySet => displaySet.Modality === 'SEG' || displaySet.Modality === 'RTSTRUCT');
+            
+            // get seriesInstanceUIDs of the segmentations and their corresponding SeriesDescription
+            const segmentationSeries = segmentations.map(displaySet => ({
+                seriesInstanceUID: displaySet.SeriesInstanceUID,
+                seriesDescription: displaySet.SeriesDescription,
+            }));
+
+            // add an undefined option to the list
+            segmentationSeries.unshift({ seriesInstanceUID: undefined, seriesDescription: 'None' });
+            
+            setAllMasks(segmentationSeries);
+
+        } catch (error) {
+            console.error('Error in getListMasks:', error);
+        }
+    };
+
     // const authenticateUser = async () => {
     //     setStatus({ ...status, authenticating: true });
 
@@ -273,6 +307,61 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
         }
     };
 
+    const CalculateDiceScore = async () => {
+        try{
+            const currentScreenIDs = GetCurrentDisplayIDs();
+
+            if (currentScreenIDs) {
+                // parse json received from GetCurrentDisplayIDs
+                const { is_default_study, patient_id, study_id, series_id } = JSON.parse(currentScreenIDs);
+                // check if the current screen is a default screen with no segmentations loaded
+                if (is_default_study == true) {
+                    alert('No segmentation loaded');
+                    return;
+                }
+
+                // at this point, the current screen should have a segmentation. 
+
+                // get the ground truth mask that the user selected
+                const currentGroundTruth = allMasks[selectedMaskIndex];
+                
+                if (!currentGroundTruth || currentGroundTruth.seriesInstanceUID === undefined) {
+                    alert('Please select a ground truth mask');
+                    return;
+
+                } else {
+                    // both segmentation and ground truth should be present at this point -> reconstruct JSON strings
+                    const groundTruthJSON ={ patient_id: patient_id, study_id: study_id, seriesInstanceUID: currentGroundTruth.seriesInstanceUID };
+                    const currMaskJSON = { patient_id: patient_id, study_id: study_id, seriesInstanceUID: series_id };
+
+
+                    console.log("Ground Truth:", groundTruthJSON);
+                    console.log("Segmentation:", currMaskJSON);
+                    
+                    fetch(`${urlPrefix}/api/calculateDiceScore`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(
+                            {currentMask: currMaskJSON, groundTruth: groundTruthJSON}),
+                    })
+                    .then(res => res.json())
+                    .then((value) => {
+                        console.log(value);
+                        alert(`Dice Score: ${value.diceScore}`);
+                    })
+                    .catch((err) => {
+                        console.error(err);
+                    });
+                }
+            } else {
+                console.error('Error in GetCurrentDisplayIDs');
+                
+            }
+        }
+        catch (err){
+            console.error('Error in CalculateDiceScore', err);
+        }
+    };
     // const deleteInstance = async () => {
     //     setStatus({ ...status, deleting: true });
 
@@ -417,7 +506,6 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                         children={status.deleting ? 'Deleting...' : 'Delete Current Instance'}
                         disabled={isActive()}
                     /> */}
-
                     <br />
                     <Button
                         onClick={() => {
@@ -426,7 +514,15 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                         children={status.uploading ? 'Getting SeriesInstanceID...' : 'Get SeriesInstanceID'}
                         disabled={isActive()}
                     />
+                    <br />
 
+                    <Button
+                        onClick={() => {
+                            CalculateDiceScore();
+                        }}
+                        children={status.uploading ? 'Calculating DICE Score...' : 'Calculate DICE Score'}
+                        disabled={isActive()}
+                    />
                     <br />
                     <Button
                         onClick={() => {
@@ -523,6 +619,42 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                     </div>
                 )}
             </div>
+
+            <div className="w-full text-center text-white">
+                <PanelSection title="Ground Truth Mask Selection">
+                    <Button
+                        onClick={() => {
+                            setStatus({ ...status, loadingMasks: true });
+                            GetListMasks();
+                            setStatus({ ...status, loadingMasks: false });
+                        }}
+                        children={status.loadingMasks ? 'Refreshing masks...' : 'Refresh Masks'}
+                        disabled={isActive()}
+                    />
+                    {allMasks.length > 0 && (
+                        <div style={{ marginTop: '10px', width: '100%' }}>
+                            <h5>Select a Ground Truth Mask:</h5>
+                            <select
+                                value={selectedMaskIndex}
+                                onChange={(e) => setSelectedMaskIndex(Number(e.target.value))}
+                                style={{
+                                    padding: '10px',
+                                    backgroundColor: '#e2e8f0',
+                                    color: 'black',
+                                    width: '100%',
+                                }}
+                            >
+                                {allMasks.map((mask, index) => (
+                                    <option key={index} value={index}>
+                                        {mask.seriesDescription}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                </PanelSection>
+            </div>
+
 
             <div
                 style={{
