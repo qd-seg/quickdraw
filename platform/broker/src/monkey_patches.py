@@ -9,6 +9,9 @@ from pydicom.sequence import Sequence
 
 from rt_utils import image_helper
 
+PATCH_HIGHDICOM = False
+PATCH_RTUTILS = True
+
 # np.float_ is deprecated in numpy>=2.0.0
 # highdicom<=0.22.0 still checks np.float_
 @staticmethod
@@ -112,8 +115,6 @@ def _check_and_cast_pixel_array(
             raise TypeError('Pixel array has an invalid data type.')
 
         return pixel_array, segments_overlap
-    
-Segmentation._check_and_cast_pixel_array = _check_and_cast_pixel_array
 
 # same issue as above: uses np.float_
 @staticmethod
@@ -199,8 +200,6 @@ def _get_segment_pixel_array(
                     segment_array *= int(max_fractional_value)
 
         return segment_array
-    
-Segmentation._get_segment_pixel_array = _get_segment_pixel_array
 
 # RT utils monkey patch for contours
 def monkey_patched_create_series_mask_from_contour_sequence(series_data, contour_sequence):
@@ -218,8 +217,6 @@ def monkey_patched_create_series_mask_from_contour_sequence(series_data, contour
             pass
 
     return mask
-
-image_helper.create_series_mask_from_contour_sequence = monkey_patched_create_series_mask_from_contour_sequence
 
 # Due to dependency issues, we must use a later version of pydicom, which does not 
 def monkey_patched_PixelMeasuresSequence__eq__(self, other):
@@ -243,4 +240,13 @@ def monkey_patched_PixelMeasuresSequence__eq__(self, other):
 
     return True
 
-PixelMeasuresSequence.__eq__ = monkey_patched_PixelMeasuresSequence__eq__
+
+if PATCH_HIGHDICOM:    
+    print('patching highdicom')
+    Segmentation._check_and_cast_pixel_array = _check_and_cast_pixel_array
+    PixelMeasuresSequence.__eq__ = monkey_patched_PixelMeasuresSequence__eq__  
+    Segmentation._get_segment_pixel_array = _get_segment_pixel_array
+    
+if PATCH_RTUTILS:
+    print('patching rt-utils')
+    image_helper.create_series_mask_from_contour_sequence = monkey_patched_create_series_mask_from_contour_sequence

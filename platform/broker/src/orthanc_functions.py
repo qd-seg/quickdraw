@@ -1,12 +1,15 @@
 import pyorthanc
 import zipfile
 import os
+from urllib.parse import urljoin
+
+# TODO: might want to look into this: https://orthanc.uclouvain.be/book/faq/orthanc-ids.html
 
 orthanc_url = "/store"
 
-def get_tags(study_UID):
+def get_tags(study_UID, base_url):
     UID_list = []
-    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
+    orthanc = pyorthanc.Orthanc(urljoin(base_url, orthanc_url), username='orthanc', password='orthanc')
     study = pyorthanc.find_studies(orthanc, query={"StudyInstanceUID" : study_UID})[0]#there should only be one study
     study_info = study.get_main_information()
     for series_id in study_info["Series"]:
@@ -17,8 +20,8 @@ def get_tags(study_UID):
     return UID_list
 
 
-def change_tags(series_UID):#make sure this is an RTstruct series
-    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
+def change_tags(series_UID, base_url):#make sure this is an RTstruct series
+    orthanc = pyorthanc.Orthanc(urljoin(base_url, orthanc_url), username='orthanc', password='orthanc')
     series = None
     try:
         series = pyorthanc.find_series(orthanc, query={"SeriesInstanceUID":series_UID})[0]#Should only be one
@@ -33,10 +36,8 @@ def change_tags(series_UID):#make sure this is an RTstruct series
         print(series.labels)
 
 
-
-
-def get_first_dicom_image_series_from_study(patient_id, study_UID, save_directory):
-    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
+def get_first_dicom_image_series_from_study(patient_id, study_UID, save_directory, base_url):
+    orthanc = pyorthanc.Orthanc(urljoin(base_url, orthanc_url), username='orthanc', password='orthanc')
 
     patient_file_id = pyorthanc.find_patients(orthanc,query={'PatientID': patient_id})[0]#there should only be one
     patient = pyorthanc.Patient(patient_file_id.get_main_information()["ID"],orthanc)
@@ -67,9 +68,17 @@ def get_first_dicom_image_series_from_study(patient_id, study_UID, save_director
     image_folder = os.listdir(study_dir)[image_order_num]
     return first_folder, study_dir + "/"+image_folder
 
-def get_dicom_series_by_id(series_instance_uid, save_directory):
-    a_series = pyorthanc.Series(series_instance_uid, pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc'))
+def get_dicom_series_by_id(series_instance_uid, save_directory, base_url):
+    print('get dicom series', urljoin(base_url, orthanc_url))
+    orthanc = pyorthanc.Orthanc(urljoin(base_url, orthanc_url), username='orthanc', password='orthanc')
+    valid_series = pyorthanc.find_series(orthanc, query={'SeriesInstanceUID': series_instance_uid})
+    if len(valid_series) == 0:
+        raise Exception('No series found with UID:', series_instance_uid)
+    
+    a_series = valid_series[0]
     print(save_directory)
+    print(a_series)
+    print(len(a_series.instances))
     zip_path = os.path.join(save_directory, 'series.zip')
     a_series.download(zip_path, with_progres=False)
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:

@@ -277,7 +277,12 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
     };
 
     const testIdRoute = () => {
-        fetch(`${urlPrefix}/api/...`)
+        console.log('...')
+        fetch(`${urlPrefix}/api/testConv`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: GetCurrentDisplayIDs()
+            })
             .then(res => res.json())
             .then((value) => {
                 console.log(value);
@@ -429,7 +434,8 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                     />
 
                     <br />
-                    {/* <Button onClick={() => { fetch(`${urlPrefix}/api/testSocket`) }} children="Test Progress Bar" disabled={isActive()} /> */}
+                    <Button onClick={testIdRoute} children={"Test seg"} disabled={false} />
+                    <br />
 
 
                     <div style={{ color: '#90cdf4', margin: '5px' }}>

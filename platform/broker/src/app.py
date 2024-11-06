@@ -22,9 +22,10 @@ from orthanc_get import getRTStructs
 from orthanc_functions import change_tags, get_tags, get_dicom_series_by_id, get_first_dicom_image_series_from_study, uploadSegFile
 from seg_converter_main_func import process_conversion
 from getRTStructWithoutDICEDict import getRTStructWithoutDICEDict
-from rtstruct_to_seg_conversion import convert_mask_to_dicom_seg, load_dicom_series, convert_numpy_array_to_dicom_seg
+from rtstruct_to_seg_conversion import convert_3d_numpy_array_to_dicom_seg, load_dicom_series, convert_mask_to_dicom_seg
 import numpy as np
 import threading
+from urllib.parse import urlparse, urlunparse
 
 app = Flask(__name__)
 
@@ -336,34 +337,47 @@ def setupComputeWithModel():
         
     return jsonify({"message": message}), status_code
 
-def convert_cached_pred_result_to_seg(selectedDicomSeries):
+# TODO: the model right now does not distinguish between series, only by study
+# Also this should probably use only study id instead of patient id?
+def convert_cached_pred_result_to_seg(patient_id, study_id, dicom_series_id, orthanc_base_url_root):
     print('Converting to SEG...')
-    # Convert to SEG
-    dcm_prediction_dir = f'dcm-prediction/{selectedDicomSeries}'
+    
+    # Get directory of model prediction in cache
+    dcm_prediction_dir = f'dcm-prediction/{patient_id}'
     if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
         dcm_prediction_dir = os.path.abspath(os.path.join(cache_dir, dcm_prediction_dir))
     
+    # Convert all npz files in cache
     for f in os.listdir(dcm_prediction_dir):
         if os.path.isfile(filepath := os.path.join(dcm_prediction_dir, f)):
-            # TODO: there was an issue with the segmentation mask in the npz being malformed/corrupted in some way
-            # Not sure why, rarely happens
+            # TODO: there was a rare issue with the segmentation mask in the npz being malformed/corrupted in some way
+            # Only happened one time, could not reproduce
             data = np.load(filepath)
             temp_seg_path = os.path.join(dcm_prediction_dir, '_convert/')
             temp_images_path = os.path.join(dcm_prediction_dir, '_images')
             os.makedirs(temp_seg_path, exist_ok=True)
-            # TODO: sometimes there is an out of memory issues and it SIGKILLS the flask process
+            os.makedirs(temp_images_path, exist_ok=True)
+            # TODO: sometimes there is an out of memory issues and it SIGKILLS the flask process.
+            # Again only happened one time and cannot reproduce
             # dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005')
-            dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005 PANCREAS_0005')
+            # dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005 PANCREAS_0005')
+            # print(len(dicom_series))
             
-            # dicom_series_path = get_dicom_series_by_id('1.2.826.0.1.3680043.2.1125.1.64196995986655345161142945283707267', temp_images_path) # TODO: comes from frontend
-            # print(dicom_series_path)
+            dicom_series_path = get_dicom_series_by_id(dicom_series_id, temp_images_path, orthanc_base_url_root) # TODO: comes from frontend
+            # dicom_series_path = get_first_dicom_image_series_from_study(patient_id, study_id, temp_images_path, orthanc_base_url_root)
+            print(dicom_series_path)
             
-            # dicom_series = load_dicom_series(dicom_series_path)
-            convert_numpy_array_to_dicom_seg(dicom_series, data['data'], data['rois'], os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'))
+            dicom_series = load_dicom_series(dicom_series_path)
+            convert_3d_numpy_array_to_dicom_seg(dicom_series, data['data'], data['rois'], os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'))
         
-@bp.route('/testConv')
+@bp.route('/testConv', methods=['POST'])
 def test_conv():
-    convert_cached_pred_result_to_seg('PANCREAS_0005')
+    # convert_cached_pred_result_to_seg('PANCREAS_0005')
+    # print(' | '.join([request.path, request.full_path, request.remote_addr, request.url_root, request.url]))
+    series_id = request.json['series_id']
+    study_id = request.json['study_id']
+    patient_id = request.json['patient_id']
+    convert_cached_pred_result_to_seg(patient_id, study_id, series_id, request.url_root)
     return jsonify( {'message': 'ok'}), 200
 
 def run_pred_helper(instance, selectedModel, selectedDicomSeries):
