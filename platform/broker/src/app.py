@@ -349,7 +349,7 @@ def convert_cached_pred_result_to_seg(selectedDicomSeries):
             data = np.load(filepath)
             temp_seg_path = os.path.join(dcm_prediction_dir, '_convert/')
             os.makedirs(temp_seg_path, exist_ok=True)
-            # TODO: this needs to be loaded from orthanc and cache. PLACEHOLDER
+            # TODO: sometimes there is an out of memory issues and it SIGKILLS the flask process
             # getRTStructWithoutDICEDict('PANCREAS_0005', 'PANCREAS_0005')
             # dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005')
             dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005 PANCREAS_0005')
