@@ -25,7 +25,7 @@ from getRTStructWithoutDICEDict import getRTStructWithoutDICEDict
 from rtstruct_to_seg_conversion import convert_3d_numpy_array_to_dicom_seg, load_dicom_series, convert_mask_to_dicom_seg
 import numpy as np
 import threading
-from urllib.parse import urlparse, urlunparse
+import shutil
 
 app = Flask(__name__)
 
@@ -339,7 +339,7 @@ def setupComputeWithModel():
 
 # TODO: the model right now does not distinguish between series, only by study
 # Also this should probably use only study id instead of patient id?
-def convert_cached_pred_result_to_seg(patient_id, study_id, dicom_series_id, orthanc_base_url_root):
+def convert_cached_pred_result_to_seg(patient_id, study_id, dicom_series_id):
     print('Converting to SEG...')
     
     # Get directory of model prediction in cache
@@ -347,29 +347,38 @@ def convert_cached_pred_result_to_seg(patient_id, study_id, dicom_series_id, ort
     if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
         dcm_prediction_dir = os.path.abspath(os.path.join(cache_dir, dcm_prediction_dir))
     
+    temp_seg_path = os.path.join(dcm_prediction_dir, '_convert/')
+    temp_images_path = os.path.join(dcm_prediction_dir, '_images/')
+    os.makedirs(temp_seg_path, exist_ok=True)
+    os.makedirs(temp_images_path, exist_ok=True)
+    
+    # TODO: sometimes there is an out of memory issues and it SIGKILLS the flask process.
+    # Again only happened one time and cannot reproduce
+    dicom_series_path = get_dicom_series_by_id(dicom_series_id, temp_images_path) # TODO: comes from frontend
+    # dicom_series_path = get_first_dicom_image_series_from_study(patient_id, study_id, temp_images_path)
+    print(dicom_series_path)
+    
     # Convert all npz files in cache
     for f in os.listdir(dcm_prediction_dir):
         if os.path.isfile(filepath := os.path.join(dcm_prediction_dir, f)):
-            # TODO: there was a rare issue with the segmentation mask in the npz being malformed/corrupted in some way
+             # TODO: there was a rare issue with the segmentation mask in the npz being malformed/corrupted in some way
             # Only happened one time, could not reproduce
             data = np.load(filepath)
-            temp_seg_path = os.path.join(dcm_prediction_dir, '_convert/')
-            temp_images_path = os.path.join(dcm_prediction_dir, '_images')
-            os.makedirs(temp_seg_path, exist_ok=True)
-            os.makedirs(temp_images_path, exist_ok=True)
-            # TODO: sometimes there is an out of memory issues and it SIGKILLS the flask process.
-            # Again only happened one time and cannot reproduce
-            # dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005')
-            # dicom_series = load_dicom_series('./dicom-images/PANCREAS_0005 PANCREAS_0005')
-            # print(len(dicom_series))
-            
-            dicom_series_path = get_dicom_series_by_id(dicom_series_id, temp_images_path, orthanc_base_url_root) # TODO: comes from frontend
-            # dicom_series_path = get_first_dicom_image_series_from_study(patient_id, study_id, temp_images_path, orthanc_base_url_root)
-            print(dicom_series_path)
             
             dicom_series = load_dicom_series(dicom_series_path)
-            convert_3d_numpy_array_to_dicom_seg(dicom_series, data['data'], data['rois'], os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'))
-        
+            seg_save_dir = convert_3d_numpy_array_to_dicom_seg(dicom_series, data['data'], data['rois'], os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'))
+            if seg_save_dir is None:
+                raise Exception('Something went wrong with saving SEG')
+            
+            # Upload to orthanc
+            uploadSegFile(seg_save_dir, remove_original=True)
+            
+            print('Removing', filepath, '...')
+            # os.remove(filepath)
+
+    shutil.rmtree(temp_images_path)
+    shutil.rmtree(temp_seg_path)
+
 @bp.route('/testConv', methods=['POST'])
 def test_conv():
     # convert_cached_pred_result_to_seg('PANCREAS_0005')
@@ -377,10 +386,11 @@ def test_conv():
     series_id = request.json['series_id']
     study_id = request.json['study_id']
     patient_id = request.json['patient_id']
-    convert_cached_pred_result_to_seg(patient_id, study_id, series_id, request.url_root)
+    print(request.json)
+    convert_cached_pred_result_to_seg(patient_id, study_id, series_id)
     return jsonify( {'message': 'ok'}), 200
 
-def run_pred_helper(instance, selectedModel, selectedDicomSeries):
+def run_pred_helper(instance, selectedModel, selectedDicomSeries): # TODO: should take series study patient id
     try: 
         print('instance not none')
         set_tracked_model_instance_running(selectedModel, True)
@@ -400,11 +410,10 @@ def run_pred_helper(instance, selectedModel, selectedDicomSeries):
             raise Exception('Predictions failed')
         
         emit_update_progressbar(90)
-        emit_status_update('Converting to SEG...')
-        convert_cached_pred_result_to_seg(selectedDicomSeries)
         
-        ## TODO: send predictions back to user or to orthanc. Note that predictions are located in /dcm-prediction/
-        # ...
+        emit_status_update('Converting to SEG...')
+        convert_cached_pred_result_to_seg(selectedDicomSeries) # TODO: ...
+        
         
         # TODO: maybe delete instance here? it gets paused anyway so not sure if needed
         set_tracked_model_instance_running(selectedModel, False)
@@ -428,15 +437,18 @@ def run_prediction():
     
     if request.is_json:
         json_data = request.get_json()
-    selectedModel = json_data["selectedModel"]
-    selectedDicomSeries = json_data["selectedDicomSeries"]
+    selectedModel = json_data.get("selectedModel", None)
+    # selectedDicomSeries = json_data["selectedDicomSeries"]
+    series_id = request.json.get('series_id', None)
+    study_id = request.json.get('study_id', None)
     
     print('params:')
     print(selectedModel)
-    print(selectedDicomSeries)
+    # print(selectedDicomSeries)
     
-    if selectedModel is None or selectedDicomSeries is None:
-        print(selectedModel, selectedDicomSeries, 'wrong')
+    # if selectedModel is None or selectedDicomSeries is None:
+        # print(selectedModel, selectedDicomSeries, 'wrong')
+    if selectedModel is None or series_id is None or study_id is None:
         return jsonify({'message': 'Model or images not provided'}), 500
 
     try:

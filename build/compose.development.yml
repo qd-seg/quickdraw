@@ -37,8 +37,6 @@ services:
     extends:
       file: compose.common.yml
       service: orthanc
-    ports:
-      - 8080:80
 
 
 volumes:

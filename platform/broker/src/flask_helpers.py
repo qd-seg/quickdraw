@@ -355,6 +355,10 @@ def setup_compute_instance(project_id: str, zone: str, instance_name: str | None
 
 # Run predictions on existing compute instance. Assumes DICOM images have already been uploaded to ./dicom-images/
 def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, dicom_series_name: str, instance_name: str, skip_predictions: bool = False, progress_bar_update_callback = None) -> bool:
+    # Need:
+    # where does dicom series come from -> the cache/temp-dcm/study_id/instance_id/...
+    
+    
     print('Predicting', dicom_series_name)
     try:
         username = _USERNAME
@@ -380,7 +384,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                 zone, 
                 service_account, 
                 key_filepath, 
-                f'./dicom-images/{dicom_series_name}', 
+                f'./dicom-images/{dicom_series_name}', # from cache
                 dicom_series_name, 
                 instance_name, 
                 run_auth=False):

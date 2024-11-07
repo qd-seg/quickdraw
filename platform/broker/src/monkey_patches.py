@@ -9,7 +9,7 @@ from pydicom.sequence import Sequence
 
 from rt_utils import image_helper
 
-PATCH_HIGHDICOM = False
+PATCH_HIGHDICOM = True
 PATCH_RTUTILS = True
 
 # np.float_ is deprecated in numpy>=2.0.0
