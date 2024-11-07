@@ -145,6 +145,39 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     };
   };
 
+  function getCurrentImageMetadata() {
+    if (!DicomMetadataStore) {
+      uiNotificationService.show({
+        title: 'Unable to Fetch Metadata',
+        message: 'DicomMetadataStore service is not available.',
+        type: 'error',
+        duration: 3000,
+      });
+
+      return;
+    }
+    const currentScreenIDs = getCurrentDisplayIDs();  
+    if (!currentScreenIDs) {
+      uiNotificationService.show({
+        title: 'Unable to Access Screen',
+        message: 'No active viewport found.',
+        type: 'error',
+        duration: 3000,
+      });
+
+      return;
+    }
+
+    // Retrieve the metadata for the first image using dicomMetadataProvider
+    const firstImageMetadata = DicomMetadataStore.getSeries(currentScreenIDs.study_uid, currentScreenIDs.series_id).instances[0];
+    const metadataDict = Object.keys(firstImageMetadata).reduce((acc, key) => {
+      acc[key] = firstImageMetadata[key];
+      return acc;
+    }, {});
+    return metadataDict;
+  }
+  
+
   const calculateDICEScore = async () => {
     let currentIDs;
 
@@ -404,6 +437,14 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
           <Button
             onClick={() => console.log(getCurrentDisplayIDs())}
             children={'Get Instance ID'}
+            disabled={isActive()}
+            className="w-4/5"
+          />
+          <br />
+
+          <Button
+            onClick={() => console.log(getCurrentImageMetadata())}
+            children={'Get Metadata'}
             disabled={isActive()}
             className="w-4/5"
           />
