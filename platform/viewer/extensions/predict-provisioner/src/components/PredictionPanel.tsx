@@ -49,6 +49,18 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     setStatus({ ...status, predicting: true });
 
     try {
+      const currentScreenIDs = getCurrentDisplayIDs();
+      if (currentScreenIDs.is_default_study == false) {
+        uiNotificationService.show({
+          title: 'Cannot Run Predictions on a Segmentation',
+          message: 'Please select a CT scan and try again.',
+          type: 'error',
+          duration: 3000,
+        });
+
+        return;
+      }
+
       await fetch(`${SURROGATE_HOST}/api/setupComputeWithModel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,7 +72,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selectedModel: availableModels[selectedModelIndex]?.name,
-          selectedDicomSeries: 'PANCREAS_0005',
+          selectedDicomSeries: currentScreenIDs,
         }),
       });
     } catch (error) {
@@ -87,8 +99,9 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
     const currentStudyInstanceUID = currentDisplaySet?.StudyInstanceUID;
     const currentStudy = DicomMetadataStore.getStudy(currentStudyInstanceUID);
-
+    const currentStudyDescription = currentStudy?.StudyDescription;
     const currentPatientUID = currentStudy?.series[0].PatientID;
+    const currentStudyID = currentStudy?.series[0].StudyID;
     const currentSeriesInstanceUID = currentDisplaySet?.SeriesInstanceUID;
     const currentSOPInstanceUID = currentDisplaySet?.SOPInstanceUID;
 
@@ -96,7 +109,9 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return {
         is_default_study: false,
         patient_id: currentPatientUID,
-        study_id: currentStudyInstanceUID,
+        study_id: currentStudyID,
+        study_uid: currentStudyInstanceUID,
+        study_description: currentStudyDescription,
         series_id: currentSeriesInstanceUID,
       };
     }
@@ -113,7 +128,9 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return {
         is_default_study: false,
         patient_id: currentPatientUID,
-        study_id: currentStudyInstanceUID,
+        study_id: currentStudyID,
+        study_uid: currentStudyInstanceUID,
+        study_description: currentStudyDescription,
         series_id: segmentationSeriesInstanceUID,
       };
     }
@@ -121,7 +138,9 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     return {
       is_default_study: true,
       patient_id: currentPatientUID,
-      study_id: currentStudyInstanceUID,
+      study_id: currentStudyID,
+      study_uid: currentStudyInstanceUID,
+      study_description: currentStudyDescription,
       series_id: currentSeriesInstanceUID,
     };
   };
@@ -147,7 +166,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return;
     }
 
-    if (!selectedMaskIndex) {
+    if (!selectedMaskIndex || availableMasks[selectedMaskIndex.value].uid == undefined) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please set an active ground truth segmentaion.',
@@ -157,21 +176,22 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
       return;
     }
-
-    const currentGroundTruth = availableMasks[selectedMaskIndex];
-
+    const currentGroundTruth = availableMasks[selectedMaskIndex.value];
     const truthIDs = {
       patient_id: currentIDs.patient_id,
       study_id: currentIDs.patient_id,
-      seriesInstanceUID: currentGroundTruth.seriesInstanceUID,
+      study_desc: currentIDs.study_description,
+      study_uid: currentIDs.study_uid,
+      seriesInstanceUID: currentGroundTruth.uid,
     };
-
+    
     const activeIDs = {
       patient_id: currentIDs.patient_id,
       study_id: currentIDs.patient_id,
+      study_desc: currentIDs.study_description,
+      study_uid: currentIDs.study_uid,
       seriesInstanceUID: currentIDs.series_id,
     };
-
     try {
       const response = await fetch(`${SURROGATE_HOST}/api/calculateDiceScore`, {
         method: 'POST',
