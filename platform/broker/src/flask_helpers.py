@@ -10,6 +10,7 @@ from enum import Enum
 from typing import List, Union
 import json 
 from google.api_core.datetime_helpers import DatetimeWithNanoseconds
+from orthanc_functions import get_dicom_series_by_id
 
 # _USERNAME = os.environ.get('USER')
 _USERNAME = 'cmsc435'
@@ -302,7 +303,7 @@ def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_
     # startup_request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=startup_metadata, project=_PROJECT_ID, zone=_ZONE)
     return first_metadata_request.result(timeout=_MAX_TIMEOUT_NORMAL_REQUEST)
 
-def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, key_filepath: str, dicom_image_directory: str, dicom_series_name: str, instance_name: str, run_auth=True) -> bool:
+def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, key_filepath: str, dicom_image_directory: str, dicom_series_id: str, instance_name: str, run_auth=True) -> bool:
     if run_auth:
         try:
             # Log into service account with gcloud
@@ -321,7 +322,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
                         f'--project={project_id}', 
                         f'--zone={zone}',
                         '--quiet',
-                        f'--command=mkdir -p /home/{username}/images && mkdir -p /home/{username}/model_outputs/{dicom_series_name} && rm -rf /home/{username}/images/{dicom_series_name}'], check=True, input='\n', text=True)
+                        f'--command=mkdir -p /home/{username}/images && mkdir -p /home/{username}/model_outputs/{dicom_series_id} && rm -rf /home/{username}/images/{dicom_series_id}'], check=True, input='\n', text=True)
         # Upload
         subprocess.run(['gcloud', 'compute', 'scp',
                         f'--project={project_id}', 
@@ -329,13 +330,27 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
                         '--recurse',
                         '--quiet',
                         dicom_image_directory,
-                        f'{username}@{instance_name}:/home/{username}/images/{dicom_series_name}'], check=True)
+                        f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}'], check=True)
     except Exception as e:
         print('DICOM upload failed')
         print(e, flush=True)
         return False
     
     return True
+
+def get_dicom_series_from_orthanc_to_cache(dicom_series_id):
+    dcm_prediction_dir = f'dcm-images/{dicom_series_id}'
+    if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
+        dcm_prediction_dir = os.path.abspath(os.path.join(cache_dir, dcm_prediction_dir))
+    temp_images_path = os.path.join(dcm_prediction_dir, dicom_series_id)
+    os.makedirs(temp_images_path, exist_ok=True)
+    
+    # TODO: sometimes there is an out of memory issues and it SIGKILLS the flask process.
+    # Again only happened one time and cannot reproduce
+    dicom_series_path = get_dicom_series_by_id(dicom_series_id, temp_images_path) # TODO: comes from frontend
+    # dicom_series_path = get_first_dicom_image_series_from_study(patient_id, study_id, temp_images_path)
+    print(dicom_series_path)
+    return dicom_series_path
 
 # Creates an instance and pulls the model from registry to it. Returns if successfully created or not
 def setup_compute_instance(project_id: str, zone: str, instance_name: str | None, machine_type: str, instance_limit: int, service_account_email: str, image_name: str, models_repo: str = None, skip_metadata=False) -> compute_v1.Instance | None:
@@ -354,12 +369,14 @@ def setup_compute_instance(project_id: str, zone: str, instance_name: str | None
     return instance
 
 # Run predictions on existing compute instance. Assumes DICOM images have already been uploaded to ./dicom-images/
-def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, dicom_series_name: str, instance_name: str, skip_predictions: bool = False, progress_bar_update_callback = None) -> bool:
+def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, cached_dicom_series_path: str, dicom_series_id: str, instance_name: str, skip_predictions: bool = False, progress_bar_update_callback = None) -> str | None:
     # Need:
     # where does dicom series come from -> the cache/temp-dcm/study_id/instance_id/...
-    
-    
-    print('Predicting', dicom_series_name)
+    # where are images uploaded to -> /home/USER/images/instance_id (uid)
+    # need to pass instance_id into setup script through metadata
+
+    print('Predicting', dicom_series_id)
+    dcm_prediction_dir = None
     try:
         username = _USERNAME
         
@@ -374,18 +391,19 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
             subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
                             f'--project={project_id}', 
                             f'--zone={zone}',
-                            f'--metadata=dicom-image={dicom_series_name},username={username}'], check=True)
+                            f'--metadata=dicom-image={dicom_series_id},username={username}'], check=True) #TODO
             
             # Copy over DICOM images from server to instance
             if progress_bar_update_callback is not None:
                 progress_bar_update_callback(45)
+    
             if not upload_dicom_to_instance(
                 project_id, 
                 zone, 
                 service_account, 
                 key_filepath, 
-                f'./dicom-images/{dicom_series_name}', # from cache
-                dicom_series_name, 
+                cached_dicom_series_path,
+                dicom_series_id, 
                 instance_name, 
                 run_auth=False):
                     raise Exception()
@@ -416,7 +434,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                         f'--zone={zone}',
                         '--recurse',
                         '--quiet',
-                        f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_name}/',
+                        f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_id}/',
                         dcm_prediction_dir])
         
         # # Delete files on Instance
@@ -430,15 +448,15 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         # # Stop the instance
         # print('Stopping Instance')
         # stop_instance(project_id, zone, instance_name)
-        
-        # TODO: upload predictions to Orthanc
     except Exception as e:
         print('Something went wrong with running predictions:')
         print(e, flush=True)
         stop_instance(project_id, zone, instance_name)
-        return False
+        return None
     
-    return True
+    dcm_prediction_dir = os.path.join(dcm_prediction_dir, dicom_series_id)
+    print('returning', dcm_prediction_dir)
+    return dcm_prediction_dir
 
 if __name__ == '__main__':
     # env_vars = read_json('flaskVars.json')

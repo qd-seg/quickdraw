@@ -258,10 +258,15 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ selectedModel: allModels[selectedModelIndex]?.name })
             });
+            const displayIds = JSON.parse(GetCurrentDisplayIDs() || '');
             const runResponse = await fetch(`${urlPrefix}/api/run`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ selectedModel: allModels[selectedModelIndex]?.name, selectedDicomSeries: 'PANCREAS_0005' }), // TODO: PLACEHOLDER
+                body: JSON.stringify({ 
+                    selectedModel: allModels[selectedModelIndex]?.name,
+                    studyId: displayIds.study_id,
+                    seriesId: displayIds.series_id,
+                }), // TODO: PLACEHOLDER
             });
             // if (runResponse.ok)
         } catch (error) {

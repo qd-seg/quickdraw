@@ -14,7 +14,8 @@ from flask_helpers import (
     setup_compute_instance,
     run_predictions,
     read_json, write_json,
-    delete_docker_image
+    delete_docker_image,
+    get_dicom_series_from_orthanc_to_cache
 )
 from gcloud_auth import auth_with_key_file_json
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -262,7 +263,7 @@ def list_models():
             'running': is_tracked_model_instance_running(d.name.split('/')[-1])
         } for d in docker_packages]}), 200
     
-@bp.route('/isModelRunning', methods=['GET'])
+@bp.route('/isModelRunning', methods=['POST'])
 def is_model_running():
     if request.is_json:
         json_data = request.get_json()
@@ -276,6 +277,10 @@ def is_model_running():
         return jsonify({ 'message': 'Please select a model' }), 400
     
     return jsonify({ 'running': is_tracked_model_instance_running(selectedModel) }), 200
+
+def setup_compute_with_model_helper(asdf):
+    # TODO: move stuff here. then have /run call this automatically if an instance doesnt exist
+    pass
 
 @bp.route('/setupComputeWithModel', methods=['POST'])
 def setupComputeWithModel():
@@ -339,24 +344,14 @@ def setupComputeWithModel():
 
 # TODO: the model right now does not distinguish between series, only by study
 # Also this should probably use only study id instead of patient id?
-def convert_cached_pred_result_to_seg(patient_id, study_id, dicom_series_id):
+def convert_cached_pred_result_to_seg(dcm_prediction_dir, cached_dicom_series_path):
     print('Converting to SEG...')
     
-    # Get directory of model prediction in cache
-    dcm_prediction_dir = f'dcm-prediction/{patient_id}'
-    if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
-        dcm_prediction_dir = os.path.abspath(os.path.join(cache_dir, dcm_prediction_dir))
-    
-    temp_seg_path = os.path.join(dcm_prediction_dir, '_convert/')
-    temp_images_path = os.path.join(dcm_prediction_dir, '_images/')
+    temp_seg_path = os.path.join(dcm_prediction_dir, '__convert/')
+    # temp_images_path = os.path.join(dcm_prediction_dir, '_images/')
     os.makedirs(temp_seg_path, exist_ok=True)
-    os.makedirs(temp_images_path, exist_ok=True)
-    
-    # TODO: sometimes there is an out of memory issues and it SIGKILLS the flask process.
-    # Again only happened one time and cannot reproduce
-    dicom_series_path = get_dicom_series_by_id(dicom_series_id, temp_images_path) # TODO: comes from frontend
-    # dicom_series_path = get_first_dicom_image_series_from_study(patient_id, study_id, temp_images_path)
-    print(dicom_series_path)
+    # os.makedirs(temp_images_path, exist_ok=True)
+    print('temp seg path', temp_seg_path)
     
     # Convert all npz files in cache
     for f in os.listdir(dcm_prediction_dir):
@@ -365,7 +360,7 @@ def convert_cached_pred_result_to_seg(patient_id, study_id, dicom_series_id):
             # Only happened one time, could not reproduce
             data = np.load(filepath)
             
-            dicom_series = load_dicom_series(dicom_series_path)
+            dicom_series = load_dicom_series(cached_dicom_series_path)
             seg_save_dir = convert_3d_numpy_array_to_dicom_seg(dicom_series, data['data'], data['rois'], os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'))
             if seg_save_dir is None:
                 raise Exception('Something went wrong with saving SEG')
@@ -376,8 +371,10 @@ def convert_cached_pred_result_to_seg(patient_id, study_id, dicom_series_id):
             print('Removing', filepath, '...')
             # os.remove(filepath)
 
-    shutil.rmtree(temp_images_path)
-    shutil.rmtree(temp_seg_path)
+    # shutil.rmtree(temp_images_path)
+    # shutil.rmtree(temp_seg_path)
+    shutil.rmtree(dcm_prediction_dir)
+    shutil.rmtree(cached_dicom_series_path)
 
 @bp.route('/testConv', methods=['POST'])
 def test_conv():
@@ -390,30 +387,38 @@ def test_conv():
     convert_cached_pred_result_to_seg(patient_id, study_id, series_id)
     return jsonify( {'message': 'ok'}), 200
 
-def run_pred_helper(instance, selectedModel, selectedDicomSeries): # TODO: should take series study patient id
+def run_pred_helper(instance, selectedModel, study_id, dicom_series_id): # TODO: should take series study patient id
     try: 
         print('instance not none')
         set_tracked_model_instance_running(selectedModel, True)
         emit_update_progressbar(25)
 
-        ## TODO: pull the images from Orthanc into /dicom-images/
+        # Pull the images from Orthanc into cache
         emit_status_update('Getting DICOM images...')
-        # os.makedirs('dicom-images', exist_ok=True)
-        # os.makedirs('dcm-prediction', exist_ok=True)
-        # ...
-        ##
+        cached_dicom_series_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id)
         
         emit_update_progressbar(35)
         emit_status_update('Running predictions...')
-        ran_preds = run_predictions(_PROJECT_ID, _ZONE, _SERVICE_ACCOUNT_EMAIL, _KEY_FILE, selectedDicomSeries, instance.name, progress_bar_update_callback=emit_update_progressbar)
-        if not ran_preds:
+        dcm_pred_dir = run_predictions(
+            _PROJECT_ID, 
+            _ZONE, 
+            _SERVICE_ACCOUNT_EMAIL, 
+            _KEY_FILE, 
+            cached_dicom_series_path, 
+            dicom_series_id, 
+            instance.name, 
+            progress_bar_update_callback=emit_update_progressbar
+        )
+        
+        if dcm_pred_dir is None:
+            print('Predictions failed or return no directory')
             raise Exception('Predictions failed')
         
         emit_update_progressbar(90)
         
         emit_status_update('Converting to SEG...')
-        convert_cached_pred_result_to_seg(selectedDicomSeries) # TODO: ...
-        
+        print(dcm_pred_dir)
+        convert_cached_pred_result_to_seg(dcm_pred_dir, cached_dicom_series_path)
         
         # TODO: maybe delete instance here? it gets paused anyway so not sure if needed
         set_tracked_model_instance_running(selectedModel, False)
@@ -437,41 +442,41 @@ def run_prediction():
     
     if request.is_json:
         json_data = request.get_json()
-    selectedModel = json_data.get("selectedModel", None)
+    selected_model = json_data.get("selectedModel", None)
     # selectedDicomSeries = json_data["selectedDicomSeries"]
-    series_id = request.json.get('series_id', None)
-    study_id = request.json.get('study_id', None)
+    series_id = request.json.get('seriesId', None)
+    study_id = request.json.get('studyId', None)
     
     print('params:')
-    print(selectedModel)
+    print(selected_model)
     # print(selectedDicomSeries)
     
     # if selectedModel is None or selectedDicomSeries is None:
         # print(selectedModel, selectedDicomSeries, 'wrong')
-    if selectedModel is None or series_id is None or study_id is None:
+    if selected_model is None or series_id is None or study_id is None:
         return jsonify({'message': 'Model or images not provided'}), 500
 
     try:
         emit_update_progressbar(20)
-        if (instance := get_existing_instance_for_model(selectedModel)) is not None:
-            if is_tracked_model_instance_running(selectedModel):
+        if (instance := get_existing_instance_for_model(selected_model)) is not None:
+            if is_tracked_model_instance_running(selected_model):
                 # raise Exception(f'Selected model {selectedModel} already running')
-                return jsonify({ 'message': f'Selected model {selectedModel} already running' }), 500
+                return jsonify({ 'message': f'Selected model {selected_model} already running' }), 500
             
-            thread = threading.Thread(target=run_pred_helper, args=(instance, selectedModel, selectedDicomSeries))
+            thread = threading.Thread(target=run_pred_helper, args=(instance, selected_model, study_id, series_id))
             thread.start()
             return jsonify({ 'message': 'Prediction job successfully started' }), 202
         
         else:
             # TODO: maybe handle this differently
-            set_tracked_model_instance_running(selectedModel, False)
+            set_tracked_model_instance_running(selected_model, False)
             return jsonify({ 'message': 'Instance does not exist' }), 500
             
     # Catch any exceptions
     except Exception as e:
         print(e)
         emit_status_update("Error running prediction")
-        set_tracked_model_instance_running(selectedModel, False)
+        set_tracked_model_instance_running(selected_model, False)
         return jsonify({ 'message': f"Error running prediction: {str(e)}" }), 500
         
 
@@ -599,7 +604,7 @@ def getGroundTruthSeries():
     if study_UID is None:
         return jsonify({ 'message': 'Need ID\'s' }), 400
 
-    truth_list = orthanc_functions.get_tags(study_UID)
+    truth_list = get_tags(study_UID)
     
     return jsonify({"truth_list":truth_list}), 200
 
@@ -616,7 +621,7 @@ def switchTruthLabel():
     if series_UID is None:
         return jsonify({ 'message': 'Need ID\'s' }), 400
 
-    orthanc_functions.change_tags(series_UID)
+    change_tags(series_UID)
     
     return jsonify({"message":"success"}), 200
 
