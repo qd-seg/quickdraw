@@ -50,7 +50,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
     try {
       const currentScreenIDs = getCurrentDisplayIDs();
-      if (currentScreenIDs.is_default_study == false) {
+      if (currentScreenIDs.is_default_study === false) {
         uiNotificationService.show({
           title: 'Cannot Run Predictions on a Segmentation',
           message: 'Please select a CT scan and try again.',
@@ -166,7 +166,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return;
     }
 
-    if (!selectedMaskIndex || availableMasks[selectedMaskIndex.value].uid == undefined) {
+    if (!selectedMaskIndex || !availableMasks[selectedMaskIndex].uid) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please set an active ground truth segmentaion.',
@@ -176,7 +176,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
       return;
     }
-    const currentGroundTruth = availableMasks[selectedMaskIndex.value];
+    const currentGroundTruth = availableMasks[selectedMaskIndex];
     const truthIDs = {
       patient_id: currentIDs.patient_id,
       study_id: currentIDs.patient_id,
@@ -184,7 +184,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       study_uid: currentIDs.study_uid,
       seriesInstanceUID: currentGroundTruth.uid,
     };
-    
+
     const activeIDs = {
       patient_id: currentIDs.patient_id,
       study_id: currentIDs.patient_id,
