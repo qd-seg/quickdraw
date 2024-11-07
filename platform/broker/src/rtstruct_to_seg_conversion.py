@@ -51,7 +51,7 @@ def get_roi_masks(dicom_series_path, rt_struct_path):
         print(f"Failed to process RT struct: {e}")
         return {}
     
-def convert_4d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array, roi_names, seg_filename):
+def convert_4d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array, roi_names, seg_filename, seg_series_description=None):
     '''
     Converts a (num_slices, height, width, num_rois) numpy array into DICOM SEG object
     '''
@@ -97,7 +97,8 @@ def convert_4d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array
         manufacturer="YourCompany",
         manufacturer_model_name="YourModel",
         series_number=1,
-        software_versions="1.0"
+        software_versions="1.0",
+        series_description=seg_series_description,
     )
 
     try:
@@ -108,7 +109,7 @@ def convert_4d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array
         print(f"Error saving DICOM SEG file: {e}")
         return None
     
-def convert_3d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array, roi_names, seg_filename, slice_axis=2):
+def convert_3d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array, roi_names, seg_filename, slice_axis=2, seg_series_description=None):
     '''
     Converts 3d numpy array into a DICOM SEG object.
     slice_axis determines which axis corresponds to num_slices
@@ -134,10 +135,10 @@ def convert_3d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array
         binary_mask = np.transpose(binary_mask, transpose)
         pixel_array[:, :, :, i] = binary_mask
         
-    return convert_4d_numpy_array_to_dicom_seg(dicom_series, pixel_array, roi_names, seg_filename)
+    return convert_4d_numpy_array_to_dicom_seg(dicom_series, pixel_array, roi_names, seg_filename, seg_series_description=seg_series_description)
 
 # Converts binary 3D masks into a DICOM SEG object
-def convert_mask_to_dicom_seg(dicom_series, binary_masks, roi_names, seg_filename):
+def convert_mask_to_dicom_seg(dicom_series, binary_masks, roi_names, seg_filename, seg_series_description=None):
     '''
     Converts dict of binary 3D masks into a DICOM SEG object.
     binary_masks must be a dict of the same structure that get_roi_masks() returns.
@@ -159,7 +160,7 @@ def convert_mask_to_dicom_seg(dicom_series, binary_masks, roi_names, seg_filenam
         binary_mask = np.transpose(binary_mask, (2, 0, 1))
         pixel_array[:, :, :, i] = binary_mask
 
-    return convert_4d_numpy_array_to_dicom_seg(dicom_series, pixel_array, roi_names, seg_filename)
+    return convert_4d_numpy_array_to_dicom_seg(dicom_series, pixel_array, roi_names, seg_filename, seg_series_description)
 
 # Function to load DICOM series from a given path
 def load_dicom_series(dicom_series_path):

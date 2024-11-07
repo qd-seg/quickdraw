@@ -11,7 +11,7 @@ from flask_helpers import (
     list_instances, get_instance, delete_instance,
     list_docker_images,
     generate_instance_name,
-    setup_compute_instance,
+    setup_compute_instance, start_instance, stop_instance,
     run_predictions,
     read_json, write_json,
     delete_docker_image,
@@ -128,76 +128,94 @@ def emit_update_progressbar(value):
     # socketio.emit("progress_update", {"value": value})
     pass
  
+# outdated
 def clear_unused_instances():
     '''Removes all Compute instances that do not have an existing model associated with them'''
-    ## TODO: should also look at non-running instances and set running to false
-    print('Clearing unused instances...')
-    filename = _MODEL_INSTANCES_FILEPATH
-    model_instances = read_json(filename, default_as_dict=False)
-    used_instance_names = [m['instance_name'] for m in model_instances]
-    compute_instances = list_instances(_PROJECT_ID, _ZONE)
-    remaining_instances = []
-    for instance in compute_instances:
-        if instance.name in used_instance_names:
-            remaining_instances.append([m for m in model_instances if m['instance_name'] == instance.name][0])
-        else:
-            print(' Deleting', instance.name)
-            # TODO: temp: don't delete for now while debugging
-            # delete_instance(_PROJECT_ID, _ZONE, instance.name)
+    pass
+    # print('Clearing unused instances...')
+    # filename = _MODEL_INSTANCES_FILEPATH
+    # model_instances = read_json(filename, default_as_dict=False)
+    # used_instance_names = [m['instance_name'] for m in model_instances]
+    # compute_instances = list_instances(_PROJECT_ID, _ZONE)
+    # remaining_instances = []
+    # for instance in compute_instances:
+    #     if instance.name in used_instance_names:
+    #         remaining_instances.append([m for m in model_instances if m['instance_name'] == instance.name][0])
+    #     else:
+    #         print(' Deleting', instance.name)
+    #         # TODO: temp: don't delete for now while debugging
+    #         # delete_instance(_PROJECT_ID, _ZONE, instance.name)
             
-    write_json(filename, remaining_instances)
-    print('done clearing', flush=True)
+    # write_json(filename, remaining_instances)
+    # print('done clearing', flush=True)
             
     
 def get_existing_instance_for_model(model_name: str):
     '''Get the Instance associated with a model name, or None if it does not exist'''
     
-    filename = _MODEL_INSTANCES_FILEPATH
-    model_instances = read_json(filename, default_as_dict=False)
-    matching_instance = next((m for m in model_instances if m['model_name'] == model_name), None)
-    if matching_instance is None:
-        print('No instance for model', model_name)
-        return None
+    all_instances = list_instances(_PROJECT_ID, _ZONE)
+    for instance in all_instances:
+        # if instance.metadata['model-displayname'] == model_name:
+        this_name = next(filter(lambda m: m.key == 'model-displayname', instance.metadata.items), None)
+        if this_name is not None and this_name.value == model_name:
+            return instance
     
-    return get_instance(_PROJECT_ID, _ZONE, matching_instance['instance_name'])
+    return None
+    
+    # filename = _MODEL_INSTANCES_FILEPATH
+    # model_instances = read_json(filename, default_as_dict=False)
+    # matching_instance = next((m for m in model_instances if m['model_name'] == model_name), None)
+    # if matching_instance is None:
+    #     print('No instance for model', model_name)
+    #     return None
+    
+    # return get_instance(_PROJECT_ID, _ZONE, matching_instance['instance_name'])
 
+# outdated
 def add_tracked_model_instance(model_name: str, instance_name: str):
-    filename = _MODEL_INSTANCES_FILEPATH
-    model_instances = read_json(filename, default_as_dict=False)
-    model_instances.append({
-        'model_name': model_name,
-        'instance_name': instance_name,
-        'running': False,
-    })
-    write_json(filename, model_instances)
+    pass
+    # filename = _MODEL_INSTANCES_FILEPATH
+    # model_instances = read_json(filename, default_as_dict=False)
+    # model_instances.append({
+    #     'model_name': model_name,
+    #     'instance_name': instance_name,
+    #     'running': False,
+    # })
+    # write_json(filename, model_instances)
     
+# outdated
 def set_tracked_model_instance_running(model_name: str, running: bool):
-    filename = _MODEL_INSTANCES_FILEPATH
-    model_instances = read_json(filename, default_as_dict=False)
-    for model_instance in model_instances:
-        if model_instance['model_name'] == model_name:
-            model_instance['running'] = running
-            print('Set model', model_name, 'to running:', running)
+    pass
+    # filename = _MODEL_INSTANCES_FILEPATH
+    # model_instances = read_json(filename, default_as_dict=False)
+    # for model_instance in model_instances:
+    #     if model_instance['model_name'] == model_name:
+    #         model_instance['running'] = running
+    #         print('Set model', model_name, 'to running:', running)
             
-    write_json(filename, model_instances)
+    # write_json(filename, model_instances)
     # socketio.emit('model_instances_update')
     
 def is_tracked_model_instance_running(model_name: str):
-    filename = _MODEL_INSTANCES_FILEPATH
-    model_instances = read_json(filename, default_as_dict=False)
-    for model_instance in model_instances:
-        print(model_instance)
-        if model_instance['model_name'] == model_name:
-            print('found', model_name, model_instance.get('running', False))
-            return model_instance.get('running', False)
+    instance = get_existing_instance_for_model(model_name)
+    return instance is not None and instance.status != 'TERMINATED'
+    # filename = _MODEL_INSTANCES_FILEPATH
+    # model_instances = read_json(filename, default_as_dict=False)
+    # for model_instance in model_instances:
+    #     print(model_instance)
+    #     if model_instance['model_name'] == model_name:
+    #         print('found', model_name, model_instance.get('running', False))
+    #         return model_instance.get('running', False)
         
-    return False
+    # return False
     
+# outdated
 def remove_tracked_model_instance(model_name: str):
-    filename = _MODEL_INSTANCES_FILEPATH
-    model_instances = read_json(filename, default_as_dict=False)
-    model_instances = [x for x in model_instances if x['model_name'] != model_name]
-    write_json(filename, model_instances)
+    pass
+    # filename = _MODEL_INSTANCES_FILEPATH
+    # model_instances = read_json(filename, default_as_dict=False)
+    # model_instances = [x for x in model_instances if x['model_name'] != model_name]
+    # write_json(filename, model_instances)
     
 # @bp.route('/testSocket')
 # def test_socket():
@@ -278,9 +296,60 @@ def is_model_running():
     
     return jsonify({ 'running': is_tracked_model_instance_running(selectedModel) }), 200
 
-def setup_compute_with_model_helper(asdf):
-    # TODO: move stuff here. then have /run call this automatically if an instance doesnt exist
-    pass
+def setup_compute_with_model_helper(selected_model, start_compute=True):
+    # TODO: move stuff here. then have /run call this automatically if an instance doesnt exist 'model-displayname'
+    print('Setting up instance...')
+    emit_update_progressbar(10)
+    emit_status_update('Setting up instance...')
+    
+    existing_instance = get_existing_instance_for_model(selected_model)
+    print(existing_instance.name)
+    new_instance_name = generate_instance_name('ohif-instance', 'predictor') if existing_instance is None else existing_instance.name
+    
+    if existing_instance is not None and existing_instance.status != 'TERMINATED':
+        # PROVISIONING, STAGING, RUNNING, STOPPING,
+        #    SUSPENDING, SUSPENDED, REPAIRING, and TERMINATED
+        raise Exception('Instance', existing_instance.name, 'is already running. Please wait.')
+        
+    
+    # TODO: Big issue: sometimes a Google Cloud Platform zone will run out of resources, and we will get:
+    # 503 SERVICE UNAVAILABLE ZONE_RESOURCE_POOL_EXHAUSTED: 
+    # The zone 'projects/radiology-b0759/zones/us-east4-b' does not have enough resources available to fulfill the request
+    # There needs to be some backup where it looks in other zones for resources, but
+    #  this means that we will also need to store the zone separately for the model, and ALSO need to try other
+    #  zones in the list_instances method, and anything else that uses _ZONE
+    
+    # if existing_instance is None:
+    #     add_tracked_model_instance(selected_model, new_instance_name)
+    
+    new_instance = None    
+    try:
+        new_instance = setup_compute_instance(
+            _PROJECT_ID,
+            _ZONE,
+            new_instance_name,
+            _MACHINE_TYPE,
+            _INSTANCE_LIMIT,
+            _SERVICE_ACCOUNT_EMAIL,
+            selected_model,
+            _REPOSITORY,
+        )
+        
+    except Exception as e:
+        print(e)
+        remove_tracked_model_instance(selected_model)
+    
+    if new_instance is not None:
+        message = "Instance created successfully"
+        emit_update_progressbar(20)
+        emit_status_update(message)
+        
+        if start_compute:
+            start_instance(_PROJECT_ID, _ZONE, new_instance.name)
+    else:
+        emit_status_update("Error Google Cloud is at its limit, please wait.")
+        
+    return new_instance
 
 @bp.route('/setupComputeWithModel', methods=['POST'])
 def setupComputeWithModel():
@@ -291,52 +360,22 @@ def setupComputeWithModel():
         print('not json')
         return jsonify({ 'message': 'Something went wrong' }), 500
     
-    selectedModel = json_data.get('selectedModel')
-    if selectedModel is None:
+    selected_model = json_data.get('selectedModel')
+    if selected_model is None:
         print('no selectedModel')
         return jsonify({ 'message': 'Please select a model' }), 400
     
-    print('Setting up instance...')
-    emit_update_progressbar(10)
-    emit_status_update('Setting up instance...')
-    
-    existing_instance = get_existing_instance_for_model(selectedModel)
-    new_instance_name = generate_instance_name('ohif-instance', 'predictor') if existing_instance is None else existing_instance.name
-            
-    # TODO: Big issue: sometimes a Google Cloud Platform zone will run out of resources, and we will get:
-    # 503 SERVICE UNAVAILABLE ZONE_RESOURCE_POOL_EXHAUSTED: 
-    # The zone 'projects/radiology-b0759/zones/us-east4-b' does not have enough resources available to fulfill the request
-    # There needs to be some backup where it looks in other zones for resources, but
-    #  this means that we will also need to store the zone separately for the model, and ALSO need to try other
-    #  zones in the list_instances method, and anything else that uses _ZONE
-    
-    if existing_instance is None:
-        add_tracked_model_instance(selectedModel, new_instance_name)
-        
     try:
-        new_instance = setup_compute_instance(
-            _PROJECT_ID,
-            _ZONE,
-            new_instance_name,
-            _MACHINE_TYPE,
-            _INSTANCE_LIMIT,
-            _SERVICE_ACCOUNT_EMAIL,
-            selectedModel,
-            _REPOSITORY,
-        )
+        new_instance = setup_compute_with_model_helper(selected_model, start_compute=False)
     except Exception as e:
         print(e)
         new_instance = None
-        remove_tracked_model_instance(selectedModel)
-    
+        
     status_code = None
     if new_instance is not None:
         message = "Instance created successfully"
-        emit_update_progressbar(20)
-        emit_status_update(message)
         status_code = 200
     else:
-        emit_status_update("Error Google Cloud is at its limit, please wait.")
         message = "Google Cloud is at its limit, please wait."
         status_code = 500
         
@@ -344,7 +383,7 @@ def setupComputeWithModel():
 
 # TODO: the model right now does not distinguish between series, only by study
 # Also this should probably use only study id instead of patient id?
-def convert_cached_pred_result_to_seg(dcm_prediction_dir, cached_dicom_series_path):
+def convert_cached_pred_result_to_seg(dcm_prediction_dir, cached_dicom_series_path, temp_images_path, selected_model=None):
     print('Converting to SEG...')
     
     temp_seg_path = os.path.join(dcm_prediction_dir, '__convert/')
@@ -356,12 +395,17 @@ def convert_cached_pred_result_to_seg(dcm_prediction_dir, cached_dicom_series_pa
     # Convert all npz files in cache
     for f in os.listdir(dcm_prediction_dir):
         if os.path.isfile(filepath := os.path.join(dcm_prediction_dir, f)):
-             # TODO: there was a rare issue with the segmentation mask in the npz being malformed/corrupted in some way
-            # Only happened one time, could not reproduce
             data = np.load(filepath)
             
             dicom_series = load_dicom_series(cached_dicom_series_path)
-            seg_save_dir = convert_3d_numpy_array_to_dicom_seg(dicom_series, data['data'], data['rois'], os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'))
+            seg_save_dir = convert_3d_numpy_array_to_dicom_seg(
+                dicom_series, 
+                data['data'], 
+                data['rois'], 
+                os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'),
+                slice_axis=2,
+                seg_series_description=f'Prediction {selected_model}'
+            )
             if seg_save_dir is None:
                 raise Exception('Something went wrong with saving SEG')
             
@@ -373,8 +417,11 @@ def convert_cached_pred_result_to_seg(dcm_prediction_dir, cached_dicom_series_pa
 
     # shutil.rmtree(temp_images_path)
     # shutil.rmtree(temp_seg_path)
+    print('Removing', dcm_prediction_dir)
     shutil.rmtree(dcm_prediction_dir)
+    print('Removing', cached_dicom_series_path)
     shutil.rmtree(cached_dicom_series_path)
+    shutil.rmtree(temp_images_path)
 
 @bp.route('/testConv', methods=['POST'])
 def test_conv():
@@ -387,15 +434,15 @@ def test_conv():
     convert_cached_pred_result_to_seg(patient_id, study_id, series_id)
     return jsonify( {'message': 'ok'}), 200
 
-def run_pred_helper(instance, selectedModel, study_id, dicom_series_id): # TODO: should take series study patient id
+def run_pred_helper(instance, selected_model, study_id, dicom_series_id): # TODO: should take series study patient id
     try: 
         print('instance not none')
-        set_tracked_model_instance_running(selectedModel, True)
+        set_tracked_model_instance_running(selected_model, True)
         emit_update_progressbar(25)
 
         # Pull the images from Orthanc into cache
         emit_status_update('Getting DICOM images...')
-        cached_dicom_series_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id)
+        cached_dicom_series_path, temp_images_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id)
         
         emit_update_progressbar(35)
         emit_status_update('Running predictions...')
@@ -418,17 +465,18 @@ def run_pred_helper(instance, selectedModel, study_id, dicom_series_id): # TODO:
         
         emit_status_update('Converting to SEG...')
         print(dcm_pred_dir)
-        convert_cached_pred_result_to_seg(dcm_pred_dir, cached_dicom_series_path)
+        convert_cached_pred_result_to_seg(dcm_pred_dir, cached_dicom_series_path, temp_images_path, selected_model)
         
         # TODO: maybe delete instance here? it gets paused anyway so not sure if needed
-        set_tracked_model_instance_running(selectedModel, False)
+        set_tracked_model_instance_running(selected_model, False)
         
         emit_update_progressbar(100)
         emit_status_update('Prediction done')
         return True
     except Exception as e:
         print(e)
-        set_tracked_model_instance_running(selectedModel, False)
+        set_tracked_model_instance_running(selected_model, False)
+        stop_instance(_PROJECT_ID, _ZONE, instance.name)
         return False
     
 @bp.route("/run", methods=["POST"])
@@ -449,19 +497,22 @@ def run_prediction():
     
     print('params:')
     print(selected_model)
-    # print(selectedDicomSeries)
     
-    # if selectedModel is None or selectedDicomSeries is None:
-        # print(selectedModel, selectedDicomSeries, 'wrong')
     if selected_model is None or series_id is None or study_id is None:
         return jsonify({'message': 'Model or images not provided'}), 500
-
+    
     try:
-        emit_update_progressbar(20)
-        if (instance := get_existing_instance_for_model(selected_model)) is not None:
-            if is_tracked_model_instance_running(selected_model):
+        instance = setup_compute_with_model_helper(selected_model, start_compute=True)
+    except Exception as e:
+        print(e)
+        return jsonify({ 'message': 'Issue creating Compute instance. Google Cloud Services likely experiencing temporary resource shortage. Please try again later.' }), 500
+    
+    try:
+        # emit_update_progressbar(20)
+        if instance is not None:
+            # if is_tracked_model_instance_running(selected_model):
                 # raise Exception(f'Selected model {selectedModel} already running')
-                return jsonify({ 'message': f'Selected model {selected_model} already running' }), 500
+                # return jsonify({ 'message': f'Selected model {selected_model} already running' }), 500
             
             thread = threading.Thread(target=run_pred_helper, args=(instance, selected_model, study_id, series_id))
             thread.start()
@@ -470,7 +521,7 @@ def run_prediction():
         else:
             # TODO: maybe handle this differently
             set_tracked_model_instance_running(selected_model, False)
-            return jsonify({ 'message': 'Instance does not exist' }), 500
+            return jsonify({ 'message': 'Issue creating Compute instance. Google Cloud likely experiencing temporary resource shortage.' }), 500
             
     # Catch any exceptions
     except Exception as e:

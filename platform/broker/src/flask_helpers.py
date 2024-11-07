@@ -105,6 +105,8 @@ def get_instance(project_id, zone, instance_name):
         print('Could not get instance of name', instance_name)
         return None
     
+    
+    
 def delete_instance(project_id, zone, instance_name):
     print('Deleting instance:', instance_name)
     request = compute_v1.DeleteInstanceRequest(project=project_id, zone=zone, instance=instance_name)
@@ -187,20 +189,29 @@ def create_new_instance(instance_name, project_id, zone, machine_type, instance_
     print(instance_count, 'instances running.')
     if instance_count >= instance_limit:
         return "Google Cloud is at its limit, please wait.", 500
+           
+    vm_instance = create_instance_helper(
+        project_id=project_id,
+        zone=zone,
+        instance_name=instance_name,
+        machine_type=machine_type,
+        disk_type=f'projects/{project_id}/zones/{zone}/diskTypes/pd-standard',
+        source_image='projects/cos-cloud/global/images/cos-101-17162-386-59',
+        disk_size=50,
+        service_account=service_account_email
+    )
     
-    if instance_count == 0:        
-        vm_instance = create_instance_helper(
-            project_id=project_id,
-            zone=zone,
-            instance_name=instance_name,
-            machine_type=machine_type,
-            disk_type=f'projects/{project_id}/zones/{zone}/diskTypes/pd-standard',
-            source_image='projects/cos-cloud/global/images/cos-101-17162-386-59',
-            disk_size=50,
-            service_account=service_account_email
-        )
-        
-        return vm_instance
+    retry_max = 60
+    retry_delay = 5
+    retry_total = 0
+    instance = get_instance(project_id, zone, instance_name)
+    while retry_total <= retry_max and instance is None or instance.status != 'RUNNING':
+        print('Instance is not ready yet. Waiting...')
+        time.sleep(retry_delay)
+        retry_total += retry_delay
+        instance = get_instance(project_id, zone, instance_name)
+    
+    return instance
 
 ## Docker Images and Artifact Registry
 def list_docker_images(project_id: str, zone: str, models_repo: str, specific_tags: bool = False):
@@ -284,6 +295,7 @@ def upload_docker_image_to_artifact_registry(project_id: str, zone: str, models_
 def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_name: str, instance: compute_v1.Instance):
     region = get_region_name(zone)
     docker_image_metadata = compute_v1.Items(key='image-name', value=f'{region}-docker.pkg.dev/{project_id}/{models_repo}/{image_name}')
+    docker_image_model_displayname_metadata = compute_v1.Items(key='model-displayname', value=image_name)
     # dicom_image_metadata = compute_v1.Items(key='dicom-image', value='1-009.dcm')
     
     with open('./compute-setup-script.sh', 'r') as f:
@@ -292,7 +304,7 @@ def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_
     startup_script_metadata = compute_v1.Items(key='startup-script', value=setup_script)
     
     # metadata = compute_v1.Metadata(items=[docker_image_metadata, dicom_image_metadata, startup_script_metadata], fingerprint=instance.metadata.fingerprint)
-    metadata = compute_v1.Metadata(items=[docker_image_metadata, startup_script_metadata], fingerprint=instance.metadata.fingerprint)
+    metadata = compute_v1.Metadata(items=[docker_image_metadata, docker_image_model_displayname_metadata, startup_script_metadata], fingerprint=instance.metadata.fingerprint)
     request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=metadata, project=project_id, zone=zone)
     # request = compute_v1.SetCommonInstanceMetadataProjectRequest(metadata_resource=metadata, project=_PROJECT_ID)
     print('Setting up startup script on instance...')
@@ -339,25 +351,27 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
     return True
 
 def get_dicom_series_from_orthanc_to_cache(dicom_series_id):
-    dcm_prediction_dir = f'dcm-images/{dicom_series_id}'
+    dcm_prediction_dir = 'dcm-images/'
     if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
         dcm_prediction_dir = os.path.abspath(os.path.join(cache_dir, dcm_prediction_dir))
     temp_images_path = os.path.join(dcm_prediction_dir, dicom_series_id)
     os.makedirs(temp_images_path, exist_ok=True)
     
     # TODO: sometimes there is an out of memory issues and it SIGKILLS the flask process.
-    # Again only happened one time and cannot reproduce
-    dicom_series_path = get_dicom_series_by_id(dicom_series_id, temp_images_path) # TODO: comes from frontend
+    # only happened one time and cannot reproduce
+    dicom_series_path = get_dicom_series_by_id(dicom_series_id, temp_images_path)
     # dicom_series_path = get_first_dicom_image_series_from_study(patient_id, study_id, temp_images_path)
     print(dicom_series_path)
-    return dicom_series_path
+    return dicom_series_path, temp_images_path
 
 # Creates an instance and pulls the model from registry to it. Returns if successfully created or not
 def setup_compute_instance(project_id: str, zone: str, instance_name: str | None, machine_type: str, instance_limit: int, service_account_email: str, image_name: str, models_repo: str = None, skip_metadata=False) -> compute_v1.Instance | None:
     instance = get_instance(project_id, zone, instance_name)
     if instance is None:
-        create_new_instance(instance_name, project_id, zone, machine_type, instance_limit, service_account_email)
-        instance = get_instance(project_id, zone, instance_name)
+        instance = create_new_instance(instance_name, project_id, zone, machine_type, instance_limit, service_account_email)
+        # instance = get_instance(project_id, zone, instance_name)
+        if instance is None:
+            raise Exception('Instance could not be created. Very likely that Google Cloud is temporarily out of resources.')
 
     if not skip_metadata:
         if models_repo is None:
@@ -415,7 +429,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                             f'--project={project_id}', 
                             f'--zone={zone}',
                             '--quiet',
-                            '--command=sudo google_metadata_script_runner startup'], check=True, input='\n', text=True)
+                            f'--command=sudo google_metadata_script_runner startup && sudo chmod -R a+rw /home/{username}/model_outputs'], check=True, input='\n', text=True)
             
         # NOTE: in the future, this may require a separate check to see if the service account is still authorized
         # If the prediction takes too long and the access token expires, that may cause an issue.
@@ -437,17 +451,17 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                         f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_id}/',
                         dcm_prediction_dir])
         
-        # # Delete files on Instance
-        # print('Deleting unnecessary files on VM')
-        # subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
-        #                 f'--project={project_id}', 
-        #                 f'--zone={zone}',
-        #                 '--quiet',
-        #                 f'--command=rm -rf /home/{username}/images && rm -rf /home/{username}/model_outputs'], check=True, input='\n', text=True)
-        
-        # # Stop the instance
-        # print('Stopping Instance')
-        # stop_instance(project_id, zone, instance_name)
+        # Delete files on Instance
+        print('Deleting unnecessary files on VM')
+        subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
+                        f'--project={project_id}', 
+                        f'--zone={zone}',
+                        '--quiet',
+                        f'--command=rm -rf /home/{username}/model_outputs/{dicom_series_id}'], check=True, input='\n', text=True)
+                        # rm -rf /home/{username}/images && rm -rf /home/{username}/model_outputs'
+        # Stop the instance
+        print('Stopping Instance')
+        stop_instance(project_id, zone, instance_name)
     except Exception as e:
         print('Something went wrong with running predictions:')
         print(e, flush=True)

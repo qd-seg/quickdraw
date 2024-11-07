@@ -253,11 +253,11 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
         }));
 
         try {
-            const setupResponse = await fetch(`${urlPrefix}/api/setupComputeWithModel`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ selectedModel: allModels[selectedModelIndex]?.name })
-            });
+            // const setupResponse = await fetch(`${urlPrefix}/api/setupComputeWithModel`, {
+            //     method: 'POST',
+            //     headers: { 'Content-Type': 'application/json' },
+            //     body: JSON.stringify({ selectedModel: allModels[selectedModelIndex]?.name })
+            // });
             const displayIds = JSON.parse(GetCurrentDisplayIDs() || '');
             const runResponse = await fetch(`${urlPrefix}/api/run`, {
                 method: 'POST',
@@ -268,6 +268,8 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
                     seriesId: displayIds.series_id,
                 }), // TODO: PLACEHOLDER
             });
+
+            // console.log(runResponse)
             // if (runResponse.ok)
         } catch (error) {
             console.error('Error:', error);
