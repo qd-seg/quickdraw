@@ -22,6 +22,9 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   const [activeMask, setActiveMask] = React.useState<any | undefined>(undefined);
   const [loadedMasks, setLoadedMasks] = React.useState<any[]>([]);
 
+  const [analyzeButtonAvailable, setAnalyzeButtonAvailable] = React.useState<boolean>(true);
+
+
   const [status, setStatus] = React.useState<{ [key: string]: boolean }>({
     uploading: false,
     deleting: false,
@@ -29,6 +32,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     authenticating: false,
     loadingModels: false,
     loadingMasks: false,
+    calculatingDICE: false,
   });
 
   const isProcessing = () => !Object.values(status).every(x => x === false);
@@ -38,7 +42,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   };
 
   const isAnalysisAvailable = () => {
-    return selectedMaskIndex !== undefined && !isProcessing() && loadedMasks.length > 0;
+    return selectedMaskIndex !== undefined && !isProcessing() && loadedMasks.length > 0 && analyzeButtonAvailable;
   };
 
   const runPrediction = async () => {
@@ -60,34 +64,32 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     try {
       const currentScreenIDs = getCurrentDisplayIDs();
 
-    //   if (currentScreenIDs.is_default_study === false) {
-    //     uiNotificationService.show({
-    //       title: 'Cannot Run Predictions on a Segmentation',
-    //       message: 'Please select a CT scan and try again.',
-    //       type: 'error',
-    //       duration: 3000,
-    //     });
-
-    //     return;
-    //   }
-
-    const runResponse = await fetch(`${SURROGATE_HOST}/api/run`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          selectedModel: availableModels[selectedModelIndex]?.name,
-          ...currentScreenIDs,
-        }),
-      });
-    if(!runResponse.ok) {
-        const responseJson = await runResponse.json();
-        uiNotificationService.show({
-            title: 'Prediction error',
-            message: responseJson.message || 'Something went wrong with the prediction.',
-            type: 'error',
-            duration: 5000,
+      const runResponse = await fetch(`${SURROGATE_HOST}/api/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            selectedModel: availableModels[selectedModelIndex]?.name,
+            ...currentScreenIDs,
+          }),
         });
-    }
+      if (runResponse.ok || runResponse.status === 202) {
+        const responseJson = await runResponse.json();
+          uiNotificationService.show({
+              title: 'Prediction is running in background',
+              message: 'Please wait a few minutes...',
+              type: 'success',
+              duration: 5000,
+          });
+      }
+      if(!runResponse.ok) {
+          const responseJson = await runResponse.json();
+          uiNotificationService.show({
+              title: 'Prediction error',
+              message: responseJson.message || 'Something went wrong with the prediction.',
+              type: 'error',
+              duration: 5000,
+          });
+      }
     } catch (error) {
       console.error(error);
       uiNotificationService.show({
@@ -251,6 +253,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     const activeIDs = activeMask;
     // console.log(truthIDs);
     // console.log(activeIDs);
+    setAnalyzeButtonAvailable(false);
+    setStatus({ ...status, calculatingDICE: true });
     try {
       const response = await fetch(`${SURROGATE_HOST}/api/getDICEScores`, {
         method: 'POST',
@@ -263,15 +267,25 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       });
 
       const body = await response.json();
+      const resultString = Object.entries(body)
+        .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+        .join(', ');
+
+
 
       uiNotificationService.show({
         title: 'DICE Score Calculated',
-        message: `Result of the calculation: ${body.diceScore}`,
+        message: `Result of the calculation: ${resultString}`,
         type: 'success',
-        duration: 3000,
+        duration: 100000,
       });
+      setAnalyzeButtonAvailable(true);
+      setStatus({ ...status, calculatingDICE: false });
+
     } catch (error) {
       console.error(error);
+      setAnalyzeButtonAvailable(true);
+      setStatus({ ...status, calculatingDICE: false });
       return;
     }
   };
@@ -370,14 +384,14 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     }
   };
 
-  const getAvaialableMasks = () => {
+  const getAvailableMasks = () => {
     const { viewportGridService, displaySetService } = servicesManager.services;
 
     const activeViewportId = viewportGridService.getActiveViewportId();
     const activeDisplaySets = displaySetService.getActiveDisplaySets();
 
     const validDisplaySets = activeDisplaySets.filter(
-      displaySet => displaySet.Modality === 'SEG' || displaySet.Modality === 'RTSTRUCT'
+      displaySet => displaySet.Modality === 'SEG'
     );
 
     const displaySetSeries = validDisplaySets.map(displaySet => ({
@@ -514,7 +528,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return;
     }
 
-    const handleDisplaySetsAdded = () => getAvaialableMasks();
+    const handleDisplaySetsAdded = () => getAvailableMasks();
 
     displaySetService.subscribe(
       displaySetService.EVENTS.DISPLAY_SETS_ADDED,
