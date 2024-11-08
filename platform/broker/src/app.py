@@ -591,16 +591,18 @@ def run_prediction():
     
     if request.is_json:
         json_data = request.get_json()
+        print(json_data)
     selected_model = json_data.get("selectedModel", None)
     # selectedDicomSeries = json_data["selectedDicomSeries"]
     # series_id = request.json.get('seriesId', None)
-    series_id = request.json.get('parentId', None)
-    study_id = request.json.get('studyId', None)
+    series_id = request.json.get('parent_id', None)
+    study_id = request.json.get('study_id', None)
     
     print('params:')
     print(selected_model)
     
     if selected_model is None or series_id is None or study_id is None:
+        print('Invalid params from frontend')
         return jsonify({'message': 'Model or images not provided'}), 500
     
     series_modality = get_modality_of_series(series_id)

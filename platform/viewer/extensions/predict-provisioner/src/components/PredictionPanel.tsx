@@ -65,18 +65,27 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
         return;
       }
 
-      await fetch(`${SURROGATE_HOST}/api/run`, {
+    const runResponse = await fetch(`${SURROGATE_HOST}/api/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selectedModel: availableModels[selectedModelIndex]?.name,
-          selectedDicomSeries: currentScreenIDs,
+          ...currentScreenIDs,
         }),
       });
+    if(!runResponse.ok) {
+        const responseJson = await runResponse.json();
+        uiNotificationService.show({
+            title: 'Prediction error',
+            message: responseJson.message || 'Something went wrong with the prediction.',
+            type: 'error',
+            duration: 5000,
+        });
+    }
     } catch (error) {
       console.error(error);
       uiNotificationService.show({
-        title: 'Cannot Run Predictions on a Segmentation',
+        title: 'Prediction error',
         message: error.message || 'Something went wrong with the prediction.',
         type: 'error',
         duration: 3000,
