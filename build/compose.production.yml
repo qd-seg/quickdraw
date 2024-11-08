@@ -7,7 +7,7 @@ services:
   broker:
     image: broker
     command:
-      gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src -w 1 app:app
+      gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src -w 2 --timeout 180 app:app
     extends:
       file: compose.common.yml
       service: broker

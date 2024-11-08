@@ -1,31 +1,17 @@
 import numpy as np
 import pydicom
+from pydicom import Dataset
 import os
+
+import pydicom.sequence
 import cv2 as cv
 from rt_utils import RTStructBuilder
 from highdicom.seg import Segmentation, SegmentDescription
 from pydicom.sr.coding import Code
 from pydicom.uid import generate_uid
-from rt_utils import image_helper
+from typing import List
+import monkey_patches
 
-# Monkey patch
-def monkey_patched_create_series_mask_from_contour_sequence(series_data, contour_sequence):
-    mask = image_helper.create_empty_series_mask(series_data)
-    transformation_matrix = image_helper.get_patient_to_pixel_transformation_matrix(series_data)
-
-    for i, series_slice in enumerate(series_data):
-        slice_contour_data = image_helper.get_slice_contour_data(series_slice, contour_sequence)
-        try:
-            if len(slice_contour_data):
-                mask[:, :, i] = image_helper.get_slice_mask_from_slice_contour_data(
-                    series_slice, slice_contour_data, transformation_matrix
-                )
-        except:
-            pass
-
-    return mask
-
-image_helper.create_series_mask_from_contour_sequence = monkey_patched_create_series_mask_from_contour_sequence
 
 # Function to convert RT struct to binary 3D mask
 def get_roi_masks(dicom_series_path, rt_struct_path):
@@ -64,9 +50,13 @@ def get_roi_masks(dicom_series_path, rt_struct_path):
     except Exception as e:
         print(f"Failed to process RT struct: {e}")
         return {}
-
-# Converts binary 3D masks into a DICOM SEG object
-def convert_mask_to_dicom_seg(dicom_series, binary_masks, roi_names, seg_filename):
+    
+def convert_4d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array, roi_names, seg_filename, seg_series_description=None):
+    '''
+    Converts a (num_slices, height, width, num_rois) numpy array into DICOM SEG object
+    '''
+    dicom_series.sort(key=lambda d: d.InstanceNumber)
+    
     segment_descriptions = []
     for i, roi_name in enumerate(roi_names):
         segment_descriptions.append(
@@ -79,17 +69,85 @@ def convert_mask_to_dicom_seg(dicom_series, binary_masks, roi_names, seg_filenam
             )
         )
 
-    first_mask = binary_masks[roi_names[0]]['mask']
-    height, width, num_slices = first_mask.shape
+    num_slices, height, width, _ = numpy_array.shape
     print("num_slices ->"+str(num_slices))
     print("height ->" + str(height))
     print("width ->"+str(width))
 
-    pixel_array = np.zeros((num_slices, height, width, len(roi_names)), dtype=np.uint8)
     num_slices_in_dicom_series = len(dicom_series)
     if num_slices_in_dicom_series != num_slices:
         print(f"Slice mismatch: DICOM series has {num_slices_in_dicom_series}, pixel_array has {num_slices}.")
         return
+
+    dicom_height = dicom_series[0].Rows
+    dicom_width = dicom_series[0].Columns
+    if dicom_height != height or dicom_width != width:
+        print(f"Dimension mismatch: DICOM image is {dicom_height}x{dicom_width}, pixel_array is {height}x{width}.")
+        return
+
+    seg = Segmentation(
+        source_images=dicom_series,
+        pixel_array=numpy_array,
+        segmentation_type="BINARY",
+        segment_descriptions=segment_descriptions,
+        series_instance_uid=generate_uid(),
+        sop_instance_uid=generate_uid(),
+        device_serial_number="123456",
+        instance_number=1,
+        manufacturer="YourCompany",
+        manufacturer_model_name="YourModel",
+        series_number=1,
+        software_versions="1.0",
+        series_description=seg_series_description,
+    )
+
+    try:
+        seg.save_as(seg_filename)
+        print(f"DICOM SEG file saved at: {seg_filename}")
+        return seg_filename
+    except Exception as e:
+        print(f"Error saving DICOM SEG file: {e}")
+        return None
+    
+def convert_3d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array, roi_names, seg_filename, slice_axis=2, seg_series_description=None):
+    '''
+    Converts 3d numpy array into a DICOM SEG object.
+    slice_axis determines which axis corresponds to num_slices
+    '''
+    if slice_axis >= 3:
+        raise Exception(f'Invalid axis: {slice_axis}')
+    
+    if slice_axis == 0:
+        num_slices, height, width = numpy_array.shape
+        transpose = (0, 1, 2)
+    if slice_axis == 1:
+        height, num_slices, width = numpy_array.shape
+        transpose = (1, 0, 2)
+    if slice_axis == 2:
+        height, width, num_slices = numpy_array.shape
+        transpose = (2, 0, 1)
+        
+    pixel_array = np.zeros((num_slices, height, width, len(roi_names)), dtype=np.uint8)
+
+    for i, roi_name in enumerate(roi_names):
+        # print(roi_name)
+        binary_mask = (numpy_array == i+1).astype(np.uint8)
+        binary_mask = np.transpose(binary_mask, transpose)
+        pixel_array[:, :, :, i] = binary_mask
+        
+    return convert_4d_numpy_array_to_dicom_seg(dicom_series, pixel_array, roi_names, seg_filename, seg_series_description=seg_series_description)
+
+# Converts binary 3D masks into a DICOM SEG object
+def convert_mask_to_dicom_seg(dicom_series, binary_masks, roi_names, seg_filename, seg_series_description=None):
+    '''
+    Converts dict of binary 3D masks into a DICOM SEG object.
+    binary_masks must be a dict of the same structure that get_roi_masks() returns.
+    '''
+    
+    first_mask = binary_masks[roi_names[0]]['mask']
+    height, width, num_slices = first_mask.shape
+    
+    pixel_array = np.zeros((num_slices, height, width, len(roi_names)), dtype=np.uint8)
 
     dicom_height = dicom_series[0].Rows
     dicom_width = dicom_series[0].Columns
@@ -102,28 +160,7 @@ def convert_mask_to_dicom_seg(dicom_series, binary_masks, roi_names, seg_filenam
         binary_mask = np.transpose(binary_mask, (2, 0, 1))
         pixel_array[:, :, :, i] = binary_mask
 
-    seg = Segmentation(
-        source_images=dicom_series,
-        pixel_array=pixel_array,
-        segmentation_type="BINARY",
-        segment_descriptions=segment_descriptions,
-        series_instance_uid=generate_uid(),
-        sop_instance_uid=generate_uid(),
-        device_serial_number="123456",
-        instance_number=1,
-        manufacturer="YourCompany",
-        manufacturer_model_name="YourModel",
-        series_number=1,
-        software_versions="1.0"
-    )
-
-    try:
-        seg.save_as(seg_filename)
-        print(f"DICOM SEG file saved at: {seg_filename}")
-        return seg_filename
-    except Exception as e:
-        print(f"Error saving DICOM SEG file: {e}")
-        return None
+    return convert_4d_numpy_array_to_dicom_seg(dicom_series, pixel_array, roi_names, seg_filename, seg_series_description)
 
 # Function to load DICOM series from a given path
 def load_dicom_series(dicom_series_path):

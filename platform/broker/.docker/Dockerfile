@@ -1,3 +1,6 @@
+# NOTE: This is an example Dockerfile for buildling a model that can be uploaded with upload_model.py
+# This is not actually used in docker compose
+
 # Use a lightweight Python image as the base
 FROM python:3.9-slim
 

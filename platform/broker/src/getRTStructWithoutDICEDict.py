@@ -4,7 +4,7 @@ import os
 import shutil
 
 def getRTStructWithoutDICEDict(patient_id, study_id):
-    orthanc_url = "http://localhost/store"
+    orthanc_url = "/store"
     orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
     patient = pyorthanc.Patient(patient_id,orthanc)
 
