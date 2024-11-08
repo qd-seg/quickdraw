@@ -372,7 +372,7 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
             if is_tracked_model_instance_running(existing_instance):
                 # PROVISIONING, STAGING, RUNNING, STOPPING,
                 #    SUSPENDING, SUSPENDED, REPAIRING, and TERMINATED
-                raise Exception('Instance', existing_instance.name, 'is already running. Please wait.')
+                raise Exception('Model', selected_model, 'is already running. Please wait.')
                 
             
             # TODO: Big issue: sometimes a Google Cloud Platform zone will run out of resources, and we will get:
@@ -593,7 +593,8 @@ def run_prediction():
         json_data = request.get_json()
     selected_model = json_data.get("selectedModel", None)
     # selectedDicomSeries = json_data["selectedDicomSeries"]
-    series_id = request.json.get('seriesId', None)
+    # series_id = request.json.get('seriesId', None)
+    series_id = request.json.get('parentId', None)
     study_id = request.json.get('studyId', None)
     
     print('params:')
@@ -825,11 +826,10 @@ def convert_rt_struct_to_seg():
 
     seg_filename = "output_seg.dcm"  # Temporary filename for the converted SEG file
     result = process_conversion(dicom_series_path, rt_struct_path, seg_filename)
-    
-    #saving the mask is part of ohif functionality - dont have to take care of it 
-    if not result:
+    if not result: #dont have to worry about saving files into orthanc, default ohif functionality
         print('Conversion process failed')
         return jsonify({'message': 'Conversion failed'}), 500
+
 
 
 # This setup is intended to prefix all routes to /api/{...} when running in development mode,

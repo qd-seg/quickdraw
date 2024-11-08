@@ -19,7 +19,7 @@
     "yarn": ">=1.16.0"
   },
   "peerDependencies": {
-    "@ohif/core": "^3.9.0-beta.101"
+    "@ohif/core": "^3.8.5"
   },
   "dependencies": {
     "@babel/runtime": "^7.20.13"

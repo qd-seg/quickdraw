@@ -19,14 +19,12 @@
     "yarn": ">=1.18.0"
   },
   "peerDependencies": {
-    "@ohif/core": "^3.9.0-beta.101",
-    "@ohif/ui": "^3.9.0-beta.101",
+    "@ohif/core": "^3.8.5",
+    "@ohif/ui": "^3.8.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "dependencies": {
-    "@babel/runtime": "^7.20.13",
-    "react-spinners": "^0.14.1",
-    "socket.io-client": "^4.8.1"
+    "@babel/runtime": "^7.20.13"
   }
 }

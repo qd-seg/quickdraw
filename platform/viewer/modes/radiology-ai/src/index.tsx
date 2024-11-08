@@ -1,10 +1,7 @@
 import { hotkeys } from '@ohif/core';
+import Segmentation from '@ohif/mode-segmentation';
 
 import { id } from './id';
-
-import segmentationButtons from './segmentationButtons';
-import toolbarButtons from './toolbarButtons';
-import initToolGroups from './initToolGroups';
 
 const ohif = {
   layout: '@ohif/extension-default.layoutTemplateModule.viewerLayout',
@@ -19,10 +16,11 @@ const cornerstone = {
 };
 
 const segmentation = {
-  panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
-  panelTool: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentationWithTools',
-  sopClassHandler: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
-  viewport: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
+  sopClassHandlerSEG: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
+  viewportSEG: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
+
+  sopClassHandlerRT: '@ohif/extension-cornerstone-dicom-rt.sopClassHandlerModule.dicom-rt',
+  viewportRT: '@ohif/extension-cornerstone-dicom-rt.viewportModule.dicom-rt',
 };
 
 const prediction = {
@@ -43,29 +41,7 @@ const modeFactory = ({ modeConfiguration }) => {
     routeName: 'radiology-ai',
     displayName: 'Radiology AI',
 
-    onModeEnter: ({ servicesManager, extensionManager, commandsManager }: withAppTypes) => {
-      const { measurementService, toolbarService, toolGroupService } = servicesManager.services;
-
-      measurementService.clearMeasurements();
-      initToolGroups(extensionManager, toolGroupService, commandsManager);
-
-      toolbarService.addButtons(toolbarButtons);
-      toolbarService.addButtons(segmentationButtons);
-
-      toolbarService.createButtonSection('primary', [
-        'MeasurementTools',
-        'Zoom',
-        'WindowLevel',
-        'Pan',
-        'TrackballRotate',
-        'Capture',
-        'Layout',
-        'Crosshairs',
-        'MoreTools',
-      ]);
-
-      toolbarService.createButtonSection('segmentationToolbox', ['BrushTools', 'Shapes']);
-    },
+    onModeEnter: Segmentation.modeFactory({ modeConfiguration }).onModeEnter,
 
     onModeExit: ({ servicesManager }: withAppTypes) => {
       const {
@@ -111,15 +87,19 @@ const modeFactory = ({ modeConfiguration }) => {
             id: ohif.layout,
             props: {
               leftPanels: [ohif.leftPanel],
-              rightPanels: [segmentation.panelTool, prediction.panel],
+              rightPanels: [prediction.panel],
               viewports: [
                 {
                   namespace: cornerstone.viewport,
                   displaySetsToDisplay: [ohif.sopClassHandler],
                 },
                 {
-                  namespace: segmentation.viewport,
-                  displaySetsToDisplay: [segmentation.sopClassHandler],
+                  namespace: segmentation.viewportSEG,
+                  displaySetsToDisplay: [segmentation.sopClassHandlerSEG],
+                },
+                {
+                  namespace: segmentation.viewportRT,
+                  displaySetsToDisplay: [segmentation.sopClassHandlerRT],
                 },
               ],
             },
@@ -130,7 +110,11 @@ const modeFactory = ({ modeConfiguration }) => {
 
     extensions: extensionDependencies,
     hangingProtocol: 'default',
-    sopClassHandlers: [ohif.sopClassHandler, segmentation.sopClassHandler],
+    sopClassHandlers: [
+      ohif.sopClassHandler,
+      segmentation.sopClassHandlerSEG,
+      segmentation.sopClassHandlerRT,
+    ],
 
     hotkeys: [...hotkeys.defaults.hotkeyBindings],
   };

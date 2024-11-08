@@ -2,7 +2,6 @@
   "private": true,
   "workspaces": [
     "src/app/extensions/predict-provisioner",
-    "src/app/extensions/upload-core",
     "src/app/modes/radiology-ai"
   ],
   "scripts": {

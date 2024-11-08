@@ -1,16 +1,10 @@
 # check=skip=InvalidDefaultArgInFrom
 
-# ARG ALPINE_VERSION
 ARG PYTHON_VERSION
 
-# FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS compile
 FROM python:${PYTHON_VERSION}-slim AS compile
 
-# RUN apk update
-# RUN apk add --no-cache curl bash gcc libc6-compat
-RUN apt-get update && \
-    apt-get install -y curl && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /usr/local/src
 RUN curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz
@@ -20,16 +14,9 @@ RUN rm -f google-cloud-cli-linux-x86_64.tar.gz
 
 RUN /usr/local/src/gcloud/install.sh --quiet
 
-# FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS serve
 FROM python:${PYTHON_VERSION}-slim AS serve
 
-# RUN apk update
-# RUN apk add --no-cache g++
-# RUN apk add openssh
-RUN apt-get update && \
-    # apt-get -qq install g++ && \
-    apt-get install -y openssh-client libglib2.0-0 libgl1-mesa-dev ffmpeg libsm6 libxext6 &&\
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y openssh-client libglib2.0-0 libgl1-mesa-dev ffmpeg libsm6 libxext6 && rm -rf /var/lib/apt/lists/*
 
 COPY --from=compile /usr/local/src/gcloud /usr/local/src/gcloud
 COPY ./platform/broker/requirements.txt /usr/local/src/broker/requirements.txt

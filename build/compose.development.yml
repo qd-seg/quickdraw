@@ -7,8 +7,8 @@ services:
   broker:
     image: broker
     command:
-      gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src --worker-class eventlet -w 2 --timeout 180 --worker-class eventlet --log-level debug --capture-output --reload
-      app:app
+      gunicorn -b 0.0.0.0:80 --chdir /usr/local/src/broker/src --worker-class eventlet -w 1
+      --timeout 180 --worker-class eventlet --log-level debug --capture-output --reload app:app
     environment:
       - PYTHONUNBUFFERED=1
     extends:
@@ -25,7 +25,6 @@ services:
       service: viewer
     volumes:
       - ../platform/viewer/extensions/predict-provisioner/src:/usr/local/src/extensions/predict-provisioner/src
-      - ../platform/viewer/extensions/upload-core/src:/usr/local/src/extensions/upload-core/src
       - ../platform/viewer/modes/radiology-ai/src:/usr/local/src/modes/radiology-ai/src
 
   postgresql:
@@ -34,6 +33,8 @@ services:
       service: postgresql
 
   orthanc:
+    environment:
+      - VERBOSE_ENABLED=true
     extends:
       file: compose.common.yml
       service: orthanc
