@@ -96,6 +96,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     const currentStudyID = currentStudy?.series[0].StudyID;
     const currentSeriesInstanceUID = currentDisplaySet?.SeriesInstanceUID;
     const currentSOPInstanceUID = currentDisplaySet?.SOPInstanceUID;
+    
+    console.log(currentDisplaySet);
 
     if (currentSeriesInstanceUID && currentSOPInstanceUID) {
       return {
@@ -105,6 +107,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
         study_uid: currentStudyInstanceUID,
         study_description: currentStudyDescription,
         series_id: currentSeriesInstanceUID,
+        parent_id: currentSeriesInstanceUID,
       };
     }
 
@@ -124,6 +127,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
         study_uid: currentStudyInstanceUID,
         study_description: currentStudyDescription,
         series_id: segmentationSeriesInstanceUID,
+        parent_id: currentSeriesInstanceUID,
       };
     }
 
@@ -134,6 +138,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       study_uid: currentStudyInstanceUID,
       study_description: currentStudyDescription,
       series_id: currentSeriesInstanceUID,
+      parent_id: currentSeriesInstanceUID,
     };
   };
 
