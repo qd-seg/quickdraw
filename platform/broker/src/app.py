@@ -177,6 +177,7 @@ def get_existing_instance_for_model(model_name: str, try_any_avail=False):
     '''Get the Instance associated with a model name, or None if it does not exist'''
     
     all_instances = list_instances(_PROJECT_ID, _ZONE)
+    print('getting existing instances...')
     possible_any_avail_models = []
     for instance in all_instances:
         print(instance.name)
@@ -186,7 +187,7 @@ def get_existing_instance_for_model(model_name: str, try_any_avail=False):
         # print(instance.metadata.items)
         # print(this_name)
         # print(instance.status)
-        if (try_any_avail and (instance.status == 'TERMINATED' or (is_idling is not None and is_idling.value == 'True'))):
+        if (try_any_avail and (instance.status == 'TERMINATED' or this_name is None or (is_idling is not None and is_idling.value == 'True'))):
             possible_any_avail_models.append(instance)
         elif (this_name is not None and this_name.value == model_name):
         # if (this_name is not None and this_name.value == model_name):
@@ -251,8 +252,9 @@ def is_tracked_model_instance_running(model_name_or_instance: Union[str | Instan
         instance = model_name_or_instance
         
     is_idling = None if instance is None else next(filter(lambda m: m.key == 'idling', instance.metadata.items), None)
-    print(is_idling)
-    return instance is not None and (instance.status != 'TERMINATED' and (is_idling is None or is_idling.value != 'True'))
+    this_name = None if instance is None else next(filter(lambda m: m.key == 'model-displayname', instance.metadata.items), None)
+    print(is_idling, this_name)
+    return instance is not None and this_name is not None and (instance.status != 'TERMINATED' and (is_idling is None or is_idling.value != 'True'))
     # filename = _MODEL_INSTANCES_FILEPATH
     # model_instances = read_json(filename, default_as_dict=False)
     # for model_instance in model_instances:
@@ -560,6 +562,7 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         set_tracked_model_instance_running(selected_model, False)
         
         print('Removing old metadata...')
+        instance = get_instance(_PROJECT_ID, _ZONE, instance.name)
         remove_instance_metadata(_PROJECT_ID, _ZONE, instance, ['dicom-image', 'model-displayname'])
         
         emit_update_progressbar(100)

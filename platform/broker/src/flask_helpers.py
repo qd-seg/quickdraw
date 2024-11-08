@@ -324,7 +324,7 @@ def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_
     request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=metadata, project=project_id, zone=zone)
     # request = compute_v1.SetCommonInstanceMetadataProjectRequest(metadata_resource=metadata, project=_PROJECT_ID)
     print('Setting up startup script on instance...')
-    print(metadata)
+    # print(metadata)
     first_metadata_request = get_compute_client().set_metadata(request) 
     first_metadata_request.add_done_callback(lambda _: print('Done setting up startup script')) 
     # startup_script_metadata = compute_v1.Items(key='startup-script', value=setup_script)
@@ -334,7 +334,9 @@ def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_
 
 def remove_instance_metadata(project_id: str, zone: str, instance: compute_v1.Instance, keys_to_remove: List[str]):
     new_metadata = list(filter(lambda i: i.key not in keys_to_remove, instance.metadata.items))
-    newest_fingerprint = get_instance(project_id, zone, instance.name).metadata.fingerprint
+    latest_metadata = get_instance(project_id, zone, instance.name).metadata
+    # print('LATEST',latest_metadata)
+    newest_fingerprint = latest_metadata.fingerprint
     metadata = compute_v1.Metadata(items=new_metadata, fingerprint=newest_fingerprint)
     request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=metadata, project=project_id, zone=zone)
     
@@ -431,6 +433,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         # Log into service account with gcloud
         subprocess.run(['gcloud', 'auth', 'activate-service-account', service_account, f'--key-file={key_filepath}'], check=True)
         if not skip_predictions:
+            print('Set DICOM image directory')
             # Set the directory on instance where DICOM images will be pulled from
             subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
                             f'--project={project_id}', 
@@ -440,7 +443,8 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
             # Copy over DICOM images from server to instance
             if progress_bar_update_callback is not None:
                 progress_bar_update_callback(45)
-    
+
+            print('Uploading DICOM to Compute')
             if not upload_dicom_to_instance(
                 project_id, 
                 zone, 
@@ -454,6 +458,8 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
             
             if progress_bar_update_callback is not None:
                 progress_bar_update_callback(60)
+                
+            print('Run startup script')
             # Run startup script (compute-setup-script.sh), which makes predictions. This blocks until predictions are made
             subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
                             f'--project={project_id}', 
@@ -495,6 +501,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
             print('Stopping Instance')
             stop_instance(project_id, zone, instance_name)
         else:
+            print('Now idling...')
             subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
                             f'--project={project_id}', 
                             f'--zone={zone}',
@@ -505,6 +512,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         if stop_instance_at_end:
             stop_instance(project_id, zone, instance_name)
         else:
+            print('Now idling...')
             subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
                             f'--project={project_id}', 
                             f'--zone={zone}',
