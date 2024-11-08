@@ -22,6 +22,9 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   const [activeMask, setActiveMask] = React.useState<any | undefined>(undefined);
   const [loadedMasks, setLoadedMasks] = React.useState<any[]>([]);
 
+  const [analyzeButtonAvailable, setAnalyzeButtonAvailable] = React.useState<boolean>(true);
+
+
   const [status, setStatus] = React.useState<{ [key: string]: boolean }>({
     uploading: false,
     deleting: false,
@@ -29,6 +32,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     authenticating: false,
     loadingModels: false,
     loadingMasks: false,
+    calculatingDICE: false,
   });
 
   const isProcessing = () => !Object.values(status).every(x => x === false);
@@ -38,7 +42,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   };
 
   const isAnalysisAvailable = () => {
-    return selectedMaskIndex !== undefined && !isProcessing() && loadedMasks.length > 0;
+    return selectedMaskIndex !== undefined && !isProcessing() && loadedMasks.length > 0 && analyzeButtonAvailable;
   };
 
   const runPrediction = async () => {
@@ -68,6 +72,15 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
             ...currentScreenIDs,
           }),
         });
+      if (runResponse.ok || runResponse.status === 202) {
+        const responseJson = await runResponse.json();
+          uiNotificationService.show({
+              title: 'Prediction is running in background',
+              message: 'Please wait a few minutes...',
+              type: 'success',
+              duration: 5000,
+          });
+      }
       if(!runResponse.ok) {
           const responseJson = await runResponse.json();
           uiNotificationService.show({
@@ -240,6 +253,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     const activeIDs = activeMask;
     // console.log(truthIDs);
     // console.log(activeIDs);
+    setAnalyzeButtonAvailable(false);
+    setStatus({ ...status, calculatingDICE: true });
     try {
       const response = await fetch(`${SURROGATE_HOST}/api/getDICEScores`, {
         method: 'POST',
@@ -262,10 +277,15 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
         title: 'DICE Score Calculated',
         message: `Result of the calculation: ${resultString}`,
         type: 'success',
-        duration: 30000,
+        duration: 100000,
       });
+      setAnalyzeButtonAvailable(true);
+      setStatus({ ...status, calculatingDICE: false });
+
     } catch (error) {
       console.error(error);
+      setAnalyzeButtonAvailable(true);
+      setStatus({ ...status, calculatingDICE: false });
       return;
     }
   };
@@ -364,7 +384,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     }
   };
 
-  const getAvaialableMasks = () => {
+  const getAvailableMasks = () => {
     const { viewportGridService, displaySetService } = servicesManager.services;
 
     const activeViewportId = viewportGridService.getActiveViewportId();
@@ -508,7 +528,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return;
     }
 
-    const handleDisplaySetsAdded = () => getAvaialableMasks();
+    const handleDisplaySetsAdded = () => getAvailableMasks();
 
     displaySetService.subscribe(
       displaySetService.EVENTS.DISPLAY_SETS_ADDED,
