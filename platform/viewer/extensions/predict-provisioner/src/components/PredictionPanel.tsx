@@ -222,7 +222,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return;
     }
     const currentGroundTruth = availableMasks[selectedMaskIndex];
-    const truthIDs = {      
+    const truthIDs = {
       series_desc: currentGroundTruth.description,
       series_uid: currentGroundTruth.uid,
       patient_id: currentIDs.patient_id,
@@ -370,10 +370,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     setAvailableMasks(displaySetSeries);
   };
 
-  const spliceSegmentLabels = proxiedSegmentations => {
-    setSegmentations(proxiedSegmentations);
-
-    return proxiedSegmentations;
+  const getSegmentationProxy = segmentations => {
+    return segmentations;
   };
 
   const segmentationServiceProxyHandler = {
@@ -383,7 +381,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       if (typeof value === 'function' && property === 'getSegmentations') {
         const segmentations = value.bind(target)();
 
-        return () => spliceSegmentLabels(segmentations);
+        return () => getSegmentationProxy(segmentations);
       } else if (typeof value === 'function') return value.bind(target);
 
       return value;
@@ -523,7 +521,9 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
     // get the active display sets and filter for the active DisplaySetInstanceUID
     const activeDisplaySets = displaySetService.getActiveDisplaySets();
-    const activeSegmentation = activeDisplaySets.find(displaySet => displaySet.displaySetInstanceUID === activeDisplaySetInstanceUID);
+    const activeSegmentation = activeDisplaySets.find(
+      displaySet => displaySet.displaySetInstanceUID === activeDisplaySetInstanceUID
+    );
 
     // update the global state only if activeSegmentation is found
     if (activeSegmentation) {
@@ -532,11 +532,11 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       const currentStudyDescription = currentStudy?.StudyDescription;
       const currentPatientUID = currentStudy?.series[0].PatientID;
       const currentStudyID = currentStudy?.series[0].StudyID;
-      
+
       // update global state
       setActiveSegmentation({
         series_desc: activeSegmentationLabel,
-        series_uid: activeSegmentation.SeriesInstanceUID, 
+        series_uid: activeSegmentation.SeriesInstanceUID,
         patient_id: currentPatientUID,
         study_id: currentStudyID,
         study_desc: currentStudyDescription,
@@ -546,7 +546,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   }, [segmentations]);
 
   return (
-    <div>
+    <div className="ohif-scrollbar invisible-scrollbar overflow-auto">
       <Label children={ModelSelect} text={ModelText} />
       <Label children={MaskSelect} text={MaskText} />
 
