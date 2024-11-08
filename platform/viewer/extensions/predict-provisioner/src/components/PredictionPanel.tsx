@@ -20,10 +20,16 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   const [selectedMaskLabel, setSelectedMaskLabel] = React.useState<string | undefined>(undefined);
 
   const [activeMask, setActiveMask] = React.useState<any | undefined>(undefined);
+  const [activeOHIFMask, setActiveOHIFMask] = React.useState<string | undefined>(undefined);
   const [loadedMasks, setLoadedMasks] = React.useState<any[]>([]);
 
   const [analyzeButtonAvailable, setAnalyzeButtonAvailable] = React.useState<boolean>(true);
 
+  const [analysis, setAnalysis] = React.useState<{
+    [key: string]: { label: string; score: number }[];
+  }>({});
+
+  const analysisReference = React.useRef<any>();
 
   const [status, setStatus] = React.useState<{ [key: string]: boolean }>({
     uploading: false,
@@ -42,7 +48,12 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   };
 
   const isAnalysisAvailable = () => {
-    return selectedMaskIndex !== undefined && !isProcessing() && loadedMasks.length > 0 && analyzeButtonAvailable;
+    return (
+      selectedMaskIndex !== undefined &&
+      !isProcessing() &&
+      loadedMasks.length > 0 &&
+      analyzeButtonAvailable
+    );
   };
 
   const runPrediction = async () => {
@@ -65,30 +76,30 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       const currentScreenIDs = getCurrentDisplayIDs();
 
       const runResponse = await fetch(`${SURROGATE_HOST}/api/run`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            selectedModel: availableModels[selectedModelIndex]?.name,
-            ...currentScreenIDs,
-          }),
-        });
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selectedModel: availableModels[selectedModelIndex]?.name,
+          ...currentScreenIDs,
+        }),
+      });
       if (runResponse.ok || runResponse.status === 202) {
         const responseJson = await runResponse.json();
-          uiNotificationService.show({
-              title: 'Prediction is running in background',
-              message: 'Please wait a few minutes...',
-              type: 'success',
-              duration: 5000,
-          });
+        uiNotificationService.show({
+          title: 'Prediction is running in background',
+          message: 'Please wait a few minutes...',
+          type: 'success',
+          duration: 5000,
+        });
       }
-      if(!runResponse.ok) {
-          const responseJson = await runResponse.json();
-          uiNotificationService.show({
-              title: 'Prediction error',
-              message: responseJson.message || 'Something went wrong with the prediction.',
-              type: 'error',
-              duration: 5000,
-          });
+      if (!runResponse.ok) {
+        const responseJson = await runResponse.json();
+        uiNotificationService.show({
+          title: 'Prediction error',
+          message: responseJson.message || 'Something went wrong with the prediction.',
+          type: 'error',
+          duration: 5000,
+        });
       }
     } catch (error) {
       console.error(error);
@@ -219,7 +230,10 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return;
     }
 
-    if (currentIDs.is_default_study) {
+    const activeSegmentationDisplaySet = loadedMasks.find(segmentation => segmentation.isActive);
+    const activeDisplaySetInstanceUID = activeSegmentationDisplaySet?.displaySetInstanceUID;
+
+    if (currentIDs.is_default_study || activeDisplaySetInstanceUID === undefined) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please load a segmentation.',
@@ -255,6 +269,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     // console.log(activeIDs);
     setAnalyzeButtonAvailable(false);
     setStatus({ ...status, calculatingDICE: true });
+
     try {
       const response = await fetch(`${SURROGATE_HOST}/api/getDICEScores`, {
         method: 'POST',
@@ -267,21 +282,22 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       });
 
       const body = await response.json();
-      const resultString = Object.entries(body)
-        .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
-        .join(', ');
-
-
 
       uiNotificationService.show({
-        title: 'DICE Score Calculated',
-        message: `Result of the calculation: ${resultString}`,
+        title: 'Complete',
+        message: `Analysis was a success.`,
         type: 'success',
         duration: 100000,
       });
+
+      setAnalysis(p => {
+        p[activeDisplaySetInstanceUID] = body;
+
+        return JSON.parse(JSON.stringify(p));
+      });
+
       setAnalyzeButtonAvailable(true);
       setStatus({ ...status, calculatingDICE: false });
-
     } catch (error) {
       console.error(error);
       setAnalyzeButtonAvailable(true);
@@ -390,9 +406,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     const activeViewportId = viewportGridService.getActiveViewportId();
     const activeDisplaySets = displaySetService.getActiveDisplaySets();
 
-    const validDisplaySets = activeDisplaySets.filter(
-      displaySet => displaySet.Modality === 'SEG'
-    );
+    const validDisplaySets = activeDisplaySets.filter(displaySet => displaySet.Modality === 'SEG');
 
     const displaySetSeries = validDisplaySets.map(displaySet => ({
       uid: displaySet.SeriesInstanceUID,
@@ -407,7 +421,28 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   const getSegmentationProxy = segmentations => {
     setLoadedMasks(segmentations);
 
-    return segmentations;
+    if (analysisReference.current === undefined) return;
+
+    return segmentations.map(segmentation => {
+      if (Object.keys(analysisReference.current).includes(segmentation.displaySetInstanceUID)) {
+        const entries = analysisReference.current[segmentation.displaySetInstanceUID];
+
+        console.log('DEBUG:', entries, segmentation);
+
+        segmentation.segments = segmentation.segments.map(segment => {
+          if (segment === undefined) return;
+          const entry = entries[segment.segmentIndex - 1];
+          const label: string = Object.keys(entry)[0];
+          const score: number = Object.values(entry)[0] as number;
+
+          segment.label = `${score.toFixed(2)} - ${label}`;
+
+          return segment;
+        });
+      }
+
+      return segmentation;
+    });
   };
 
   const segmentationServiceProxyHandler = {
@@ -583,6 +618,13 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       });
     }
   }, [loadedMasks]);
+
+  React.useEffect(() => {
+    analysisReference.current = analysis;
+
+    const event = segmentationServiceProxy.EVENTS.SEGMENTATION_UPDATED;
+    segmentationServiceProxy._broadcastEvent(event, {});
+  }, [analysis]);
 
   return (
     <div className="ohif-scrollbar invisible-scrollbar overflow-auto">
