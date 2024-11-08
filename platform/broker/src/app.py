@@ -29,6 +29,8 @@ import numpy as np
 import threading
 import shutil
 import traceback
+from typing import Union
+from google.cloud.compute_v1.types import Instance
 
 app = Flask(__name__)
 
@@ -238,9 +240,17 @@ def set_tracked_model_instance_running(model_name: str, running: bool):
     # write_json(filename, model_instances)
     # socketio.emit('model_instances_update')
     
-def is_tracked_model_instance_running(model_name: str):
-    instance = get_existing_instance_for_model(model_name)
-    return instance is not None and instance.status != 'TERMINATED'
+def is_tracked_model_instance_running(model_name_or_instance: Union[str | Instance]):
+    if isinstance(model_name_or_instance, str):
+        # print(model_name_or_instance)
+        instance = get_existing_instance_for_model(model_name_or_instance)
+    else:
+        # print(model_name_or_instance.name)
+        instance = model_name_or_instance
+        
+    is_idling = None if instance is None else next(filter(lambda m: m.key == 'idling', instance.metadata.items), None)
+    print(is_idling)
+    return instance is not None and (instance.status != 'TERMINATED' and (is_idling is None or is_idling.value != 'True'))
     # filename = _MODEL_INSTANCES_FILEPATH
     # model_instances = read_json(filename, default_as_dict=False)
     # for model_instance in model_instances:
@@ -354,7 +364,8 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
             # print(existing_instance.name)
             new_instance_name = generate_instance_name('ohif-instance', 'predictor') if existing_instance is None else existing_instance.name
             
-            if existing_instance is not None and existing_instance.status != 'TERMINATED':
+            # if existing_instance is not None and existing_instance.status != 'TERMINATED':
+            if is_tracked_model_instance_running(existing_instance):
                 # PROVISIONING, STAGING, RUNNING, STOPPING,
                 #    SUSPENDING, SUSPENDED, REPAIRING, and TERMINATED
                 raise Exception('Instance', existing_instance.name, 'is already running. Please wait.')
@@ -406,7 +417,12 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
         emit_status_update(message)
         
         if start_compute:
-            start_instance(_PROJECT_ID, _ZONE, new_instance.name)
+            print('check if able to predict', selected_model, dicom_series_id)
+            if is_able_to_predict_on_dicom_series(selected_model, dicom_series_id):
+                start_instance(_PROJECT_ID, _ZONE, new_instance.name)
+                remove_instance_metadata(_PROJECT_ID, _ZONE, new_instance, ['idling'])
+            else:
+                raise Exception('You are already running a prediction on that DICOM image. Please wait until the other prediction finishes.')
     else:
         emit_status_update("Error Google Cloud is at its limit, please wait.")
         
@@ -504,7 +520,7 @@ def test_conv():
     convert_cached_pred_result_to_seg(patient_id, study_id, series_id)
     return jsonify( {'message': 'ok'}), 200
 
-def run_pred_helper(instance, selected_model, study_id, dicom_series_id): # TODO: should take series study patient id
+def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_instance_at_end=True): # TODO: should take series study patient id
     try: 
         print('instance not none')
         set_tracked_model_instance_running(selected_model, True)
@@ -524,7 +540,8 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id): # TODO
             cached_dicom_series_path, 
             dicom_series_id, 
             instance.name, 
-            progress_bar_update_callback=emit_update_progressbar
+            progress_bar_update_callback=emit_update_progressbar,
+            stop_instance_at_end=stop_instance_at_end
         )
         
         if dcm_pred_dir is None:
@@ -541,7 +558,7 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id): # TODO
         set_tracked_model_instance_running(selected_model, False)
         
         print('Removing old metadata...')
-        remove_instance_metadata(_PROJECT_ID, _ZONE, instance, ['dicom-image', 'model-displayname'])
+        remove_instance_metadata(_PROJECT_ID, _ZONE, instance, ['dicom-image', 'model-displayname', 'idling'])
         
         emit_update_progressbar(100)
         emit_status_update('Prediction done')
@@ -550,7 +567,7 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id): # TODO
         print(e)
         set_tracked_model_instance_running(selected_model, False)
         stop_instance(_PROJECT_ID, _ZONE, instance.name)
-        remove_instance_metadata(_PROJECT_ID, _ZONE, get_instance(_PROJECT_ID, _ZONE, instance.name), ['dicom-image', 'model-displayname'])
+        remove_instance_metadata(_PROJECT_ID, _ZONE, get_instance(_PROJECT_ID, _ZONE, instance.name), ['dicom-image', 'model-displayname', 'idling'])
         return False
     
 @bp.route("/run", methods=["POST"])
@@ -590,24 +607,26 @@ def run_prediction():
         return jsonify({ 'message': f'You are trying to predict on a {series_modality}, not an image series.'}), 400
     
     try:
-        instance = setup_compute_with_model_helper(selected_model, start_compute=False, dicom_series_id=series_id)
+        instance = setup_compute_with_model_helper(selected_model, start_compute=True, dicom_series_id=series_id)
         if instance is None:
             return jsonify({ 'message': "Error: Google Cloud is at its limit, please wait." }), 400
     except Exception as e:
         print(e)
         print(traceback.format_exc())
-        return jsonify({ 'message': 'Issue creating Compute instance. Google Cloud Services likely experiencing temporary resource shortage. Please try again later.' }), 500
+        # return jsonify({ 'message': 'Issue creating Compute instance. Google Cloud Services likely experiencing temporary resource shortage. Please try again later.' }), 500
+        return jsonify({ 'message': str(e) }), 500
     
-    try:
-        print('check if able to predict', selected_model, series_id)
-        if not is_able_to_predict_on_dicom_series(selected_model, series_id):
-            # start_instance(_PROJECT_ID, _ZONE, instance.name)
-            # stop_instance(_PROJECT_ID, _ZONE, instance)
-            return jsonify({ 'message': 'Another model is currently predicting on this series. Please wait for it to finish first.' }), 400
-    except Exception as e:
-        print(e)
-        return jsonify({ 'message': 'Google Cloud Compute is having issues. Please try again later.' }), 500
-
+    # try:
+    #     print('check if able to predict', selected_model, series_id)
+    #     if not is_able_to_predict_on_dicom_series(selected_model, series_id):
+    #         # start_instance(_PROJECT_ID, _ZONE, instance.name)
+    #         # stop_instance(_PROJECT_ID, _ZONE, instance)
+    #         return jsonify({ 'message': 'Another model is currently predicting on this series. Please wait for it to finish first.' }), 400
+    # except Exception as e:
+    #     print(e)
+    #     return jsonify({ 'message': 'Google Cloud Compute is having issues. Please try again later.' }), 500
+    print(instance.name)
+    return jsonify({'message':'....'}), 200
     try:
         # emit_update_progressbar(20)
         if instance is not None:
@@ -615,7 +634,7 @@ def run_prediction():
                 # raise Exception(f'Selected model {selectedModel} already running')
                 # return jsonify({ 'message': f'Selected model {selected_model} already running' }), 500
             
-            thread = threading.Thread(target=run_pred_helper, args=(instance, selected_model, study_id, series_id))
+            thread = threading.Thread(target=run_pred_helper, args=(instance, selected_model, study_id, series_id), kwargs={'stop_instance_at_end': False})
             thread.start()
             return jsonify({ 'message': 'Prediction job successfully started' }), 202
         

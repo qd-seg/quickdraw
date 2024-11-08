@@ -411,7 +411,7 @@ def setup_compute_instance(project_id: str, zone: str, instance_name: str | None
     return instance
 
 # Run predictions on existing compute instance. Assumes DICOM images have already been uploaded to ./dicom-images/
-def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, cached_dicom_series_path: str, dicom_series_id: str, instance_name: str, skip_predictions: bool = False, progress_bar_update_callback = None) -> str | None:
+def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, cached_dicom_series_path: str, dicom_series_id: str, instance_name: str, skip_predictions: bool = False, progress_bar_update_callback = None, stop_instance_at_end: bool = True) -> str | None:
     # Need:
     # where does dicom series come from -> the cache/temp-dcm/study_id/instance_id/...
     # where are images uploaded to -> /home/USER/images/instance_id (uid)
@@ -433,7 +433,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
             subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
                             f'--project={project_id}', 
                             f'--zone={zone}',
-                            f'--metadata=dicom-image={dicom_series_id},username={username}'], check=True) #TODO
+                            f'--metadata=dicom-image={dicom_series_id},username={username}'], check=True) 
             
             # Copy over DICOM images from server to instance
             if progress_bar_update_callback is not None:
@@ -489,12 +489,24 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                         f'--command=rm -rf /home/{username}/model_outputs/{dicom_series_id}'], check=True, input='\n', text=True)
                         # rm -rf /home/{username}/images && rm -rf /home/{username}/model_outputs'
         # Stop the instance
-        print('Stopping Instance')
-        stop_instance(project_id, zone, instance_name)
+        if stop_instance_at_end:
+            print('Stopping Instance')
+            stop_instance(project_id, zone, instance_name)
+        else:
+            subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
+                            f'--project={project_id}', 
+                            f'--zone={zone}',
+                            f'--metadata=idling=True'], check=True)
     except Exception as e:
         print('Something went wrong with running predictions:')
         print(e, flush=True)
-        stop_instance(project_id, zone, instance_name)
+        if stop_instance_at_end:
+            stop_instance(project_id, zone, instance_name)
+        else:
+            subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
+                            f'--project={project_id}', 
+                            f'--zone={zone}',
+                            f'--metadata=idling=True'], check=True)
         return None
     
     dcm_prediction_dir = os.path.join(dcm_prediction_dir, dicom_series_id)

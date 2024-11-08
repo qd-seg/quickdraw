@@ -248,7 +248,7 @@ const UploadPanel = ({ servicesManager, commandsManager, extensionManager }) => 
         setAllModels(allModels.map((model: any, index: number) => {
             return {
                 ...model,
-                running: index === selectedModelIndex,
+                running: model.running || index === selectedModelIndex,
             };
         }));
 
