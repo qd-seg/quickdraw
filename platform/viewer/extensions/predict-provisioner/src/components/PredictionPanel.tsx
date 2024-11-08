@@ -4,11 +4,22 @@ import { Button, PanelSection, ProgressLoadingBar, Select } from '@ohif/ui';
 
 import { createReportAsync } from '@ohif/extension-default';
 import { DicomMetadataStore } from '@ohif/core';
+import CornerstoneSEG from '@ohif/extension-cornerstone-dicom-seg';
 
 const SURROGATE_HOST = '';
 
 const PredictionPanel = ({ servicesManager, commandsManager, extensionManager }) => {
+  const PanelSegmentationWithTools = CornerstoneSEG.getPanelModule({
+    servicesManager,
+    commandsManager,
+    extensionManager,
+  })[1].component();
+
   const { segmentationService, uiNotificationService } = servicesManager.services;
+
+  const [segmentations, setSegmentations] = React.useState(() =>
+    segmentationService.getSegmentations()
+  );
 
   const [progress, setProgress] = React.useState<number | undefined>(undefined);
 
@@ -153,7 +164,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
       return;
     }
-    const currentScreenIDs = getCurrentDisplayIDs();  
+    const currentScreenIDs = getCurrentDisplayIDs();
     if (!currentScreenIDs) {
       uiNotificationService.show({
         title: 'Unable to Access Screen',
@@ -166,14 +177,16 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     }
 
     // Retrieve the metadata for the first image using dicomMetadataProvider
-    const firstImageMetadata = DicomMetadataStore.getSeries(currentScreenIDs.study_uid, currentScreenIDs.series_id).instances[0];
+    const firstImageMetadata = DicomMetadataStore.getSeries(
+      currentScreenIDs.study_uid,
+      currentScreenIDs.series_id
+    ).instances[0];
     const metadataDict = Object.keys(firstImageMetadata).reduce((acc, key) => {
       acc[key] = firstImageMetadata[key];
       return acc;
     }, {});
     return metadataDict;
   }
-  
 
   const calculateDICEScore = async () => {
     let currentIDs;
@@ -329,7 +342,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       const response = await fetch(`${SURROGATE_HOST}/api/listModels`);
       const body = await response.json();
 
-      setAvailableMasks(body.models);
+      setAvailableModels(body.models);
       setSelectedModelIndex(undefined);
     } catch (error) {
       console.error(error);
@@ -413,56 +426,10 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
             className="w-4/5"
           />
           <br />
-
-          <Button
-            onClick={() => console.log(getCurrentDisplayIDs())}
-            children={'Get Instance ID'}
-            disabled={isActive()}
-            className="w-4/5"
-          />
-          <br />
-
-          <Button
-            onClick={() => console.log(getCurrentImageMetadata())}
-            children={'Get Metadata'}
-            disabled={isActive()}
-            className="w-4/5"
-          />
-          <br />
-
-          <Button
-            onClick={() => calculateDICEScore().catch(console.error)}
-            children={'Calculate DICE'}
-            disabled={isActive()}
-            className="w-4/5"
-          />
-          <br />
-
-          <Button
-            onClick={() => exportMask().catch(console.error)}
-            children={'Export'}
-            disabled={isActive()}
-            className="w-4/5"
-          />
-          <br />
-
-          <Button
-            onClick={() => listModels().catch(console.error)}
-            children={'Refresh Models'}
-            disabled={isActive()}
-            className="w-4/5"
-          />
-          <br />
-
-          <Button
-            onClick={() => listMasks().catch(console.error)}
-            children={'Refresh Segmentations'}
-            disabled={isActive()}
-            className="w-4/5"
-          />
-          <br />
         </div>
       </PanelSection>
+
+      {PanelSegmentationWithTools}
     </div>
   );
 };

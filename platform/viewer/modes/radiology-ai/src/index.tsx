@@ -1,10 +1,7 @@
 import { hotkeys } from '@ohif/core';
+import Segmentation from '@ohif/mode-segmentation';
 
 import { id } from './id';
-
-import segmentationButtons from './segmentationButtons';
-import toolbarButtons from './toolbarButtons';
-import initToolGroups from './initToolGroups';
 
 const ohif = {
   layout: '@ohif/extension-default.layoutTemplateModule.viewerLayout',
@@ -19,9 +16,6 @@ const cornerstone = {
 };
 
 const segmentation = {
-  panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
-  panelTool: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentationWithTools',
-
   sopClassHandlerSEG: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
   viewportSEG: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
 
@@ -47,29 +41,7 @@ const modeFactory = ({ modeConfiguration }) => {
     routeName: 'radiology-ai',
     displayName: 'Radiology AI',
 
-    onModeEnter: ({ servicesManager, extensionManager, commandsManager }: withAppTypes) => {
-      const { measurementService, toolbarService, toolGroupService } = servicesManager.services;
-
-      measurementService.clearMeasurements();
-      initToolGroups(extensionManager, toolGroupService, commandsManager);
-
-      toolbarService.addButtons(toolbarButtons);
-      toolbarService.addButtons(segmentationButtons);
-
-      toolbarService.createButtonSection('primary', [
-        'MeasurementTools',
-        'Zoom',
-        'WindowLevel',
-        'Pan',
-        'TrackballRotate',
-        'Capture',
-        'Layout',
-        'Crosshairs',
-        'MoreTools',
-      ]);
-
-      toolbarService.createButtonSection('segmentationToolbox', ['BrushTools', 'Shapes']);
-    },
+    onModeEnter: Segmentation.modeFactory({ modeConfiguration }).onModeEnter,
 
     onModeExit: ({ servicesManager }: withAppTypes) => {
       const {
@@ -115,7 +87,7 @@ const modeFactory = ({ modeConfiguration }) => {
             id: ohif.layout,
             props: {
               leftPanels: [ohif.leftPanel],
-              rightPanels: [segmentation.panelTool, prediction.panel],
+              rightPanels: [prediction.panel],
               viewports: [
                 {
                   namespace: cornerstone.viewport,

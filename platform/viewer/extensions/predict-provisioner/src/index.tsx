@@ -15,7 +15,11 @@ const extension = {
         label: 'Predict',
         component: () => {
           return (
-            <PredictionPanel servicesManager={servicesManager} commandsManager={commandsManager} extensionManager={extensionManager}/>
+            <PredictionPanel
+              servicesManager={servicesManager}
+              commandsManager={commandsManager}
+              extensionManager={extensionManager}
+            />
           );
         },
       },
