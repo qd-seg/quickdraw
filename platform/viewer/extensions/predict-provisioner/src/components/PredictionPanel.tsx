@@ -21,6 +21,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   const [selectedMaskIndex, setSelectedMaskIndex] = React.useState<number | undefined>(undefined);
   const [selectedMaskLabel, setSelectedMaskLabel] = React.useState<string | undefined>(undefined);
 
+  const [activeSegmentation, setActiveSegmentation] = React.useState<any | undefined>(undefined);
+
   const [status, setStatus] = React.useState<{ [key: string]: boolean }>({
     uploading: false,
     deleting: false,
@@ -220,21 +222,18 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return;
     }
     const currentGroundTruth = availableMasks[selectedMaskIndex];
-    const truthIDs = {
+    const truthIDs = {      
+      series_desc: currentGroundTruth.description,
+      series_uid: currentGroundTruth.uid,
       patient_id: currentIDs.patient_id,
       study_id: currentIDs.patient_id,
       study_desc: currentIDs.study_description,
       study_uid: currentIDs.study_uid,
-      seriesInstanceUID: currentGroundTruth.uid,
     };
 
-    const activeIDs = {
-      patient_id: currentIDs.patient_id,
-      study_id: currentIDs.patient_id,
-      study_desc: currentIDs.study_description,
-      study_uid: currentIDs.study_uid,
-      seriesInstanceUID: currentIDs.series_id,
-    };
+    const activeIDs = activeSegmentation;
+    // console.log(truthIDs);
+    // console.log(activeIDs);
     try {
       const response = await fetch(`${SURROGATE_HOST}/api/calculateDiceScore`, {
         method: 'POST',
@@ -511,8 +510,39 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     isActive() ? setProgress(undefined) : setProgress(0);
   }, [status]);
 
+  // useEffect to Update the active segmentation when the segmentations change
   React.useEffect(() => {
-    console.log('DEBUG:', segmentations);
+    const { displaySetService } = servicesManager.services;
+
+    // get the active Segmentation Display Set from segmentations
+    const activeSegmentationDisplaySet = segmentations.find(segmentation => segmentation.isActive);
+
+    // extract the displaySetInstanceUID and label
+    const activeDisplaySetInstanceUID = activeSegmentationDisplaySet?.displaySetInstanceUID;
+    const activeSegmentationLabel = activeSegmentationDisplaySet?.label;
+
+    // get the active display sets and filter for the active DisplaySetInstanceUID
+    const activeDisplaySets = displaySetService.getActiveDisplaySets();
+    const activeSegmentation = activeDisplaySets.find(displaySet => displaySet.displaySetInstanceUID === activeDisplaySetInstanceUID);
+
+    // update the global state only if activeSegmentation is found
+    if (activeSegmentation) {
+      // get study information
+      const currentStudy = DicomMetadataStore.getStudy(activeSegmentation.StudyInstanceUID);
+      const currentStudyDescription = currentStudy?.StudyDescription;
+      const currentPatientUID = currentStudy?.series[0].PatientID;
+      const currentStudyID = currentStudy?.series[0].StudyID;
+      
+      // update global state
+      setActiveSegmentation({
+        series_desc: activeSegmentationLabel,
+        series_uid: activeSegmentation.SeriesInstanceUID, 
+        patient_id: currentPatientUID,
+        study_id: currentStudyID,
+        study_desc: currentStudyDescription,
+        study_uid: activeSegmentation.StudyInstanceUID,
+      });
+    }
   }, [segmentations]);
 
   return (
