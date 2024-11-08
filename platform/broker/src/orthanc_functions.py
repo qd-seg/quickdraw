@@ -115,3 +115,14 @@ def uploadSegFile(file_path, remove_original=False):
         print(os.path.exists(file_path))
         if os.path.exists(file_path):
             os.remove(file_path)
+            
+def get_modality_of_series(series_UID):
+    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
+    series = None
+    try:
+        series = pyorthanc.find_series(orthanc, query={"SeriesInstanceUID":series_UID})[0]#Should only be one
+    except Exception as e:
+        return None
+    
+    series = series.get_main_information()
+    return series["MainDicomTags"]["Modality"]

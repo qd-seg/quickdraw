@@ -5,6 +5,7 @@ from google.auth.transport.requests import Request
 _CREDENTIALS = None
 _COMPUTE_CLIENT = None
 _REGISTRY_CLIENT = None
+_KEY_FILE_PATH = None
 
 def get_credentials():
     refresh_credentials_if_expired()
@@ -13,9 +14,11 @@ def get_credentials():
 def auth_with_key_file_json(key_file_path):
     """Authenticate using a service account JSON file."""
     global _CREDENTIALS
+    global _KEY_FILE_PATH
     
     print('Authenticating with service account from', key_file_path)
     credentials = service_account.Credentials.from_service_account_file(key_file_path)
+    _KEY_FILE_PATH = key_file_path
     scoped_credentials = credentials.with_scopes(['https://www.googleapis.com/auth/cloud-platform'])
     
     scoped_credentials.refresh(Request())
@@ -30,6 +33,10 @@ def refresh_credentials_if_expired():
         _CREDENTIALS.refresh(Request())
         _COMPUTE_CLIENT = None
         _REGISTRY_CLIENT = None
+    if _CREDENTIALS is None:
+        if _KEY_FILE_PATH is None:
+            raise Exception("Something went very wrong: key file path is None")
+        auth_with_key_file_json(_KEY_FILE_PATH)
 
 def get_compute_client(credentials: service_account.Credentials = None) -> compute_v1.InstancesClient:
     global _COMPUTE_CLIENT

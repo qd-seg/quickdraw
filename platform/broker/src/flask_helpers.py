@@ -28,10 +28,11 @@ def read_env_vars(local=False):
         'project_id': service_accnt['project_id'],
         'zone': service_config['zone'],
         'region': service_config['zone'].split('-')[:-1],
+        'backup_zones': service_config['backupZones'],
         'machine_type': service_config['machineType'],
         'repository': service_config['repository'],
         'service_account_email': service_accnt['client_email'],
-        'instance_limit': 1,
+        'instance_limit': service_config['instanceLimit'] or 1,
     }
     # print(env_vars)
     # _SERVICE_ACCOUNT_KEYS = env_vars['serviceAccountKeys']
@@ -80,10 +81,16 @@ def count_instances(project_id, zone):
     return len(instances)
 
 def list_instances(project_id, zone):
-    request = compute_v1.ListInstancesRequest(project=project_id, zone=zone)
-    response = get_compute_client().list(request=request)
-    instances = list(response)
-    return instances
+    # if zone == 'us-east4-b': # TEMP
+    #     raise Exception('503 SERVICE UNAVAILABLE asdfasdfasdf')
+    try:
+        request = compute_v1.ListInstancesRequest(project=project_id, zone=zone)
+        response = get_compute_client().list(request=request)
+        instances = list(response)
+        return instances
+    except Exception as e:
+        print(e)
+        return None
 
 def start_instance(project_id, zone, instance_name):
     request = compute_v1.StartInstanceRequest(project=project_id, zone=zone, instance=instance_name)
@@ -188,7 +195,15 @@ def create_new_instance(instance_name, project_id, zone, machine_type, instance_
     instance_count = count_instances(project_id, zone)
     print(instance_count, 'instances running.')
     if instance_count >= instance_limit:
-        return "Google Cloud is at its limit, please wait.", 500
+        removed_instance = False
+        for instance in list_instances(project_id, zone):
+            if instance.status == 'TERMINATED':
+                delete_instance(project_id, zone, instance.name)
+                removed_instance = True
+                break
+        
+        if not removed_instance:
+            raise Exception("Google Cloud is at its limit, please wait.")
            
     vm_instance = create_instance_helper(
         project_id=project_id,
@@ -292,11 +307,12 @@ def upload_docker_image_to_artifact_registry(project_id: str, zone: str, models_
     
 ## Connecting Compute and Registry
 # Put setup script and other metadata into instance
-def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_name: str, instance: compute_v1.Instance):
+def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_name: str, instance: compute_v1.Instance, dicom_series_id: str = None):
     region = get_region_name(zone)
     docker_image_metadata = compute_v1.Items(key='image-name', value=f'{region}-docker.pkg.dev/{project_id}/{models_repo}/{image_name}')
     docker_image_model_displayname_metadata = compute_v1.Items(key='model-displayname', value=image_name)
-    # dicom_image_metadata = compute_v1.Items(key='dicom-image', value='1-009.dcm')
+    if dicom_series_id is not None:
+        dicom_series_metadata = compute_v1.Items(key='dicom-image', value=dicom_series_id)
     
     with open('./compute-setup-script.sh', 'r') as f:
         setup_script = f.read().replace('{_REGION}', region)
@@ -304,7 +320,7 @@ def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_
     startup_script_metadata = compute_v1.Items(key='startup-script', value=setup_script)
     
     # metadata = compute_v1.Metadata(items=[docker_image_metadata, dicom_image_metadata, startup_script_metadata], fingerprint=instance.metadata.fingerprint)
-    metadata = compute_v1.Metadata(items=[docker_image_metadata, docker_image_model_displayname_metadata, startup_script_metadata], fingerprint=instance.metadata.fingerprint)
+    metadata = compute_v1.Metadata(items=[docker_image_metadata, docker_image_model_displayname_metadata, startup_script_metadata, dicom_series_metadata], fingerprint=instance.metadata.fingerprint)
     request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=metadata, project=project_id, zone=zone)
     # request = compute_v1.SetCommonInstanceMetadataProjectRequest(metadata_resource=metadata, project=_PROJECT_ID)
     print('Setting up startup script on instance...')
@@ -314,6 +330,13 @@ def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_
     # startup_metadata = compute_v1.Metadata(items=[startup_script_metadata], fingerprint=instance.metadata.fingerprint)
     # startup_request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=startup_metadata, project=_PROJECT_ID, zone=_ZONE)
     return first_metadata_request.result(timeout=_MAX_TIMEOUT_NORMAL_REQUEST)
+
+def remove_instance_metadata(project_id: str, zone: str, instance: compute_v1.Instance, keys_to_remove: List[str]):
+    new_metadata = list(filter(lambda i: i.key not in keys_to_remove, instance.metadata.items))
+    metadata = compute_v1.Metadata(items=new_metadata, fingerprint=instance.metadata.fingerprint)
+    request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=metadata, project=project_id, zone=zone)
+    
+    get_compute_client().set_metadata(request).result(timeout=_MAX_TIMEOUT_NORMAL_REQUEST)
 
 def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, key_filepath: str, dicom_image_directory: str, dicom_series_id: str, instance_name: str, run_auth=True) -> bool:
     if run_auth:
@@ -365,7 +388,10 @@ def get_dicom_series_from_orthanc_to_cache(dicom_series_id):
     return dicom_series_path, temp_images_path
 
 # Creates an instance and pulls the model from registry to it. Returns if successfully created or not
-def setup_compute_instance(project_id: str, zone: str, instance_name: str | None, machine_type: str, instance_limit: int, service_account_email: str, image_name: str, models_repo: str = None, skip_metadata=False) -> compute_v1.Instance | None:
+def setup_compute_instance(project_id: str, zone: str, instance_name: str | None, machine_type: str, instance_limit: int, service_account_email: str, image_name: str, models_repo: str = None, skip_metadata=False, dicom_series_id: str = None, docker_zone: str = None) -> compute_v1.Instance | None:
+    # if zone == 'us-east4-b': # TEMP
+    #     raise Exception('503 SERVICE UNAVAILABLE asdfasdfasdf')
+    
     instance = get_instance(project_id, zone, instance_name)
     if instance is None:
         instance = create_new_instance(instance_name, project_id, zone, machine_type, instance_limit, service_account_email)
@@ -377,8 +403,10 @@ def setup_compute_instance(project_id: str, zone: str, instance_name: str | None
         if models_repo is None:
             print('Please provide model repository path')
             exit(1)
-            
-        setup_instance_metadata(project_id, zone, models_repo, image_name, instance)
+        
+        if docker_zone is None:
+            docker_zone = zone
+        setup_instance_metadata(project_id, docker_zone, models_repo, image_name, instance, dicom_series_id=dicom_series_id)
         
     return instance
 
@@ -443,6 +471,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
             dcm_prediction_dir = os.path.abspath(os.path.join(cache_dir, dcm_prediction_dir))
             
         os.makedirs(dcm_prediction_dir, exist_ok=True)
+        print('Copying over predictions to', dcm_prediction_dir)
         subprocess.run(['gcloud', 'compute', 'scp',
                         f'--project={project_id}', 
                         f'--zone={zone}',
