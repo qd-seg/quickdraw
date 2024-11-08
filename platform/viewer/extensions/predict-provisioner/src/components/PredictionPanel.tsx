@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { Button, PanelSection, ProgressLoadingBar, Select } from '@ohif/ui';
+import { Button, PanelSection, ProgressLoadingBar, Select, Label, Typography } from '@ohif/ui';
 
 import { createReportAsync } from '@ohif/extension-default';
 import { DicomMetadataStore } from '@ohif/core';
@@ -30,10 +30,12 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     loadingMasks: false,
   });
 
-  const [segmentaions, setSegmentations] = React.useState<any[]>([]);
+  const [segmentations, setSegmentations] = React.useState<any[]>([]);
 
   const isActive = () => !Object.values(status).every(x => x === false);
   const isPredictionAvailable = () => selectedModelIndex !== undefined && !isActive();
+  const isDICECalculationAvailable = () =>
+    selectedMaskIndex !== undefined && !isActive() && segmentations.length > 0;
 
   const runPrediction = async () => {
     if (selectedModelIndex === undefined) {
@@ -410,6 +412,68 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     extensionManager,
   })[1].component();
 
+  const ModelSelect = (
+    <Select
+      className="mb-2 w-full"
+      closeMenuOnSelect={true}
+      isSearchable={true}
+      isClearable={false}
+      options={availableModels.map((model, index) => ({
+        value: index,
+        label: model.name,
+      }))}
+      onChange={selection => {
+        setSelectedModelIndex(selection.value);
+        setSelectedModelLabel(selection.label);
+      }}
+      value={
+        selectedModelIndex === undefined && selectedModelLabel === undefined
+          ? undefined
+          : { value: selectedModelIndex, label: selectedModelLabel }
+      }
+    />
+  );
+
+  const ModelText = (
+    <Typography
+      color="primaryLight"
+      children="Prediction Model"
+      className="mb-0.5"
+      varient="subtitle"
+    />
+  );
+
+  const MaskSelect = (
+    <Select
+      className="mb-2 w-full"
+      closeMenuOnSelect={true}
+      isSearchable={true}
+      isClearable={false}
+      options={availableMasks.map((mask, index) => ({
+        value: index,
+        label: mask.description ? mask.description : mask.uid,
+      }))}
+      onChange={selection => {
+        setSelectedMaskIndex(selection.value);
+        setSelectedMaskLabel(selection.label);
+      }}
+      value={
+        selectedMaskIndex === undefined && selectedMaskLabel === undefined
+          ? undefined
+          : { value: selectedMaskIndex, label: selectedMaskLabel }
+      }
+    />
+  );
+
+  const MaskText = (
+    <Typography
+      color="primaryLight"
+      children="Ground Truth"
+      className="mb-0.5"
+      varient="subtitle"
+    />
+  );
+
   React.useEffect(() => {
     listModels();
   }, []);
@@ -447,55 +511,18 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     isActive() ? setProgress(undefined) : setProgress(0);
   }, [status]);
 
-  React.useEffect(() => {}, [segmentaions]);
+  React.useEffect(() => {
+    console.log('DEBUG:', segmentations);
+  }, [segmentations]);
 
   return (
     <div>
-      <Select
-        className="w-full"
-        closeMenuOnSelect={true}
-        isSearchable={true}
-        isClearable={false}
-        options={availableModels.map((model, index) => ({
-          value: index,
-          label: model.name,
-        }))}
-        onChange={selection => {
-          setSelectedModelIndex(selection.value);
-          setSelectedModelLabel(selection.label);
-        }}
-        value={
-          selectedModelIndex === undefined && selectedModelLabel === undefined
-            ? undefined
-            : { value: selectedModelIndex, label: selectedModelLabel }
-        }
-        placeholder="Select a model."
-      ></Select>
-
-      <Select
-        className="w-full"
-        closeMenuOnSelect={true}
-        isSearchable={true}
-        isClearable={true}
-        options={availableMasks.map((mask, index) => ({
-          value: index,
-          label: mask.description ? mask.description : mask.uid,
-        }))}
-        onChange={selection => {
-          setSelectedMaskIndex(selection.value);
-          setSelectedMaskLabel(selection.label);
-        }}
-        value={
-          selectedMaskIndex === undefined && selectedMaskLabel === undefined
-            ? undefined
-            : { value: selectedMaskIndex, label: selectedMaskLabel }
-        }
-        placeholder="Select a ground truth."
-      ></Select>
+      <Label children={ModelSelect} text={ModelText} />
+      <Label children={MaskSelect} text={MaskText} />
 
       <ProgressLoadingBar progress={progress}></ProgressLoadingBar>
 
-      <PanelSection title="Prediction Functions" className="w-full">
+      <PanelSection title="Prediction Functions">
         <div className="flex flex-col items-center justify-center">
           <br />
 
@@ -503,6 +530,14 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
             onClick={() => runPrediction().catch(console.error)}
             children={'Predict'}
             disabled={!isPredictionAvailable()}
+            className="w-4/5"
+          />
+          <br />
+
+          <Button
+            onClick={() => calculateDICEScore().catch(console.error)}
+            children={'Calculate DICE'}
+            disabled={!isDICECalculationAvailable()}
             className="w-4/5"
           />
           <br />
