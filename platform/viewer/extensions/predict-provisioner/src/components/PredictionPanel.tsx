@@ -9,8 +9,6 @@ import CornerstoneSEG from '@ohif/extension-cornerstone-dicom-seg';
 const SURROGATE_HOST = '';
 
 const PredictionPanel = ({ servicesManager, commandsManager, extensionManager }) => {
-  const { segmentationService, uiNotificationService } = servicesManager.services;
-
   const [progress, setProgress] = React.useState<number | undefined>(undefined);
 
   const [availableModels, setAvailableModels] = React.useState<any[]>([]);
@@ -21,7 +19,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   const [selectedMaskIndex, setSelectedMaskIndex] = React.useState<number | undefined>(undefined);
   const [selectedMaskLabel, setSelectedMaskLabel] = React.useState<string | undefined>(undefined);
 
-  const [activeSegmentation, setActiveSegmentation] = React.useState<any | undefined>(undefined);
+  const [activeMask, setActiveMask] = React.useState<any | undefined>(undefined);
+  const [loadedMasks, setLoadedMasks] = React.useState<any[]>([]);
 
   const [status, setStatus] = React.useState<{ [key: string]: boolean }>({
     uploading: false,
@@ -32,14 +31,19 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     loadingMasks: false,
   });
 
-  const [segmentations, setSegmentations] = React.useState<any[]>([]);
+  const isProcessing = () => !Object.values(status).every(x => x === false);
 
-  const isActive = () => !Object.values(status).every(x => x === false);
-  const isPredictionAvailable = () => selectedModelIndex !== undefined && !isActive();
-  const isDICECalculationAvailable = () =>
-    selectedMaskIndex !== undefined && !isActive() && segmentations.length > 0;
+  const isPredictionAvailable = () => {
+    return selectedModelIndex !== undefined && !isProcessing();
+  };
+
+  const isAnalysisAvailable = () => {
+    return selectedMaskIndex !== undefined && !isProcessing() && loadedMasks.length > 0;
+  };
 
   const runPrediction = async () => {
+    const { uiNotificationService } = servicesManager.services;
+
     if (selectedModelIndex === undefined) {
       uiNotificationService.show({
         title: 'Unable to Process',
@@ -152,6 +156,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   };
 
   const getCurrentImageMetadata = () => {
+    const { uiNotificationService } = servicesManager.services;
+
     if (DicomMetadataStore === undefined) {
       uiNotificationService.show({
         title: 'Unable to Fetch Metadata',
@@ -191,6 +197,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   };
 
   const calculateDICEScore = async () => {
+    const { uiNotificationService } = servicesManager.services;
+
     let currentIDs;
 
     try {
@@ -231,7 +239,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       study_uid: currentIDs.study_uid,
     };
 
-    const activeIDs = activeSegmentation;
+    const activeIDs = activeMask;
     // console.log(truthIDs);
     // console.log(activeIDs);
     try {
@@ -259,6 +267,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   };
 
   const exportMask = async () => {
+    const { segmentationService, uiNotificationService } = servicesManager.services;
+
     const activeID = segmentationService.getActiveSegmentation()?.id;
 
     if (activeID === undefined) {
@@ -334,7 +344,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     });
   };
 
-  const listModels = async () => {
+  const getAvailableModels = async () => {
     setStatus({ ...status, loadingModels: true });
 
     try {
@@ -350,7 +360,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     }
   };
 
-  const listMasks = () => {
+  const getAvaialableMasks = () => {
     const { viewportGridService, displaySetService } = servicesManager.services;
 
     const activeViewportId = viewportGridService.getActiveViewportId();
@@ -371,6 +381,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   };
 
   const getSegmentationProxy = segmentations => {
+    setLoadedMasks(segmentations);
+
     return segmentations;
   };
 
@@ -388,7 +400,10 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     },
   };
 
-  const segmentationServiceProxy = new Proxy(segmentationService, segmentationServiceProxyHandler);
+  const segmentationServiceProxy = new Proxy(
+    servicesManager.services.segmentationService,
+    segmentationServiceProxyHandler
+  );
 
   const servicesProxyHandler = {
     get(target, property) {
@@ -472,11 +487,11 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   );
 
   React.useEffect(() => {
-    listModels();
+    getAvailableModels();
   }, []);
 
   React.useEffect(() => {
-    const { displaySetService } = servicesManager.services;
+    const { displaySetService, uiNotificationService } = servicesManager.services;
 
     if (displaySetService === undefined) {
       uiNotificationService.show({
@@ -489,7 +504,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return;
     }
 
-    const handleDisplaySetsAdded = () => listMasks();
+    const handleDisplaySetsAdded = () => getAvaialableMasks();
 
     displaySetService.subscribe(
       displaySetService.EVENTS.DISPLAY_SETS_ADDED,
@@ -505,7 +520,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   }, [servicesManager]);
 
   React.useEffect(() => {
-    isActive() ? setProgress(undefined) : setProgress(0);
+    isProcessing() ? setProgress(undefined) : setProgress(0);
   }, [status]);
 
   // useEffect to Update the active segmentation when the segmentations change
@@ -513,7 +528,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     const { displaySetService } = servicesManager.services;
 
     // get the active Segmentation Display Set from segmentations
-    const activeSegmentationDisplaySet = segmentations.find(segmentation => segmentation.isActive);
+    const activeSegmentationDisplaySet = loadedMasks.find(segmentation => segmentation.isActive);
 
     // extract the displaySetInstanceUID and label
     const activeDisplaySetInstanceUID = activeSegmentationDisplaySet?.displaySetInstanceUID;
@@ -534,7 +549,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       const currentStudyID = currentStudy?.series[0].StudyID;
 
       // update global state
-      setActiveSegmentation({
+      setActiveMask({
         series_desc: activeSegmentationLabel,
         series_uid: activeSegmentation.SeriesInstanceUID,
         patient_id: currentPatientUID,
@@ -543,7 +558,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
         study_uid: activeSegmentation.StudyInstanceUID,
       });
     }
-  }, [segmentations]);
+  }, [loadedMasks]);
 
   return (
     <div className="ohif-scrollbar invisible-scrollbar overflow-auto">
@@ -566,8 +581,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
           <Button
             onClick={() => calculateDICEScore().catch(console.error)}
-            children={'Calculate DICE'}
-            disabled={!isDICECalculationAvailable()}
+            children={'Analyze'}
+            disabled={!isAnalysisAvailable()}
             className="w-4/5"
           />
           <br />
