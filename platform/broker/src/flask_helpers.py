@@ -324,6 +324,7 @@ def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_
     request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=metadata, project=project_id, zone=zone)
     # request = compute_v1.SetCommonInstanceMetadataProjectRequest(metadata_resource=metadata, project=_PROJECT_ID)
     print('Setting up startup script on instance...')
+    print(metadata)
     first_metadata_request = get_compute_client().set_metadata(request) 
     first_metadata_request.add_done_callback(lambda _: print('Done setting up startup script')) 
     # startup_script_metadata = compute_v1.Items(key='startup-script', value=setup_script)
@@ -333,7 +334,8 @@ def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_
 
 def remove_instance_metadata(project_id: str, zone: str, instance: compute_v1.Instance, keys_to_remove: List[str]):
     new_metadata = list(filter(lambda i: i.key not in keys_to_remove, instance.metadata.items))
-    metadata = compute_v1.Metadata(items=new_metadata, fingerprint=instance.metadata.fingerprint)
+    newest_fingerprint = get_instance(project_id, zone, instance.name).metadata.fingerprint
+    metadata = compute_v1.Metadata(items=new_metadata, fingerprint=newest_fingerprint)
     request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=metadata, project=project_id, zone=zone)
     
     get_compute_client().set_metadata(request).result(timeout=_MAX_TIMEOUT_NORMAL_REQUEST)
@@ -407,7 +409,7 @@ def setup_compute_instance(project_id: str, zone: str, instance_name: str | None
         if docker_zone is None:
             docker_zone = zone
         setup_instance_metadata(project_id, docker_zone, models_repo, image_name, instance, dicom_series_id=dicom_series_id)
-        
+        instance = get_instance(project_id, zone, instance.name)
     return instance
 
 # Run predictions on existing compute instance. Assumes DICOM images have already been uploaded to ./dicom-images/

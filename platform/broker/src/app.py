@@ -179,12 +179,14 @@ def get_existing_instance_for_model(model_name: str, try_any_avail=False):
     all_instances = list_instances(_PROJECT_ID, _ZONE)
     possible_any_avail_models = []
     for instance in all_instances:
+        print(instance.name)
         # if instance.metadata['model-displayname'] == model_name:
         this_name = next(filter(lambda m: m.key == 'model-displayname', instance.metadata.items), None)
+        is_idling = next(filter(lambda m: m.key == 'idling', instance.metadata.items), None)
         # print(instance.metadata.items)
         # print(this_name)
         # print(instance.status)
-        if (try_any_avail and instance.status == 'TERMINATED'):
+        if (try_any_avail and (instance.status == 'TERMINATED' or (is_idling is not None and is_idling.value == 'True'))):
             possible_any_avail_models.append(instance)
         elif (this_name is not None and this_name.value == model_name):
         # if (this_name is not None and this_name.value == model_name):
@@ -558,7 +560,7 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         set_tracked_model_instance_running(selected_model, False)
         
         print('Removing old metadata...')
-        remove_instance_metadata(_PROJECT_ID, _ZONE, instance, ['dicom-image', 'model-displayname', 'idling'])
+        remove_instance_metadata(_PROJECT_ID, _ZONE, instance, ['dicom-image', 'model-displayname'])
         
         emit_update_progressbar(100)
         emit_status_update('Prediction done')
@@ -567,7 +569,7 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         print(e)
         set_tracked_model_instance_running(selected_model, False)
         stop_instance(_PROJECT_ID, _ZONE, instance.name)
-        remove_instance_metadata(_PROJECT_ID, _ZONE, get_instance(_PROJECT_ID, _ZONE, instance.name), ['dicom-image', 'model-displayname', 'idling'])
+        remove_instance_metadata(_PROJECT_ID, _ZONE, get_instance(_PROJECT_ID, _ZONE, instance.name), ['dicom-image', 'model-displayname'])
         return False
     
 @bp.route("/run", methods=["POST"])
@@ -625,8 +627,8 @@ def run_prediction():
     # except Exception as e:
     #     print(e)
     #     return jsonify({ 'message': 'Google Cloud Compute is having issues. Please try again later.' }), 500
-    print(instance.name)
-    return jsonify({'message':'....'}), 200
+    # print(instance.name)
+    # return jsonify({'message':'....'}), 200
     try:
         # emit_update_progressbar(20)
         if instance is not None:
