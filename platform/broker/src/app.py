@@ -20,7 +20,7 @@ from flask_helpers import (
 )
 from gcloud_auth import auth_with_key_file_json
 from werkzeug.middleware.proxy_fix import ProxyFix
-from orthanc_get import getRTStructs
+from orthanc_get import get_files_and_dice_score
 from orthanc_functions import change_tags, get_tags, get_dicom_series_by_id, get_first_dicom_image_series_from_study, uploadSegFile, get_modality_of_series
 from seg_converter_main_func import process_conversion
 from getRTStructWithoutDICEDict import getRTStructWithoutDICEDict
@@ -31,6 +31,7 @@ import shutil
 import traceback
 from typing import Union
 from google.cloud.compute_v1.types import Instance
+import json
 
 app = Flask(__name__)
 
@@ -755,18 +756,30 @@ def getDICEScores():
         print('not json')
         return jsonify({ 'message': 'Something went wrong' }), 500
 
-    ground_truth_dic = json_data.get('patient_id')
-    pred_dic = json_data.get('patient_id')
+    currentMaskDic = json_data.get('currentMask')
+    groundTruthDic = json_data.get('groundTruth')
 
-    patient_id = ground_truth_dic["patient_id"]#same for both
-    study_UID = ground_truth_dic["study_id"] #same for both
-    truth_series_UID = ground_truth_dic["seriesInstanceUID"]
-    pred_series_UID = pred_dic["seriesInstanceUID"]
+    if currentMaskDic is None or groundTruthDic is None:
+        print('wrong params')
+        return jsonify({ 'message': 'Select both ground truth and another mask for DICE scores.' }), 400
     
-    if patient_id is None or study_UID is None or truth_series_UID is None or pred_series_UID is None:
-        return jsonify({ 'message': 'Need ID\'s' }), 400
-
-    score_dict = getRTStructs(patient_id,study_UID,truth_series_UID,pred_series_UID)
+    currentMaskDic = json.loads(currentMaskDic)
+    groundTruthDic = json.loads(groundTruthDic)
+    # print(currentMaskDic, groundTruthDic)
+    
+    parent_id = json_data.get('parentDicomId')
+    pred_series_id = currentMaskDic['seriesInstanceUID']
+    truth_series_id = groundTruthDic['seriesInstanceUID']
+    
+    # parent_id = '1.2.826.0.1.3680043.2.1125.1.64196995986655345161142945283707267'
+    # pred_series_id = '1.2.826.0.1.3680043.8.498.30971613207143197447909320821495929249'
+    # truth_series_id = '1.2.826.0.1.3680043.8.498.65606104540766071416178016107620147411'
+    if parent_id is None:
+        print('wrong params')
+        return jsonify({ 'message': 'Select both ground truth and another mask for DICE scores.' }), 400
+    
+    print('getting dice...')
+    score_dict = get_files_and_dice_score(parent_id,pred_series_id,truth_series_id)
 
     return jsonify(score_dict), 200
 

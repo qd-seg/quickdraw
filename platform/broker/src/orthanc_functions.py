@@ -71,16 +71,7 @@ def get_first_dicom_image_series_from_study(patient_id, study_UID, save_director
     return first_folder, study_dir + "/"+image_folder
 
 def get_dicom_series_by_id(series_instance_uid, save_directory):
-    # from httpx._client import BaseClient
-    # from httpx import URL, post, get
-    # def merge_url(self, url):
-    #     print('merge urls:')
-    #     print(url)
-    #     print(self._base_url)
-    #     print(self.follow_redirects)
-    #     # self.follow_redirects = True
-    #     return URL(url)
-    # BaseClient._merge_url = merge_url
+    print('saving', save_directory)
     url = orthanc_url
 
     orthanc = pyorthanc.Orthanc(url, username='orthanc', password='orthanc')
@@ -92,7 +83,7 @@ def get_dicom_series_by_id(series_instance_uid, save_directory):
     # print('study id:', a_series.parent_study.study_id, .patient_id)
     # print(save_directory)
     # print(a_series)
-    # print(len(a_series.instances))
+    print(len(a_series.instances))
     os.makedirs(save_directory, exist_ok=True)
     zip_path = os.path.join(save_directory, 'series.zip')
     a_series.download(zip_path, with_progres=False)

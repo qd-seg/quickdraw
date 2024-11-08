@@ -50,7 +50,7 @@ def dice_thread(rtstruct_pred,rtstruct_truth,name,scores):
 # directory of the dicom image folder (string)
 # directory of the predicted rt struct (string)
 # directory of the true rt struct (string)
-def get_DICE_score(dicom_dir,pred_path,truth_path):
+def get_DICE_score(dicom_dir,pred_path,truth_path):#For rtstructs
     #Determine ground truth with attributes
     try:
         scores = {}

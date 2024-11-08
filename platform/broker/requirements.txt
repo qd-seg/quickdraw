@@ -18,3 +18,4 @@ opencv-python
 # highdicom==0.23.0
 highdicom==0.22.0
 eventlet
+pydicom_seg

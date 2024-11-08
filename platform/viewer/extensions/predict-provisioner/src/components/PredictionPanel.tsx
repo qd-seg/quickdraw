@@ -245,10 +245,11 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       seriesInstanceUID: currentIDs.series_id,
     };
     try {
-      const response = await fetch(`${SURROGATE_HOST}/api/calculateDiceScore`, {
+      const response = await fetch(`${SURROGATE_HOST}/api/getDICEScores`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          parentDicomId: currentIDs.parent_id,
           currentMask: JSON.stringify(activeIDs),
           groundTruth: JSON.stringify(truthIDs),
         }),
