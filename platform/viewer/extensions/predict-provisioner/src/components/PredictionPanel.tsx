@@ -1,19 +1,16 @@
 import * as React from 'react';
 
-import { Button, PanelSection, ProgressLoadingBar, CheckBox, Select } from '@ohif/ui';
-import { MoonLoader, BeatLoader } from 'react-spinners';
+import { Button, PanelSection, ProgressLoadingBar, Select } from '@ohif/ui';
 
 import { createReportAsync } from '@ohif/extension-default';
 import { DicomMetadataStore } from '@ohif/core';
-
-import io from 'socket.io-client';
 
 const SURROGATE_HOST = '';
 
 const PredictionPanel = ({ servicesManager, commandsManager, extensionManager }) => {
   const { segmentationService, uiNotificationService } = servicesManager.services;
 
-  const [progress, setProgress] = React.useState<number | undefined>(0);
+  const [progress, setProgress] = React.useState<number | undefined>(undefined);
 
   const [availableModels, setAvailableModels] = React.useState<any[]>([]);
   const [selectedModelIndex, setSelectedModelIndex] = React.useState<number | undefined>(undefined);
@@ -44,8 +41,6 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
       return;
     }
-
-    setProgress(0);
     setStatus({ ...status, predicting: true });
 
     try {
@@ -77,11 +72,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       });
     } catch (error) {
       console.error(error);
-
-      setProgress(0);
     } finally {
       setStatus({ ...status, predicting: false, deleting: false });
-      setProgress(0);
     }
   };
 
@@ -370,28 +362,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   }, []);
 
   React.useEffect(() => {
-    const socket = io(`${SURROGATE_HOST}`, { path: '/api/socket.io' });
-
-    socket.on('progress_update', data => setProgress(data?.value || 0));
-
-    socket.on('status_update', data => {
-      if (!data?.message) return;
-
-      uiNotificationService.show({
-        title: 'Processing Update',
-        message: data.message,
-        type: 'loading',
-        duration: 3000,
-      });
-    });
-
-    socket.on('model_instances_update', () => listModels());
-
-    return () => {
-      setProgress(0);
-      socket.disconnect();
-    };
-  }, []);
+    isActive() ? setProgress(undefined) : setProgress(0);
+  }, [status]);
 
   return (
     <div>
@@ -400,9 +372,12 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
         closeMenuOnSelect={true}
         isSearchable={true}
         isClearable={false}
-        options={availableModels.map((model, index) => ({ label: model.name, value: index }))}
-        onChange={index => setSelectedModelIndex(index ? index : undefined)}
-        value={selectedModelIndex}
+        options={availableModels.map((model, index) => ({
+          label: model.name,
+          value: index.toString(),
+        }))}
+        onChange={index => setSelectedModelIndex(index ? parseInt(index) : undefined)}
+        value={selectedModelIndex?.toString()}
         placeholder="Select a model."
       ></Select>
 
@@ -413,10 +388,10 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
         isClearable={false}
         options={availableMasks.map((mask, index) => ({
           label: mask.description ? mask.description : mask.uid,
-          value: index,
+          value: index.toString(),
         }))}
-        onChange={index => setSelectedMaskIndex(index ? index : undefined)}
-        value={selectedMaskIndex}
+        onChange={index => setSelectedMaskIndex(index ? parseInt(index) : undefined)}
+        value={selectedMaskIndex?.toString()}
         placeholder="Select a ground truth."
       ></Select>
 
@@ -452,7 +427,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
           <Button
             onClick={() => calculateDICEScore().catch(console.error)}
-            children={status.uploading ? <MoonLoader size={16} color={'#eee'} /> : 'Calculate DICE'}
+            children={'Calculate DICE'}
             disabled={isActive()}
             className="w-4/5"
           />
@@ -460,7 +435,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
           <Button
             onClick={() => exportMask().catch(console.error)}
-            children={status.uploading ? <MoonLoader size={16} color={'#eee'} /> : 'Export'}
+            children={'Export'}
             disabled={isActive()}
             className="w-4/5"
           />
@@ -468,23 +443,15 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
           <Button
             onClick={() => listModels().catch(console.error)}
-            children={
-              status.loadingModels ? <MoonLoader size={16} color={'#eee'} /> : 'Refresh Models'
-            }
-            disabled={status.loadingModels}
+            children={'Refresh Models'}
+            disabled={isActive()}
             className="w-4/5"
           />
           <br />
 
           <Button
             onClick={() => listMasks().catch(console.error)}
-            children={
-              status.loadingMasks ? (
-                <MoonLoader size={16} color={'#eee'} />
-              ) : (
-                'Refresh Segmentations'
-              )
-            }
+            children={'Refresh Segmentations'}
             disabled={isActive()}
             className="w-4/5"
           />

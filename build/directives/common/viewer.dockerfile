@@ -22,20 +22,15 @@ RUN apt-get update && apt-get -y install python3 g++ make && rm -rf /var/lib/apt
 
 COPY --from=pull /usr/local/src/viewer /usr/local/src/viewer
 COPY ./platform/viewer/extensions/predict-provisioner/package.json /usr/local/src/extensions/predict-provisioner/package.json
-COPY ./platform/viewer/extensions/upload-core/package.json /usr/local/src/extensions/upload-core/package.json
 COPY ./platform/viewer/modes/radiology-ai/package.json /usr/local/src/modes/radiology-ai/package.json
 
 WORKDIR /usr/local/src/viewer/
 RUN yarn install --silent
 
 RUN yarn run cli link-extension /usr/local/src/extensions/predict-provisioner
-RUN yarn run cli link-extension /usr/local/src/extensions/upload-core
 RUN yarn run cli link-mode /usr/local/src/modes/radiology-ai
 
 WORKDIR /usr/local/src/extensions/predict-provisioner
-RUN yarn install --silent
-
-WORKDIR /usr/local/src/extensions/upload-core
 RUN yarn install --silent
 
 WORKDIR /usr/local/src/modes/radiology-ai

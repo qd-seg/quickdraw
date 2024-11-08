@@ -21,8 +21,12 @@ const cornerstone = {
 const segmentation = {
   panel: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentation',
   panelTool: '@ohif/extension-cornerstone-dicom-seg.panelModule.panelSegmentationWithTools',
-  sopClassHandler: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
-  viewport: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
+
+  sopClassHandlerSEG: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
+  viewportSEG: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
+
+  sopClassHandlerRT: '@ohif/extension-cornerstone-dicom-rt.sopClassHandlerModule.dicom-rt',
+  viewportRT: '@ohif/extension-cornerstone-dicom-rt.viewportModule.dicom-rt',
 };
 
 const prediction = {
@@ -118,8 +122,12 @@ const modeFactory = ({ modeConfiguration }) => {
                   displaySetsToDisplay: [ohif.sopClassHandler],
                 },
                 {
-                  namespace: segmentation.viewport,
-                  displaySetsToDisplay: [segmentation.sopClassHandler],
+                  namespace: segmentation.viewportSEG,
+                  displaySetsToDisplay: [segmentation.sopClassHandlerSEG],
+                },
+                {
+                  namespace: segmentation.viewportRT,
+                  displaySetsToDisplay: [segmentation.sopClassHandlerRT],
                 },
               ],
             },
@@ -130,7 +138,11 @@ const modeFactory = ({ modeConfiguration }) => {
 
     extensions: extensionDependencies,
     hangingProtocol: 'default',
-    sopClassHandlers: [ohif.sopClassHandler, segmentation.sopClassHandler],
+    sopClassHandlers: [
+      ohif.sopClassHandler,
+      segmentation.sopClassHandlerSEG,
+      segmentation.sopClassHandlerRT,
+    ],
 
     hotkeys: [...hotkeys.defaults.hotkeyBindings],
   };
