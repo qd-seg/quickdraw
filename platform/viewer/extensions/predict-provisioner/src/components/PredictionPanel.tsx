@@ -9,15 +9,7 @@ import CornerstoneSEG from '@ohif/extension-cornerstone-dicom-seg';
 const SURROGATE_HOST = '';
 
 const PredictionPanel = ({ servicesManager, commandsManager, extensionManager }) => {
-  const {
-    segmentationService,
-    viewportGridService,
-    uiNotificationService,
-    uiDialogService,
-    displaySetService,
-    cornerstoneViewportService,
-    customizationService,
-  } = servicesManager.services;
+  const { segmentationService, uiNotificationService } = servicesManager.services;
 
   const [progress, setProgress] = React.useState<number | undefined>(undefined);
 
@@ -410,28 +402,32 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     listModels();
   }, []);
 
-
-  // listMasks() useEffect
   React.useEffect(() => {
     const { displaySetService } = servicesManager.services;
-  
+
     if (!displaySetService) {
-      console.warn('displaySetService is not available');
+      uiNotificationService.show({
+        title: 'Unable to Load',
+        message: 'Could not load the stored segmentations information.',
+        type: 'error',
+        duration: 3000,
+      });
+
       return;
     }
-  
-    // Event handler for the DISPLAY_SETS_ADDED event
-    const handleDisplaySetsAdded = () => {
-      console.log('DISPLAY_SETS_ADDED event detected');
-      listMasks();
-    };
-  
-    // Subscribe to the DISPLAY_SETS_ADDED event
-    displaySetService.subscribe(displaySetService.EVENTS.DISPLAY_SETS_ADDED, handleDisplaySetsAdded);
-  
-    // Cleanup the subscription when the component unmounts
+
+    const handleDisplaySetsAdded = () => listMasks();
+
+    displaySetService.subscribe(
+      displaySetService.EVENTS.DISPLAY_SETS_ADDED,
+      handleDisplaySetsAdded
+    );
+
     return () => {
-      displaySetService.unsubscribe(displaySetService.EVENTS.DISPLAY_SETS_ADDED, handleDisplaySetsAdded);
+      displaySetService.unsubscribe(
+        displaySetService.EVENTS.DISPLAY_SETS_ADDED,
+        handleDisplaySetsAdded
+      );
     };
   }, [servicesManager]);
 
