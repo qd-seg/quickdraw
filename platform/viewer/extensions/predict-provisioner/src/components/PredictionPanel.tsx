@@ -9,17 +9,15 @@ import CornerstoneSEG from '@ohif/extension-cornerstone-dicom-seg';
 const SURROGATE_HOST = '';
 
 const PredictionPanel = ({ servicesManager, commandsManager, extensionManager }) => {
-  const PanelSegmentationWithTools = CornerstoneSEG.getPanelModule({
-    servicesManager,
-    commandsManager,
-    extensionManager,
-  })[1].component();
-
-  const { segmentationService, uiNotificationService } = servicesManager.services;
-
-  const [segmentations, setSegmentations] = React.useState(() =>
-    segmentationService.getSegmentations()
-  );
+  const {
+    segmentationService,
+    viewportGridService,
+    uiNotificationService,
+    uiDialogService,
+    displaySetService,
+    cornerstoneViewportService,
+    customizationService,
+  } = servicesManager.services;
 
   const [progress, setProgress] = React.useState<number | undefined>(undefined);
 
@@ -107,8 +105,6 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     const currentStudyID = currentStudy?.series[0].StudyID;
     const currentSeriesInstanceUID = currentDisplaySet?.SeriesInstanceUID;
     const currentSOPInstanceUID = currentDisplaySet?.SOPInstanceUID;
-    
-    console.log(currentDisplaySet);
 
     if (currentSeriesInstanceUID && currentSOPInstanceUID) {
       return {
@@ -176,16 +172,18 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return;
     }
 
-    // Retrieve the metadata for the first image using dicomMetadataProvider
     const firstImageMetadata = DicomMetadataStore.getSeries(
       currentScreenIDs.study_uid,
       currentScreenIDs.series_id
     ).instances[0];
-    const metadataDict = Object.keys(firstImageMetadata).reduce((acc, key) => {
+
+    const metadata = Object.keys(firstImageMetadata).reduce((acc, key) => {
       acc[key] = firstImageMetadata[key];
+
       return acc;
     }, {});
-    return metadataDict;
+
+    return metadata;
   }
 
   const calculateDICEScore = async () => {
@@ -371,6 +369,43 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     setAvailableMasks(displaySetSeries);
   };
 
+  const spliceSegmentLabels = segmentations => segmentations;
+
+  const segmentationServiceProxyHandler = {
+    get(target, property) {
+      const value = Reflect.get(target, property);
+
+      if (typeof value === 'function' && property === 'getSegmentations') {
+        const segmentations = value.bind(target)();
+
+        return () => spliceSegmentLabels(segmentations);
+      } else if (typeof value === 'function') return value.bind(target);
+
+      return value;
+    },
+  };
+
+  const segmentationServiceProxy = new Proxy(segmentationService, segmentationServiceProxyHandler);
+
+  const servicesProxyHandler = {
+    get(target, property) {
+      const value = Reflect.get(target, property);
+
+      if (typeof value === 'function') return value.bind(target);
+      if (property === 'segmentationService') return segmentationServiceProxy;
+
+      return value;
+    },
+  };
+
+  const servicesProxy = new Proxy(servicesManager.services, servicesProxyHandler);
+
+  const PanelSegmentationWithTools = CornerstoneSEG.getPanelModule({
+    servicesManager: { services: servicesProxy },
+    commandsManager,
+    extensionManager,
+  })[1].component();
+
   React.useEffect(() => {
     listModels();
   }, []);
@@ -442,7 +477,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
           <Button
             onClick={() => runPrediction().catch(console.error)}
-            children={status.predicting ? <MoonLoader size={16} color={'#eee'} /> : 'Predict'}
+            children={'Predict'}
             disabled={!isPredictionAvailable()}
             className="w-4/5"
           />
