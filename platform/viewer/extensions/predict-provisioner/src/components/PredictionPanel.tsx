@@ -15,9 +15,11 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
   const [availableModels, setAvailableModels] = React.useState<any[]>([]);
   const [selectedModelIndex, setSelectedModelIndex] = React.useState<number | undefined>(undefined);
+  const [selectedModelLabel, setSelectedModelLabel] = React.useState<string | undefined>(undefined);
 
   const [availableMasks, setAvailableMasks] = React.useState<any[]>([]);
   const [selectedMaskIndex, setSelectedMaskIndex] = React.useState<number | undefined>(undefined);
+  const [selectedMaskLabel, setSelectedMaskLabel] = React.useState<string | undefined>(undefined);
 
   const [status, setStatus] = React.useState<{ [key: string]: boolean }>({
     uploading: false,
@@ -27,6 +29,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     loadingModels: false,
     loadingMasks: false,
   });
+
+  const [segmentaions, setSegmentations] = React.useState<any[]>([]);
 
   const isActive = () => !Object.values(status).every(x => x === false);
   const isPredictionAvailable = () => selectedModelIndex !== undefined && !isActive();
@@ -361,7 +365,11 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     setAvailableMasks(displaySetSeries);
   };
 
-  const spliceSegmentLabels = segmentations => segmentations;
+  const spliceSegmentLabels = proxiedSegmentations => {
+    setSegmentations(proxiedSegmentations);
+
+    return proxiedSegmentations;
+  };
 
   const segmentationServiceProxyHandler = {
     get(target, property) {
@@ -435,6 +443,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     isActive() ? setProgress(undefined) : setProgress(0);
   }, [status]);
 
+  React.useEffect(() => {}, [segmentaions]);
+
   return (
     <div>
       <Select
@@ -443,11 +453,18 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
         isSearchable={true}
         isClearable={false}
         options={availableModels.map((model, index) => ({
+          value: index,
           label: model.name,
-          value: index.toString(),
         }))}
-        onChange={index => setSelectedModelIndex(index ? parseInt(index) : undefined)}
-        value={selectedModelIndex?.toString()}
+        onChange={selection => {
+          setSelectedModelIndex(selection.value);
+          setSelectedModelLabel(selection.label);
+        }}
+        value={
+          selectedModelIndex === undefined && selectedModelLabel === undefined
+            ? undefined
+            : { value: selectedModelIndex, label: selectedModelLabel }
+        }
         placeholder="Select a model."
       ></Select>
 
@@ -455,13 +472,20 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
         className="w-full"
         closeMenuOnSelect={true}
         isSearchable={true}
-        isClearable={false}
+        isClearable={true}
         options={availableMasks.map((mask, index) => ({
+          value: index,
           label: mask.description ? mask.description : mask.uid,
-          value: index.toString(),
         }))}
-        onChange={index => setSelectedMaskIndex(index ? parseInt(index) : undefined)}
-        value={selectedMaskIndex?.toString()}
+        onChange={selection => {
+          setSelectedMaskIndex(selection.value);
+          setSelectedMaskLabel(selection.label);
+        }}
+        value={
+          selectedMaskIndex === undefined && selectedMaskLabel === undefined
+            ? undefined
+            : { value: selectedMaskIndex, label: selectedMaskLabel }
+        }
         placeholder="Select a ground truth."
       ></Select>
 
