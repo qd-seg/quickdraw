@@ -375,9 +375,30 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     listModels();
   }, []);
 
+
+  // listMasks() useEffect
   React.useEffect(() => {
-    listMasks();
-  }, []);
+    const { displaySetService } = servicesManager.services;
+  
+    if (!displaySetService) {
+      console.warn('displaySetService is not available');
+      return;
+    }
+  
+    // Event handler for the DISPLAY_SETS_ADDED event
+    const handleDisplaySetsAdded = () => {
+      console.log('DISPLAY_SETS_ADDED event detected');
+      listMasks();
+    };
+  
+    // Subscribe to the DISPLAY_SETS_ADDED event
+    displaySetService.subscribe(displaySetService.EVENTS.DISPLAY_SETS_ADDED, handleDisplaySetsAdded);
+  
+    // Cleanup the subscription when the component unmounts
+    return () => {
+      displaySetService.unsubscribe(displaySetService.EVENTS.DISPLAY_SETS_ADDED, handleDisplaySetsAdded);
+    };
+  }, [servicesManager]);
 
   React.useEffect(() => {
     isActive() ? setProgress(undefined) : setProgress(0);
