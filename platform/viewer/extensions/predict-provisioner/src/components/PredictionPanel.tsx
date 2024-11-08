@@ -36,7 +36,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   const isPredictionAvailable = () => selectedModelIndex !== undefined && !isActive();
 
   const runPrediction = async () => {
-    if (!selectedModelIndex) {
+    if (selectedModelIndex === undefined) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please select a model.',
@@ -46,10 +46,12 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
       return;
     }
+
     setStatus({ ...status, predicting: true });
 
     try {
       const currentScreenIDs = getCurrentDisplayIDs();
+
       if (currentScreenIDs.is_default_study === false) {
         uiNotificationService.show({
           title: 'Cannot Run Predictions on a Segmentation',
@@ -145,8 +147,8 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     };
   };
 
-  function getCurrentImageMetadata() {
-    if (!DicomMetadataStore) {
+  const getCurrentImageMetadata = () => {
+    if (DicomMetadataStore === undefined) {
       uiNotificationService.show({
         title: 'Unable to Fetch Metadata',
         message: 'DicomMetadataStore service is not available.',
@@ -156,8 +158,10 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
       return;
     }
+
     const currentScreenIDs = getCurrentDisplayIDs();
-    if (!currentScreenIDs) {
+
+    if (currentScreenIDs === undefined) {
       uiNotificationService.show({
         title: 'Unable to Access Screen',
         message: 'No active viewport found.',
@@ -180,7 +184,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     }, {});
 
     return metadata;
-  }
+  };
 
   const calculateDICEScore = async () => {
     let currentIDs;
@@ -203,7 +207,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return;
     }
 
-    if (!selectedMaskIndex || !availableMasks[selectedMaskIndex].uid) {
+    if (selectedMaskIndex === undefined || availableMasks[selectedMaskIndex].uid === undefined) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please set an active ground truth segmentaion.',
@@ -256,7 +260,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   const exportMask = async () => {
     const activeID = segmentationService.getActiveSegmentation()?.id;
 
-    if (!activeID) {
+    if (activeID === undefined) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please load a segmentation',
@@ -267,7 +271,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return;
     }
 
-    if (!extensionManager) {
+    if (extensionManager === undefined) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Could not reference the extension manager.',
@@ -308,7 +312,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       return;
     }
 
-    if (!displaySetInstanceUIDs) {
+    if (displaySetInstanceUIDs === undefined) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Could not load relavent data set information.',
@@ -345,7 +349,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     }
   };
 
-  const listMasks = async () => {
+  const listMasks = () => {
     const { viewportGridService, displaySetService } = servicesManager.services;
 
     const activeViewportId = viewportGridService.getActiveViewportId();
@@ -413,7 +417,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
   React.useEffect(() => {
     const { displaySetService } = servicesManager.services;
 
-    if (!displaySetService) {
+    if (displaySetService === undefined) {
       uiNotificationService.show({
         title: 'Unable to Load',
         message: 'Could not load the stored segmentations information.',
