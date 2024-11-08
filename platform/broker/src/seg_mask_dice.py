@@ -161,8 +161,11 @@ def seg_mask_dice(dicom_dir, pred_path, truth_path):
     #print(truth_data.shape)
 
     if truth_data.shape != image_data.shape:
-        #print("not the same size, padding the ground truth to match the image shape")
-        truth_data = pad_ground_truth(truth_data, image_data.shape)
+        if truth_data.shape[0] < image_data.shape[0]:
+            #print("not the same size, padding the ground truth to match the image shape")
+            truth_data = pad_ground_truth(truth_data, image_data.shape)
+        elif truth_data.shape[0] > image_data.shape[0]:
+            image_data = pad_ground_truth(image_data, truth_data.shape)
 
     #print("after pad")
     #print(truth_data.shape)
