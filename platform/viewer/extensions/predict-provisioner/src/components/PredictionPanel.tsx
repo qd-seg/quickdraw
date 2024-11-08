@@ -103,6 +103,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     const currentStudyDescription = currentStudy?.StudyDescription;
     const currentPatientUID = currentStudy?.series[0].PatientID;
     const currentStudyID = currentStudy?.series[0].StudyID;
+    const currentStudySlicesSeriesInstanceUID = currentStudy?.series[0].SeriesInstanceUID;
     const currentSeriesInstanceUID = currentDisplaySet?.SeriesInstanceUID;
     const currentSOPInstanceUID = currentDisplaySet?.SOPInstanceUID;
 
@@ -114,7 +115,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
         study_uid: currentStudyInstanceUID,
         study_description: currentStudyDescription,
         series_id: currentSeriesInstanceUID,
-        parent_id: currentSeriesInstanceUID,
+        parent_id: currentStudySlicesSeriesInstanceUID,
       };
     }
 
@@ -126,7 +127,6 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
 
     if (referencedDisplaySet) {
       const segmentationSeriesInstanceUID = referencedDisplaySet?.SeriesInstanceUID;
-
       return {
         is_default_study: false,
         patient_id: currentPatientUID,
@@ -137,7 +137,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
         parent_id: currentSeriesInstanceUID,
       };
     }
-
+    // This is if the default image slices are active on the screen.
     return {
       is_default_study: true,
       patient_id: currentPatientUID,
