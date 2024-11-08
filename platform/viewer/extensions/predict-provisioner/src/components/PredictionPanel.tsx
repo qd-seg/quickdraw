@@ -54,16 +54,16 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     try {
       const currentScreenIDs = getCurrentDisplayIDs();
 
-      if (currentScreenIDs.is_default_study === false) {
-        uiNotificationService.show({
-          title: 'Cannot Run Predictions on a Segmentation',
-          message: 'Please select a CT scan and try again.',
-          type: 'error',
-          duration: 3000,
-        });
+    //   if (currentScreenIDs.is_default_study === false) {
+    //     uiNotificationService.show({
+    //       title: 'Cannot Run Predictions on a Segmentation',
+    //       message: 'Please select a CT scan and try again.',
+    //       type: 'error',
+    //       duration: 3000,
+    //     });
 
-        return;
-      }
+    //     return;
+    //   }
 
     const runResponse = await fetch(`${SURROGATE_HOST}/api/run`, {
         method: 'POST',
