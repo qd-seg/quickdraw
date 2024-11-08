@@ -18,7 +18,7 @@ from flask_helpers import (
 )
 from gcloud_auth import auth_with_key_file_json
 from werkzeug.middleware.proxy_fix import ProxyFix
-from orthanc_get import getRTStructs
+from orthanc_get import get_files_and_dice_score
 from seg_converter_main_func import process_conversion
 from getRTStructWithoutDICEDict import getRTStructWithoutDICEDict
 
@@ -497,13 +497,18 @@ def getDICEScores():
         print('not json')
         return jsonify({ 'message': 'Something went wrong' }), 500
 
-    patient_id = json_data.get('patient_id')
-    study_id = json_data.get('patient_id')
+    currentMaskDic = json_data.get('currentMask')
+    groundTruthDic = json_data.get('groundTruth')
+    patient_id = currentMaskDic['patient_id']
+    study_id = currentMaskDic['study_id']
+    pred_series_id = currentMaskDic['seriesInstanceUID']
+    truth_series_id = groundTruthDic['seriesInstanceUID']
+
     if patient_id is None or study_id is None:
         print('no selectedModel')
         return jsonify({ 'message': 'Please select a model' }), 400
 
-    score_dict = getRTStructs(patient_id,study_id)
+    score_dict = get_files_and_dice_score(patient_id,study_id,pred_series_id,truth_series_id)
 
     return jsonify(score_dict), 200
 
