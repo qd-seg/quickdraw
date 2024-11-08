@@ -768,8 +768,8 @@ def getDICEScores():
     # print(currentMaskDic, groundTruthDic)
     
     parent_id = json_data.get('parentDicomId')
-    pred_series_id = currentMaskDic['seriesInstanceUID']
-    truth_series_id = groundTruthDic['seriesInstanceUID']
+    pred_series_id = currentMaskDic['series_uid']
+    truth_series_id = groundTruthDic['series_uid']
     
     # parent_id = '1.2.826.0.1.3680043.2.1125.1.64196995986655345161142945283707267'
     # pred_series_id = '1.2.826.0.1.3680043.8.498.30971613207143197447909320821495929249'

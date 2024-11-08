@@ -60,34 +60,23 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     try {
       const currentScreenIDs = getCurrentDisplayIDs();
 
-    //   if (currentScreenIDs.is_default_study === false) {
-    //     uiNotificationService.show({
-    //       title: 'Cannot Run Predictions on a Segmentation',
-    //       message: 'Please select a CT scan and try again.',
-    //       type: 'error',
-    //       duration: 3000,
-    //     });
-
-    //     return;
-    //   }
-
-    const runResponse = await fetch(`${SURROGATE_HOST}/api/run`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          selectedModel: availableModels[selectedModelIndex]?.name,
-          ...currentScreenIDs,
-        }),
-      });
-    if(!runResponse.ok) {
-        const responseJson = await runResponse.json();
-        uiNotificationService.show({
-            title: 'Prediction error',
-            message: responseJson.message || 'Something went wrong with the prediction.',
-            type: 'error',
-            duration: 5000,
+      const runResponse = await fetch(`${SURROGATE_HOST}/api/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            selectedModel: availableModels[selectedModelIndex]?.name,
+            ...currentScreenIDs,
+          }),
         });
-    }
+      if(!runResponse.ok) {
+          const responseJson = await runResponse.json();
+          uiNotificationService.show({
+              title: 'Prediction error',
+              message: responseJson.message || 'Something went wrong with the prediction.',
+              type: 'error',
+              duration: 5000,
+          });
+      }
     } catch (error) {
       console.error(error);
       uiNotificationService.show({
@@ -263,12 +252,17 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       });
 
       const body = await response.json();
+      const resultString = Object.entries(body)
+        .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+        .join(', ');
+
+
 
       uiNotificationService.show({
         title: 'DICE Score Calculated',
-        message: `Result of the calculation: ${body.diceScore}`,
+        message: `Result of the calculation: ${resultString}`,
         type: 'success',
-        duration: 3000,
+        duration: 30000,
       });
     } catch (error) {
       console.error(error);
@@ -377,7 +371,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     const activeDisplaySets = displaySetService.getActiveDisplaySets();
 
     const validDisplaySets = activeDisplaySets.filter(
-      displaySet => displaySet.Modality === 'SEG' || displaySet.Modality === 'RTSTRUCT'
+      displaySet => displaySet.Modality === 'SEG'
     );
 
     const displaySetSeries = validDisplaySets.map(displaySet => ({
