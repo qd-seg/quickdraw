@@ -24,7 +24,8 @@ def mp_get_declared_image_spacing(dataset: pydicom.Dataset) -> Tuple[float, floa
     if "SpacingBetweenSlices" in pixel_measures:
         z_spacing = pixel_measures.SpacingBetweenSlices
     else:
-        z_spacing = dataset.get('SliceThickness')  # changed this. used to be pixel_measure.SliceThickness
+        # changed this. used to be pixel_measure.SliceThickness
+        z_spacing = dataset.get('SliceThickness')
 
     # print(z_spacing) # added this
 
@@ -37,21 +38,26 @@ def pad_ground_truth(gt_data: np.ndarray, target_shape: Tuple[int, int, int]) ->
     current_shape = gt_data.shape
 
     # Calculate the padding required for each dimension
-    pad_z = (target_shape[0] - current_shape[0]) if target_shape[0] > current_shape[0] else 0
-    pad_y = (target_shape[1] - current_shape[1]) if target_shape[1] > current_shape[1] else 0
-    pad_x = (target_shape[2] - current_shape[2]) if target_shape[2] > current_shape[2] else 0
+    pad_z = (target_shape[0] - current_shape[0]
+             ) if target_shape[0] > current_shape[0] else 0
+    pad_y = (target_shape[1] - current_shape[1]
+             ) if target_shape[1] > current_shape[1] else 0
+    pad_x = (target_shape[2] - current_shape[2]
+             ) if target_shape[2] > current_shape[2] else 0
 
     # Define the padding for each dimension as (before, after)
     padding = ((0, pad_z), (0, pad_y), (0, pad_x))
 
     # Pad the ground truth data with zeros
-    padded_gt_data = np.pad(gt_data, padding, mode='constant', constant_values=0)
+    padded_gt_data = np.pad(
+        gt_data, padding, mode='constant', constant_values=0)
     return padded_gt_data
 
 
 def calculate_dice_scores(pred_data: np.ndarray,
                           truth_data: np.ndarray,
-                          segfile_truth: pydicom.Dataset, segfile_pred: pydicom.Dataset):
+                          segfile_pred: pydicom.Dataset,
+                          segfile_truth: pydicom.Dataset):
     """
     Args:
         pred_data: Predicted segmentation array
@@ -64,8 +70,8 @@ def calculate_dice_scores(pred_data: np.ndarray,
     """
     if pred_data.shape != truth_data.shape:
         print(f"Shapes don't match: pred {pred_data.shape}, truth {truth_data.shape}")
-        raise ValueError("Prediction and ground truth arrays must have the same shape")
-
+        raise ValueError(
+            "Prediction and ground truth arrays must have the same shape")
 
         # Create ROI to label mappings for both prediction and truth
     roi_to_label_pred = {}
@@ -81,10 +87,10 @@ def calculate_dice_scores(pred_data: np.ndarray,
         for segment in segfile_pred.SegmentSequence:
             roi_to_label_pred[segment.SegmentNumber] = segment.SegmentLabel
 
-    #print("roi_to_label_truth ->")
-    #print(roi_to_label_truth)
-    #print("roi_to_label_pred ->")
-    #print(roi_to_label_pred)
+    # print("roi_to_label_truth ->")
+    # print(roi_to_label_truth)
+    # print("roi_to_label_pred ->")
+    # print(roi_to_label_pred)
 
     # Create mapping of truth ROI numbers to pred ROI numbers based on matching labels
     truth_to_pred_roi = {}
@@ -94,8 +100,8 @@ def calculate_dice_scores(pred_data: np.ndarray,
                 truth_to_pred_roi[truth_roi] = pred_roi
                 break
 
-    #print("Mapped ROIs (truth_roi: pred_roi) ->")
-    #print(truth_to_pred_roi)
+    # print("Mapped ROIs (truth_roi: pred_roi) ->")
+    # print(truth_to_pred_roi)
 
     dice_scores = {}
 
@@ -127,54 +133,60 @@ def calculate_dice_scores(pred_data: np.ndarray,
 
         dice_scores[pred_label] = float(dice_score)
 
-    #dice_scores is in the form of {'Liver': 0.8906308112413376, 'Stomach': 0.9276701174292482, 'Duodenum': 0.9404155757022683, 'Inferior Vena Cava': 0.7494568578632709, 'Left Kidney': 0.0, 'Right Kidney': 0.9141375614824105, 'Aorta': 0.0, 'Left Adrenal Gland': 0.0, 'Right Adrenal Gland': 0.0, 'Gallbladder': 0.0, 'Esophagus': 0.8972954467648065, 'Pancreas': 0.8069919883466861}
+    # dice_scores is in the form of {'Liver': 0.8906308112413376, 'Stomach': 0.9276701174292482, 'Duodenum': 0.9404155757022683, 'Inferior Vena Cava': 0.7494568578632709, 'Left Kidney': 0.0, 'Right Kidney': 0.9141375614824105, 'Aorta': 0.0, 'Left Adrenal Gland': 0.0, 'Right Adrenal Gland': 0.0, 'Gallbladder': 0.0, 'Esophagus': 0.8972954467648065, 'Pancreas': 0.8069919883466861}
     dice_scores_list = [{key: value} for key, value in dice_scores.items()]
-    #print(dice_scores_list)
-    #return dice_scores
+    # print(dice_scores_list)
+    # return dice_scores
     return dice_scores_list
 
-
-
+def seg_to_mask(seg_path, slice_thickness=1):
+    seg_series = pydicom.dcmread(seg_path)
+    seg_series.add(pydicom.DataElement(('0018', '0050'), 'DS', slice_thickness)) # set SliceThickness property
+    reader = pydicom_seg.MultiClassReader()
+    seg_mask = reader.read(seg_series).data
+    return seg_mask, seg_series
+    
 def seg_mask_dice(dicom_dir, pred_path, truth_path):
 
     # print("hello I AM IN SEG_MASK_DICE ")
     # print("pred_path -> " + pred_path)
     # print("truth_path -> " + truth_path)
     # print("--------images------------------------")
-    dcm_images = pydicom.dcmread(pred_path)
-    dcm_images.add(pydicom.DataElement(('0018', '0050'), 'DS', 1))
-    #print(dcm_images.get('SliceThickness'))
-    reader = pydicom_seg.MultiClassReader()
-    result_images = reader.read(dcm_images)
+    # dcm_images = pydicom.dcmread(pred_path)
+    # dcm_images.add(pydicom.DataElement(('0018', '0050'), 'DS', 1))
+    # # print(dcm_images.get('SliceThickness'))
+    # reader = pydicom_seg.MultiClassReader()
+    # result_images = reader.read(dcm_images)
 
-    image_data = result_images.data
-    #print(image_data.shape)
-    #print(image_data)
+    # image_data = result_images.data
+    pred_data, dcm_pred = seg_to_mask(pred_path, slice_thickness=1)
+    # print(image_data.shape)
+    # print(image_data)
 
-    #print("--------truth-----------")
-    dcm_truth = pydicom.dcmread(truth_path)
-    dcm_truth.add(pydicom.DataElement(('0018', '0050'), 'DS', 1))
-    #print(dcm_truth.get('SliceThickness'))
-    result_truth = reader.read(dcm_truth)
+    # print("--------truth-----------")
+    # dcm_truth = pydicom.dcmread(truth_path)
+    # dcm_truth.add(pydicom.DataElement(('0018', '0050'), 'DS', 1))
+    # # print(dcm_truth.get('SliceThickness'))
+    # result_truth = reader.read(dcm_truth)
 
-    truth_data = result_truth.data
-    #print(truth_data.shape)
+    # truth_data = result_truth.data
+    # print(truth_data.shape)
+    truth_data, dcm_truth = seg_to_mask(truth_path, slice_thickness=1)
 
-    if truth_data.shape != image_data.shape:
-        if truth_data.shape[0] < image_data.shape[0]:
-            #print("not the same size, padding the ground truth to match the image shape")
-            truth_data = pad_ground_truth(truth_data, image_data.shape)
-        elif truth_data.shape[0] > image_data.shape[0]:
-            image_data = pad_ground_truth(image_data, truth_data.shape)
+    if truth_data.shape != pred_data.shape:
+        if truth_data.shape[0] < pred_data.shape[0]:
+            # print("not the same size, padding the ground truth to match the image shape")
+            truth_data = pad_ground_truth(truth_data, pred_data.shape)
+        elif truth_data.shape[0] > pred_data.shape[0]:
+            pred_data = pad_ground_truth(pred_data, truth_data.shape)
 
-    #print("after pad")
-    #print(truth_data.shape)
-    #truth_metadata = extract_metadata(dcm_truth, truth_data, "Truth Data")
+    # print("after pad")
+    # print(truth_data.shape)
+    # truth_metadata = extract_metadata(dcm_truth, truth_data, "Truth Data")
 
-    #print("DICE SCORES")
-    dice_scores = calculate_dice_scores(image_data, truth_data, dcm_truth, dcm_images)
+    # print("DICE SCORES")
+    dice_scores = calculate_dice_scores(
+        pred_data, truth_data, dcm_pred, dcm_truth)
 
-    #print(dice_scores)
+    # print(dice_scores)
     return dice_scores
-
-

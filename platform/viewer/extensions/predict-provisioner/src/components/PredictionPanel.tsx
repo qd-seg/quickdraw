@@ -306,6 +306,88 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
     }
   };
 
+  const saveDiscrepancyMask = async () => {
+    const { uiNotificationService } = servicesManager.services;
+
+    let currentIDs;
+
+    try {
+      currentIDs = getCurrentDisplayIDs();
+    } catch (error) {
+      console.error(error);
+      return;
+    }
+
+    const activeSegmentationDisplaySet = loadedMasks.find(segmentation => segmentation.isActive);
+    const activeDisplaySetInstanceUID = activeSegmentationDisplaySet?.displaySetInstanceUID;
+
+    if (currentIDs.is_default_study || activeDisplaySetInstanceUID === undefined) {
+      uiNotificationService.show({
+        title: 'Unable to Process',
+        message: 'Please load a segmentation.',
+        type: 'error',
+        duration: 3000,
+      });
+
+      return;
+    }
+
+    if (selectedMaskIndex === undefined || availableMasks[selectedMaskIndex].uid === undefined) {
+      uiNotificationService.show({
+        title: 'Unable to Process',
+        message: 'Please set an active ground truth segmentaion.',
+        type: 'error',
+        duration: 3000,
+      });
+
+      return;
+    }
+    const currentGroundTruth = availableMasks[selectedMaskIndex];
+    const truthIDs = {
+      series_desc: currentGroundTruth.description,
+      series_uid: currentGroundTruth.uid,
+      patient_id: currentIDs.patient_id,
+      study_id: currentIDs.patient_id,
+      study_desc: currentIDs.study_description,
+      study_uid: currentIDs.study_uid,
+    };
+
+    const activeIDs = activeMask;
+    // console.log(truthIDs);
+    // console.log(activeIDs);
+    setAnalyzeButtonAvailable(false);
+    setStatus({ ...status, calculatingDICE: true });
+
+    try {
+      const response = await fetch(`${SURROGATE_HOST}/api/saveDiscrepancyMask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          parent_id: currentIDs.parent_id,
+          predSeriesUid: activeIDs.series_uid,
+          truthSeriesUid: currentGroundTruth.uid,
+        }),
+      });
+
+      const body = await response.json();
+
+      uiNotificationService.show({
+        title: 'Complete',
+        message: `Analysis was a success.`,
+        type: 'success',
+        duration: 100000,
+      });
+
+      setAnalyzeButtonAvailable(true);
+      setStatus({ ...status, calculatingDICE: false });
+    } catch (error) {
+      console.error(error);
+      setAnalyzeButtonAvailable(true);
+      setStatus({ ...status, calculatingDICE: false });
+      return;
+    }
+  };
+
   const exportMask = async () => {
     const { segmentationService, uiNotificationService } = servicesManager.services;
 
@@ -649,6 +731,13 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
             onClick={() => calculateDICEScore().catch(console.error)}
             children={'Analyze'}
             disabled={!isAnalysisAvailable()}
+            className="w-4/5"
+          />
+
+          <Button
+            onClick={() => saveDiscrepancyMask().catch(console.error)}
+            children={'test disc'}
+            disabled={false}
             className="w-4/5"
           />
           <br />

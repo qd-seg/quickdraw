@@ -377,11 +377,10 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
     
     return True
 
-def get_dicom_series_from_orthanc_to_cache(dicom_series_id):
-    dcm_prediction_dir = 'dcm-images/'
+def get_dicom_series_from_orthanc_to_cache(dicom_series_id: str, cache_subdir='dcm-images/'):
     if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
-        dcm_prediction_dir = os.path.abspath(os.path.join(cache_dir, dcm_prediction_dir))
-    temp_images_path = os.path.join(dcm_prediction_dir, dicom_series_id)
+        cache_subdir = os.path.abspath(os.path.join(cache_dir, cache_subdir))
+    temp_images_path = os.path.join(cache_subdir, dicom_series_id)
     os.makedirs(temp_images_path, exist_ok=True)
     
     # TODO: sometimes there is an out of memory issues and it SIGKILLS the flask process.

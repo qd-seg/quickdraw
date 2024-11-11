@@ -91,6 +91,7 @@ def get_dicom_series_by_id(series_instance_uid, save_directory):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         # zip_ref.extractall(zip_path, [r'PANCREAS_0005 PANCREAS_0005/'])
         zip_ref.extractall(save_directory)
+        os.remove(zip_path)
     
     patient = a_series.parent_patient 
     

@@ -24,7 +24,8 @@ from orthanc_get import get_files_and_dice_score
 from orthanc_functions import change_tags, get_tags, get_dicom_series_by_id, get_first_dicom_image_series_from_study, uploadSegFile, get_modality_of_series
 from seg_converter_main_func import process_conversion
 from getRTStructWithoutDICEDict import getRTStructWithoutDICEDict
-from rtstruct_to_seg_conversion import convert_3d_numpy_array_to_dicom_seg, load_dicom_series, convert_mask_to_dicom_seg
+from rtstruct_to_seg_conversion import convert_3d_numpy_array_to_dicom_seg, load_dicom_series, convert_mask_to_dicom_seg, get_non_intersection_mask_to_seg
+from seg_mask_dice import seg_to_mask
 import numpy as np
 import threading
 import shutil
@@ -481,7 +482,10 @@ def convert_cached_pred_result_to_seg(dcm_prediction_dir, cached_dicom_series_pa
         if os.path.isfile(filepath := os.path.join(dcm_prediction_dir, f)):
             success_count += 1
             data = np.load(filepath)
-            
+            if not os.path.exists(cached_dicom_series_path):
+                print('path doesnt exist', cached_dicom_series_path)
+                # load from orthanc ...
+                
             dicom_series = load_dicom_series(cached_dicom_series_path)
             seg_save_dir = convert_3d_numpy_array_to_dicom_seg(
                 dicom_series, 
@@ -568,6 +572,7 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         
         emit_update_progressbar(100)
         emit_status_update('Prediction done')
+        print('Prediction successful')
         return True
     except Exception as e:
         print(e)
@@ -660,62 +665,6 @@ def run_prediction():
         return jsonify({ 'message': f"Error running prediction: {str(e)}" }), 500
         
 
-# Model upload is done through CLI
-# @bp.route("/uploadImage", methods=["POST"])
-# def uploadModel():
-#     """
-#     Upload a model by pushing the docker image
-
-#     Returns:
-#         response: JSON response with status of the upload process.
-#     """
-
-#     status_code = 500
-#     try:
-#         # Get the tarball
-#         if "file" not in request.files:
-#             return jsonify({"error": "No file part"})
-
-#         tarball = request.files["file"]
-#         imagename = request.form["imagename"]
-#         if tarball.filename == "":
-#             return jsonify({"error": "No selected file"})
-
-#         emit_status_update("Recieved Model . . .")
-
-#         # Store the tarball locally
-#         upload_folder = "./tarballs"
-#         tarball_path = os.path.join(upload_folder, tarball.filename)
-#         tarball.save(tarball_path)
-
-#         emit_status_update("Uploading to cloud . . .")
-
-#         # Execute the bash script
-#         upload_model(
-#             _ZONE,
-#             _PROJECT_ID,
-#             _REPOSITORY,
-#             _KEY_FILE,
-#             tarball_path,
-#             imagename,
-#             tarball.filename,
-#         )
-
-#         # Clean up: remove the tarball file
-#         os.remove(tarball_path)
-
-#         emit_status_update("Model successfully added !")
-#         status_code = 200
-#         message = f"Successfully uploaded !"
-#     # Catch any exceptions
-#     except Exception as e:
-#         os.remove(tarball_path)
-#         emit_status_update("Error uploading image")
-#         message = f"Error uploading image: {str(e)}"
-#         status_code = 500
-#     emit_status_update(message)
-#     return jsonify({"message": message}), status_code
-
 # This currently is not called by anything
 @bp.route("/deleteModel", methods=["POST"])
 def deleteModel():
@@ -747,6 +696,66 @@ def deleteModel():
     emit_status_update(message)
     return jsonify({"message": message}), status_code
 
+@bp.route('/saveDiscrepancyMask', methods=['POST'])
+def save_discrepency_mask():
+    if request.is_json:
+        json_data = request.get_json()
+    else:
+        print('not json')
+        return jsonify({ 'message': 'Something went wrong' }), 500
+    
+    dicom_series_id = json_data.get('parent_id')
+    pred_series_id = json_data.get('predSeriesUid')
+    truth_series_id = json_data.get('truthSeriesUid')
+    
+    if dicom_series_id is None or pred_series_id is None or truth_series_id is None:
+        return jsonify({ 'message': 'Please select a prediction and truth mask.' })
+    
+    # Pull the images from Orthanc into cache
+    emit_status_update('Getting DICOM images...')
+    disc_path = 'discrepancy/'
+    if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
+        disc_path = os.path.abspath(os.path.join(cache_dir, disc_path))
+        
+    cached_dicom_series_path, temp_images_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id, cache_subdir='discrepancy/_images')
+    dicom_series = load_dicom_series(cached_dicom_series_path)
+    shutil.rmtree(temp_images_path)
+    
+    pred_series, temp_pred_path = get_dicom_series_from_orthanc_to_cache(pred_series_id, cache_subdir=os.path.join(disc_path, '_pred/'))
+    truth_series, temp_truth_path = get_dicom_series_from_orthanc_to_cache(truth_series_id, cache_subdir=os.path.join(disc_path, '_truth/'))
+    
+    for dirpath, _, fnames in os.walk(pred_series):
+        print(fnames)
+        print(dirpath)
+        if len(fnames) == 1:
+            pred_series = os.path.abspath(os.path.join(dirpath, fnames[0]))
+    for dirpath, _, fnames in os.walk(truth_series):
+        print(fnames)
+        print(dirpath)
+        if len(fnames) == 1:
+            truth_series = os.path.abspath(os.path.join(dirpath, fnames[0]))
+    
+    pred_mask, dcm_pred = seg_to_mask(pred_series, slice_thickness=1)
+    truth_mask, dcm_truth = seg_to_mask(truth_series, slice_thickness=1)
+    shutil.rmtree(disc_path)
+    
+    temp_seg_path = os.path.join(disc_path, '_res/')
+    os.makedirs(temp_seg_path, exist_ok=True)
+    out_name = get_non_intersection_mask_to_seg(dicom_series, pred_mask, truth_mask, dcm_pred, dcm_truth, 
+                                     os.path.join(temp_seg_path, f'discrepancy.dcm'),
+                                     output_desc=f'Prediction Discrepancy')
+    
+    if out_name is None:
+        print('something went wrong')
+        return jsonify({ 'message': 'Failed to get discrepancy mask.' }), 500
+    
+    print('Uploading SEG')
+    uploadSegFile(out_name, remove_original=False)
+    
+    # print('Removing cached files')
+    
+    print('Done')
+    return jsonify({ 'message': 'Succesfully saved discrepancy mask.' }), 200
 
 @bp.route('/getDICEScores', methods=['POST'])
 def getDICEScores():
