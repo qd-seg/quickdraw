@@ -743,19 +743,22 @@ def save_discrepency_mask():
     os.makedirs(temp_seg_path, exist_ok=True)
     out_name = get_non_intersection_mask_to_seg(dicom_series, pred_mask, truth_mask, dcm_pred, dcm_truth, 
                                      os.path.join(temp_seg_path, f'discrepancy.dcm'),
-                                     output_desc=f'Prediction Discrepancy')
+                                     output_desc=f'Prediction Discrepancy',
+                                     separate_fp_fn=True,
+                                     merge_all_rois=False)
     
     if out_name is None:
-        print('something went wrong')
-        return jsonify({ 'message': 'Failed to get discrepancy mask.' }), 500
+        # print('something went wrong')
+        return jsonify({ 'saved_mask': False, 'message': 'There were no discrepancies between the two masks.' }), 200
     
     print('Uploading SEG')
     uploadSegFile(out_name, remove_original=False)
     
-    # print('Removing cached files')
+    print('Removing cached files')
+    shutil.rmtree(temp_seg_path)
     
     print('Done')
-    return jsonify({ 'message': 'Succesfully saved discrepancy mask.' }), 200
+    return jsonify({ 'saved_mask': True, 'message': 'Succesfully saved discrepancy mask.' }), 200
 
 @bp.route('/getDICEScores', methods=['POST'])
 def getDICEScores():

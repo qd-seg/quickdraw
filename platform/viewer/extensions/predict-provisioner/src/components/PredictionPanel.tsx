@@ -372,9 +372,9 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
       const body = await response.json();
 
       uiNotificationService.show({
-        title: 'Complete',
-        message: `Analysis was a success.`,
-        type: 'success',
+        title: body.saved_mask ? 'Complete' : 'No Discrepancies',
+        message: body.message || 'Success',
+        type: body.saved_mask ? 'success': 'warning',
         duration: 100000,
       });
 
@@ -733,6 +733,7 @@ const PredictionPanel = ({ servicesManager, commandsManager, extensionManager })
             disabled={!isAnalysisAvailable()}
             className="w-4/5"
           />
+          <br />
 
           <Button
             onClick={() => saveDiscrepancyMask().catch(console.error)}

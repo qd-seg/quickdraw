@@ -12,6 +12,7 @@ from pydicom.uid import generate_uid
 from typing import List
 import monkey_patches
 from seg_mask_dice import pad_ground_truth
+from functools import reduce
 
 # Function to convert RT struct to binary 3D mask
 def get_roi_masks(dicom_series_path, rt_struct_path):
@@ -240,9 +241,6 @@ def load_dicom_series(dicom_series_path):
                 dicom_series.append(pydicom.dcmread(dicom_file_path))
     return dicom_series
 
-# TODO: probably a better way to visualize this. How to differentiate between false positives and false negatives?
-# Could either have 2 masks: one for all false positives regardless of ROI, other for false neg.
-# OR, could have 2 masks PER ROI.
 def get_non_intersection_mask_to_seg(
         dicom_series: List[Dataset],
         pred_data: np.ndarray,
@@ -250,7 +248,9 @@ def get_non_intersection_mask_to_seg(
         segfile_pred: pydicom.Dataset,
         segfile_truth: pydicom.Dataset, 
         output_filename: str,
-        output_desc: str = 'Prediction Discrepancy'):
+        output_desc: str = 'Prediction Discrepancy',
+        separate_fp_fn: bool = False,
+        merge_all_rois: bool = False):
     
     if truth_data.shape != pred_data.shape:
         print('Padding...')
@@ -290,13 +290,60 @@ def get_non_intersection_mask_to_seg(
     # non_intersections = np.zeros(shape=(truth_data.shape + (len(label_to_roi_numbers),)))
     non_intersections = np.zeros_like(truth_data)
     label_names = []
+    mask_value = 1
     for index, (label_name, (truth_index, pred_index)) in enumerate(label_to_roi_numbers.items()):
         print('Processing', label_name, pred_index, truth_index)
         pred_mask = pred_data == pred_index
         truth_mask = truth_data == truth_index
-        non_intersections[pred_mask ^ truth_mask] = index + 1  # XOR
-        print(' - ', np.count_nonzero(pred_mask), np.count_nonzero(truth_mask), np.count_nonzero(non_intersections == index+1))
-        label_names.append(label_name)
+        if separate_fp_fn: # false positive vs false negative
+            fp = pred_mask & (~truth_mask)
+            fn = (~pred_mask) & truth_mask
+            if merge_all_rois:
+                non_intersections[fp] = 1
+                non_intersections[fn] = 2
+            else:
+                if np.count_nonzero(fp) > 0:
+                    non_intersections[fp] = mask_value
+                    mask_value += 1
+                    label_names.append(label_name + ' FP')
+                if np.count_nonzero(fn) > 0:
+                    non_intersections[fn] = mask_value
+                    mask_value += 1
+                    label_names.append(label_name + ' FN')
+        else:
+            diff_mask = pred_mask ^ truth_mask
+            if np.count_nonzero(diff_mask) > 0:
+                non_intersections[diff_mask] = 1 if merge_all_rois else mask_value
+                mask_value += 1
+                label_names.append(label_name)
+            
+        # print(' - ', np.count_nonzero(pred_mask), np.count_nonzero(truth_mask), np.count_nonzero(non_intersections == index+1))
+    
+    if np.count_nonzero(non_intersections) == 0:
+        print('There were no discrepancies between prediction and truth.')
+        # TODO: handle this None somehow, probably with a toast
+        return None
+    
+    if merge_all_rois:
+        label_names = []
+        fp_count = np.count_nonzero(non_intersections == 1)
+        fn_count = np.count_nonzero(non_intersections == 2)
+        if separate_fp_fn:
+            if fp_count > 0:
+                label_names.append('False Positives')
+            if fn_count > 0:
+                label_names.append('False Negatives')
+        else:
+            if fp_count + fn_count > 0:
+                label_names.append('Discrepancies')
+        # label_names = ['False Positive', 'False Negative'] if separate_fp_fn else ['Discrepancies']
+    # elif separate_fp_fn:
+    #     label_names = reduce(lambda a, c: a + [f'{c} FP', f'{c} FN'], label_names, [])
+        
+    if merge_all_rois:
+        output_desc += ' Merged'
+    if separate_fp_fn:
+        output_desc += ' FP/FN'
     
     print(non_intersections.shape, non_intersections.dtype)
     print(label_names)
