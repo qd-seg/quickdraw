@@ -377,7 +377,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
     
     return True
 
-def get_dicom_series_from_orthanc_to_cache(dicom_series_id: str, cache_subdir='dcm-images/'):
+def get_dicom_series_from_orthanc_to_cache(dicom_series_id: str, cache_subdir='dcm-images/', series_obj_out=[]):
     if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
         cache_subdir = os.path.abspath(os.path.join(cache_dir, cache_subdir))
     temp_images_path = os.path.join(cache_subdir, dicom_series_id)
@@ -385,7 +385,7 @@ def get_dicom_series_from_orthanc_to_cache(dicom_series_id: str, cache_subdir='d
     
     # TODO: sometimes there is an out of memory issues and it SIGKILLS the flask process.
     # only happened one time and cannot reproduce
-    dicom_series_path = get_dicom_series_by_id(dicom_series_id, temp_images_path)
+    dicom_series_path = get_dicom_series_by_id(dicom_series_id, temp_images_path, series_obj_out=series_obj_out)
     # dicom_series_path = get_first_dicom_image_series_from_study(patient_id, study_id, temp_images_path)
     print(dicom_series_path)
     return dicom_series_path, temp_images_path
@@ -499,23 +499,23 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         if stop_instance_at_end:
             print('Stopping Instance')
             stop_instance(project_id, zone, instance_name)
-        else:
-            print('Now idling...')
-            subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
-                            f'--project={project_id}', 
-                            f'--zone={zone}',
-                            f'--metadata=idling=True'], check=True)
+        # else:
+        print('Now idling...')
+        subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
+                        f'--project={project_id}', 
+                        f'--zone={zone}',
+                        f'--metadata=idling=True'], check=True)
     except Exception as e:
         print('Something went wrong with running predictions:')
         print(e, flush=True)
         if stop_instance_at_end:
             stop_instance(project_id, zone, instance_name)
-        else:
-            print('Now idling...')
-            subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
-                            f'--project={project_id}', 
-                            f'--zone={zone}',
-                            f'--metadata=idling=True'], check=True)
+        # else:
+        print('Now idling...')
+        subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
+                        f'--project={project_id}', 
+                        f'--zone={zone}',
+                        f'--metadata=idling=True'], check=True)
         return None
     
     dcm_prediction_dir = os.path.join(dcm_prediction_dir, dicom_series_id)

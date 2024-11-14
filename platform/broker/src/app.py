@@ -21,7 +21,13 @@ from flask_helpers import (
 from gcloud_auth import auth_with_key_file_json
 from werkzeug.middleware.proxy_fix import ProxyFix
 from orthanc_get import get_files_and_dice_score
-from orthanc_functions import change_tags, get_tags, get_dicom_series_by_id, get_first_dicom_image_series_from_study, uploadSegFile, get_modality_of_series
+from orthanc_functions import (
+    change_tags, get_tags, 
+    get_dicom_series_by_id, get_first_dicom_image_series_from_study, 
+    uploadSegFile, 
+    get_modality_of_series,
+    get_next_available_iterative_name_for_series
+)
 from seg_converter_main_func import process_conversion
 from getRTStructWithoutDICEDict import getRTStructWithoutDICEDict
 from rtstruct_to_seg_conversion import convert_3d_numpy_array_to_dicom_seg, load_dicom_series, convert_mask_to_dicom_seg, get_non_intersection_mask_to_seg
@@ -83,7 +89,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 bp = Blueprint('flask_backend', __name__)
 
 # Initialize SocketIO
-# socketio = SocketIO(app, cors_allowed_origins="*", path='/api/socket.io' if __name__ == '__main__' else 'socket.io')
+socketio = SocketIO(app, cors_allowed_origins="*", path='/api/socket.io' if __name__ == '__main__' else 'socket.io')
 
 # Serve React App
 @bp.route("/", defaults={"path": ""})  # Base path for the app
@@ -104,16 +110,16 @@ def serve(path):
         return send_from_directory(app.static_folder, "index.html")
 
 
-# @socketio.on("connect")
-# def handle_connect():
-#     """Handle client connection."""
-#     print("Client connected")
+@socketio.on("connect")
+def handle_connect():
+    """Handle client connection."""
+    print("Client connected")
 
 
-# @socketio.on("disconnect")
-# def handle_disconnect():
-#     """Handle client disconnection."""
-#     print("Client disconnected")
+@socketio.on("disconnect")
+def handle_disconnect():
+    """Handle client disconnection."""
+    print("Client disconnected")
 
 
 def emit_status_update(message):
@@ -123,8 +129,8 @@ def emit_status_update(message):
     Parameters:
         message (str): The status message to emit.
     """
-    # socketio.emit("status_update", {"message": message})
-    pass
+    socketio.emit("status_update", {"message": message})
+    # pass
 
 
 def emit_update_progressbar(value):
@@ -134,8 +140,11 @@ def emit_update_progressbar(value):
     Parameters:
         value (int): The new value for the progress bar.
     """
-    # socketio.emit("progress_update", {"value": value})
-    pass
+    socketio.emit("progress_update", {"value": value})
+    # pass
+    
+def emit_toast(message, type='success'): # type = success | warning | error
+    socketio.emit('toast_message', {'message': message, 'type': type})
  
 # outdated
 def clear_unused_instances():
@@ -421,6 +430,7 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
         print(message)
         emit_update_progressbar(20)
         emit_status_update(message)
+        emit_toast('A Compute instance for your prediction job was created successfully. Prediction now running...')
         
         if start_compute:
             print('check if able to predict', selected_model, dicom_series_id)
@@ -428,45 +438,48 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
                 start_instance(_PROJECT_ID, _ZONE, new_instance.name)
                 remove_instance_metadata(_PROJECT_ID, _ZONE, new_instance, ['idling'])
             else:
-                raise Exception('You are already running a prediction on that DICOM image. Please wait until the other prediction finishes.')
+                message = 'You are already running a prediction on that DICOM image. Please wait until the other prediction finishes.'
+                emit_toast(message, type='error')
+                raise Exception(message)
     else:
+        emit_toast('Google Cloud is at its limit. Please wait.', type='error')
         emit_status_update("Error Google Cloud is at its limit, please wait.")
         
     return new_instance
 
-@bp.route('/setupComputeWithModel', methods=['POST'])
-def setupComputeWithModel():
-    # Extract the selected model name
-    if request.is_json:
-        json_data = request.get_json()
-    else:
-        print('not json')
-        return jsonify({ 'message': 'Something went wrong' }), 500
+# @bp.route('/setupComputeWithModel', methods=['POST'])
+# def setupComputeWithModel():
+#     # Extract the selected model name
+#     if request.is_json:
+#         json_data = request.get_json()
+#     else:
+#         print('not json')
+#         return jsonify({ 'message': 'Something went wrong' }), 500
     
-    selected_model = json_data.get('selectedModel')
-    if selected_model is None:
-        print('no selectedModel')
-        return jsonify({ 'message': 'Please select a model' }), 400
+#     selected_model = json_data.get('selectedModel')
+#     if selected_model is None:
+#         print('no selectedModel')
+#         return jsonify({ 'message': 'Please select a model' }), 400
     
-    try:
-        new_instance = setup_compute_with_model_helper(selected_model, start_compute=False)
-    except Exception as e:
-        print(e)
-        new_instance = None
+#     try:
+#         new_instance = setup_compute_with_model_helper(selected_model, start_compute=False)
+#     except Exception as e:
+#         print(e)
+#         new_instance = None
         
-    status_code = None
-    if new_instance is not None:
-        message = "Instance created successfully"
-        status_code = 200
-    else:
-        message = "Google Cloud is at its limit, please wait."
-        status_code = 500
+#     status_code = None
+#     if new_instance is not None:
+#         message = "Instance created successfully"
+#         status_code = 200
+#     else:
+#         message = "Google Cloud is at its limit, please wait."
+#         status_code = 500
         
-    return jsonify({"message": message}), status_code
+#     return jsonify({"message": message}), status_code
 
 # TODO: the model right now does not distinguish between series, only by study
 # Also this should probably use only study id instead of patient id?
-def convert_cached_pred_result_to_seg(dcm_prediction_dir, cached_dicom_series_path, temp_images_path, selected_model=None):
+def convert_cached_pred_result_to_seg(dicom_series_obj, dcm_prediction_dir, cached_dicom_series_path, temp_images_path, selected_model=None):
     print('Converting to SEG...')
     
     temp_seg_path = os.path.join(dcm_prediction_dir, '__convert/')
@@ -487,13 +500,33 @@ def convert_cached_pred_result_to_seg(dcm_prediction_dir, cached_dicom_series_pa
                 # load from orthanc ...
                 
             dicom_series = load_dicom_series(cached_dicom_series_path)
+            
+            # iterative naming
+            # get all SEG series with same parent 
+            # find next avail name
+            seg_name = f'Predict_{selected_model}'
+            parent_study_uid = None
+            print(dicom_series_obj)
+            try: 
+                seg_name += f'_{dicom_series_obj.description}'
+                parent_study_uid = dicom_series_obj.parent_study.uid
+                assert (parent_study_uid is not None)
+            except Exception as e:
+                print('Something went wrong with dcm loading:', e)
+                pass
+            
+            print(seg_name, '| before')
+            
+            seg_name = get_next_available_iterative_name_for_series(seg_name, parent_study_uid)
+            print(seg_name, '| after')
+            
             seg_save_dir = convert_3d_numpy_array_to_dicom_seg(
                 dicom_series, 
                 data['data'], 
                 data['rois'], 
                 os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'),
                 slice_axis=2,
-                seg_series_description=f'Prediction {selected_model}'
+                seg_series_description=seg_name
             )
             if seg_save_dir is None:
                 raise Exception('Something went wrong with saving SEG')
@@ -529,6 +562,34 @@ def test_conv():
     convert_cached_pred_result_to_seg(patient_id, study_id, series_id)
     return jsonify( {'message': 'ok'}), 200
 
+@bp.route('/testIter', methods=['GET'])
+def test_iter():
+    # TODO: rename the stuff in orthanc first to Predict_organ-segmentation-model_i
+    selected_model = 'organ-segmentation-model'
+    dicom_series_id = '1.2.826.0.1.3680043.2.1125.1.64196995986655345161142945283707267'
+    seg_name = f'Predict_{selected_model}'
+    
+    series_obj = []
+    cached_dicom_series_path, temp_images_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id, series_obj_out=series_obj)
+    dicom_series_obj = series_obj[0]
+    
+    parent_study_uid = None
+    print(dicom_series_obj)
+    try: 
+        seg_name += f'_{dicom_series_obj.description}'
+        parent_study_uid = dicom_series_obj.parent_study.uid
+        assert (parent_study_uid is not None)
+    except Exception as e:
+        print('Something went wrong with dcm loading:', e)
+        pass
+    
+    print(seg_name, '| before')
+    
+    seg_name = get_next_available_iterative_name_for_series(seg_name, parent_study_uid)
+    print(seg_name, '| after')
+    
+    return jsonify({ 'message': seg_name }), 200
+
 def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_instance_at_end=True): # TODO: should take series study patient id
     try: 
         print('instance not none')
@@ -537,7 +598,9 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
 
         # Pull the images from Orthanc into cache
         emit_status_update('Getting DICOM images...')
-        cached_dicom_series_path, temp_images_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id)
+        series_obj = []
+        cached_dicom_series_path, temp_images_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id, series_obj_out=series_obj)
+        series_obj = series_obj[0]
         
         emit_update_progressbar(35)
         emit_status_update('Running predictions...')
@@ -560,8 +623,9 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         emit_update_progressbar(90)
         
         emit_status_update('Converting to SEG...')
+        emit_toast('Saving your predictions. Almost done, please wait...')
         print(dcm_pred_dir)
-        convert_cached_pred_result_to_seg(dcm_pred_dir, cached_dicom_series_path, temp_images_path, selected_model)
+        convert_cached_pred_result_to_seg(series_obj, dcm_pred_dir, cached_dicom_series_path, temp_images_path, selected_model)
         
         # TODO: maybe delete instance here? it gets paused anyway so not sure if needed
         set_tracked_model_instance_running(selected_model, False)
@@ -572,19 +636,23 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         
         emit_update_progressbar(100)
         emit_status_update('Prediction done')
-        print('Prediction successful')
+        print('Prediction done')
+        emit_toast('Prediction done. Reload to see changes.')
         return True
     except Exception as e:
         print(e)
+        emit_toast('Something went wrong when running your prediction. Is your uploaded model outputting a .npz mask?', type='error')
         set_tracked_model_instance_running(selected_model, False)
         stop_instance(_PROJECT_ID, _ZONE, instance.name)
         remove_instance_metadata(_PROJECT_ID, _ZONE, get_instance(_PROJECT_ID, _ZONE, instance.name), ['dicom-image', 'model-displayname'])
         return False
     
+PREDICTION_LOCK = 0
 @bp.route("/run", methods=["POST"])
 def run_prediction():
     global _ZONE
     global _CURRENT_BACKUP_ZONE_INDEX
+    global PREDICTION_LOCK
     """
     Run the prediction on the Google Cloud instance.
 
@@ -592,12 +660,20 @@ def run_prediction():
         response: JSON response with status of the prediction process.
     """
     
+    if PREDICTION_LOCK != 0:
+        return jsonify({ 'message': 'Currently setting up another prediction job. Please wait.' }), 429
+    
     _ZONE = _BASE_ZONE
     _CURRENT_BACKUP_ZONE_INDEX = -1
+    PREDICTION_LOCK = 1
     
     if request.is_json:
         json_data = request.get_json()
         print(json_data)
+    else:
+        PREDICTION_LOCK = 0
+        return jsonify({'message': 'Invalid Request'}), 400
+    
     selected_model = json_data.get("selectedModel", None)
     # selectedDicomSeries = json_data["selectedDicomSeries"]
     # series_id = request.json.get('seriesId', None)
@@ -609,25 +685,30 @@ def run_prediction():
     
     if selected_model is None or series_id is None or study_id is None:
         print('Invalid params from frontend')
+        PREDICTION_LOCK = 0
         return jsonify({'message': 'Model or images not provided'}), 500
     
     series_modality = get_modality_of_series(series_id)
     if series_modality is None:
         print('Series', series_id, 'does not exist.')
+        PREDICTION_LOCK = 0
         return jsonify({ 'message': 'The DICOM image file you are trying to predict is invalid.' }), 400
 
     if series_modality != 'CT':
         print('Series', series_id, 'is not a valid image, it is a', series_modality)
+        PREDICTION_LOCK = 0
         return jsonify({ 'message': f'You are trying to predict on a {series_modality}, not an image series.'}), 400
     
     try:
         instance = setup_compute_with_model_helper(selected_model, start_compute=True, dicom_series_id=series_id)
         if instance is None:
+            PREDICTION_LOCK = 0
             return jsonify({ 'message': "Error: Google Cloud is at its limit, please wait." }), 400
     except Exception as e:
         print(e)
         print(traceback.format_exc())
         # return jsonify({ 'message': 'Issue creating Compute instance. Google Cloud Services likely experiencing temporary resource shortage. Please try again later.' }), 500
+        PREDICTION_LOCK = 0
         return jsonify({ 'message': str(e) }), 500
     
     # try:
@@ -648,13 +729,15 @@ def run_prediction():
                 # raise Exception(f'Selected model {selectedModel} already running')
                 # return jsonify({ 'message': f'Selected model {selected_model} already running' }), 500
             
-            thread = threading.Thread(target=run_pred_helper, args=(instance, selected_model, study_id, series_id), kwargs={'stop_instance_at_end': False})
+            thread = threading.Thread(target=run_pred_helper, args=(instance, selected_model, study_id, series_id), kwargs={'stop_instance_at_end': True})
             thread.start()
+            PREDICTION_LOCK = 0
             return jsonify({ 'message': 'Prediction job successfully started' }), 202
         
         else:
             # TODO: maybe handle this differently
             set_tracked_model_instance_running(selected_model, False)
+            PREDICTION_LOCK = 0
             return jsonify({ 'message': 'Issue creating Compute instance. Google Cloud likely experiencing temporary resource shortage.' }), 500
             
     # Catch any exceptions
@@ -662,6 +745,7 @@ def run_prediction():
         print(e)
         emit_status_update("Error running prediction")
         set_tracked_model_instance_running(selected_model, False)
+        PREDICTION_LOCK = 0
         return jsonify({ 'message': f"Error running prediction: {str(e)}" }), 500
         
 
@@ -696,12 +780,19 @@ def deleteModel():
     emit_status_update(message)
     return jsonify({"message": message}), status_code
 
+DISC_LOCK = 0
 @bp.route('/saveDiscrepancyMask', methods=['POST'])
-def save_discrepency_mask():
+def save_discrepancy_mask():
+    global DISC_LOCK
+    if DISC_LOCK != 0:
+        return jsonify({ 'message', 'Currently calculating another discrepancy mask. Please wait.' }), 429
+    
+    DISC_LOCK = 1
     if request.is_json:
         json_data = request.get_json()
     else:
         print('not json')
+        DISC_LOCK = 0
         return jsonify({ 'message': 'Something went wrong' }), 500
     
     dicom_series_id = json_data.get('parent_id')
@@ -709,6 +800,7 @@ def save_discrepency_mask():
     truth_series_id = json_data.get('truthSeriesUid')
     
     if dicom_series_id is None or pred_series_id is None or truth_series_id is None:
+        DISC_LOCK = 0
         return jsonify({ 'message': 'Please select a prediction and truth mask.' })
     
     # Pull the images from Orthanc into cache
@@ -744,11 +836,12 @@ def save_discrepency_mask():
     out_name = get_non_intersection_mask_to_seg(dicom_series, pred_mask, truth_mask, dcm_pred, dcm_truth, 
                                      os.path.join(temp_seg_path, f'discrepancy.dcm'),
                                      output_desc=f'Prediction Discrepancy',
-                                     separate_fp_fn=True,
+                                     separate_fp_fn=False,
                                      merge_all_rois=False)
     
     if out_name is None:
         # print('something went wrong')
+        DISC_LOCK = 0
         return jsonify({ 'saved_mask': False, 'message': 'There were no discrepancies between the two masks.' }), 200
     
     print('Uploading SEG')
@@ -758,21 +851,31 @@ def save_discrepency_mask():
     shutil.rmtree(temp_seg_path)
     
     print('Done')
+    DISC_LOCK = 0
     return jsonify({ 'saved_mask': True, 'message': 'Succesfully saved discrepancy mask.' }), 200
 
+DICE_LOCK = 0
 @bp.route('/getDICEScores', methods=['POST'])
 def getDICEScores():
+    global DICE_LOCK
+    
+    if DICE_LOCK != 0:
+        return jsonify({ 'message', 'Currently calculating another DICE score. Please wait.' }), 429
+    
+    DICE_LOCK = 1
     if request.is_json:
         json_data = request.get_json()
     else:
         print('not json')
-        return jsonify({ 'message': 'Something went wrong' }), 500
+        DICE_LOCK = 0
+        return jsonify({ 'message': 'Malformed request.' }), 400
 
     currentMaskDic = json_data.get('currentMask')
     groundTruthDic = json_data.get('groundTruth')
 
     if currentMaskDic is None or groundTruthDic is None:
         print('wrong params')
+        DICE_LOCK = 0
         return jsonify({ 'message': 'Select both ground truth and another mask for DICE scores.' }), 400
     
     currentMaskDic = json.loads(currentMaskDic)
@@ -788,46 +891,53 @@ def getDICEScores():
     # truth_series_id = '1.2.826.0.1.3680043.8.498.65606104540766071416178016107620147411'
     if parent_id is None:
         print('wrong params')
+        DICE_LOCK = 0
         return jsonify({ 'message': 'Select both ground truth and another mask for DICE scores.' }), 400
     
     print('getting dice...')
-    score_dict = get_files_and_dice_score(parent_id,pred_series_id,truth_series_id)
+    try:
+        score_dict = get_files_and_dice_score(parent_id,pred_series_id,truth_series_id)
+    except Exception as e:
+        print(e)
+        DICE_LOCK = 0
+        return jsonify({ 'message': 'Something went wrong with the DICE calulcation.' }), 500
 
+    DICE_LOCK = 0
     return jsonify(score_dict), 200
 
 
-@bp.route('/getGroundTruthSeries', methods=['POST'])
-def getGroundTruthSeries():
-    if request.is_json:
-        json_data = request.get_json()
-    else:
-        print('not json')
-        return jsonify({ 'message': 'Something went wrong' }), 500
+# @bp.route('/getGroundTruthSeries', methods=['POST'])
+# def getGroundTruthSeries():
+#     if request.is_json:
+#         json_data = request.get_json()
+#     else:
+#         print('not json')
+#         return jsonify({ 'message': 'Something went wrong' }), 500
     
-    study_UID = json_data.get('study_UID')
-    if study_UID is None:
-        return jsonify({ 'message': 'Need ID\'s' }), 400
+#     study_UID = json_data.get('study_UID')
+#     if study_UID is None:
+#         return jsonify({ 'message': 'Need ID\'s' }), 400
 
-    truth_list = get_tags(study_UID)
+#     truth_list = get_tags(study_UID)
     
-    return jsonify({"truth_list":truth_list}), 200
+#     return jsonify({"truth_list":truth_list}), 200
 
 
-@bp.route('/switchTruthLabel', methods=['POST'])
-def switchTruthLabel():
-    if request.is_json:
-        json_data = request.get_json()
-    else:
-        print('not json')
-        return jsonify({ 'message': 'Something went wrong' }), 500
+# @bp.route('/switchTruthLabel', methods=['POST'])
+# def switchTruthLabel():
+#     if request.is_json:
+#         json_data = request.get_json()
+#     else:
+#         print('not json')
+#         return jsonify({ 'message': 'Something went wrong' }), 500
     
-    series_UID = json_data.get('series_UID')
-    if series_UID is None:
-        return jsonify({ 'message': 'Need ID\'s' }), 400
+#     series_UID = json_data.get('series_UID')
+#     if series_UID is None:
+#         return jsonify({ 'message': 'Need ID\'s' }), 400
 
-    change_tags(series_UID)
+#     change_tags(series_UID)
     
-    return jsonify({"message":"success"}), 200
+#     return jsonify({"message":"success"}), 200
 
 
 @bp.route('/convert_rt_struct_to_seg', methods = ['POST'])

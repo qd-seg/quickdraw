@@ -70,7 +70,7 @@ def get_first_dicom_image_series_from_study(patient_id, study_UID, save_director
     image_folder = os.listdir(study_dir)[image_order_num]
     return first_folder, study_dir + "/"+image_folder
 
-def get_dicom_series_by_id(series_instance_uid, save_directory):
+def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[]):
     print('saving', save_directory)
     url = orthanc_url
 
@@ -94,6 +94,10 @@ def get_dicom_series_by_id(series_instance_uid, save_directory):
         os.remove(zip_path)
     
     patient = a_series.parent_patient 
+    if isinstance(series_obj_out, list):
+        series_obj_out.append(a_series)
+        # a_series.parent_study.uid
+        # a_series.description
     
     return os.path.join(save_directory, f'{patient.patient_id} {patient.name}')
 
@@ -118,3 +122,30 @@ def get_modality_of_series(series_UID):
     
     series = series.get_main_information()
     return series["MainDicomTags"]["Modality"]
+
+def get_next_available_iterative_name_for_series(base_series_name, parent_study_uid, split_char='_', modality='SEG'):
+    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
+    valid_studies = pyorthanc.find_studies(orthanc, query={'StudyInstanceUID': parent_study_uid})
+    if len(valid_studies) == 0:
+        raise Exception('Could not find any studies with UID', parent_study_uid)
+    # print(valid_studies[0])
+    # print([s.modality for s in valid_studies[0].series])
+    # print([s.description for s in valid_studies[0].series])
+    # print([split_char.join(s.description.split(split_char)[:-1]) for s in valid_studies[0].series])
+    
+    intersecting_series = [s.description for s in valid_studies[0].series if (
+        s.modality==modality and 
+        s.description.count(split_char) >= 1 and
+        split_char.join(s.description.split(split_char)[:-1])==base_series_name
+        # s.description.startswith(base_series_name)
+        )]
+    # print(intersecting_series)
+    # intersecting_series.sort(key=lambda s: s.description)
+    next_valid_iteration = 1
+    for i in range(1, len(intersecting_series) + 2):
+        if f'{base_series_name}{split_char}{i}' not in intersecting_series:
+            next_valid_iteration = i
+            print('next valid iter:', next_valid_iteration)
+            break
+            
+    return f'{base_series_name}{split_char}{next_valid_iteration}'
