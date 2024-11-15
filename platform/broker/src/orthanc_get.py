@@ -21,7 +21,7 @@ def get_files_and_dice_score(dicom_series_UID, pred_series_UID,truth_series_UID)
     # return []
     pred_dir = get_dicom_series_by_id(pred_series_UID, os.path.join(dice_dir, '_pred'))
     truth_dir = get_dicom_series_by_id(truth_series_UID, os.path.join(dice_dir, '_truth'))
-    DICOM_dir = get_dicom_series_by_id(dicom_series_UID, os.path.join(dice_dir, '_dicom'))
+    # DICOM_dir = get_dicom_series_by_id(dicom_series_UID, os.path.join(dice_dir, '_dicom'))
 
     
     for dirpath, _, fnames in os.walk(pred_dir):
@@ -100,7 +100,7 @@ def get_files_and_dice_score(dicom_series_UID, pred_series_UID,truth_series_UID)
     #         pred_dir += "/" + os.listdir(pred_dir)[0]#should only be one file in folder
     # truth_dir += start+"/"+patient_folder_name+"/"+series_name
     
-    print(DICOM_dir)
+    # print(DICOM_dir)
     print(pred_dir)
     print(truth_dir)
 
@@ -108,8 +108,9 @@ def get_files_and_dice_score(dicom_series_UID, pred_series_UID,truth_series_UID)
     try:
         if has_SEG_tag:
             print('has seg')
-            dice_list = seg_mask_dice(DICOM_dir, pred_dir, truth_dir)#for seg files
+            dice_list = seg_mask_dice(None, pred_dir, truth_dir)#for seg files
         else:
+            DICOM_dir = get_dicom_series_by_id(dicom_series_UID, os.path.join(dice_dir, '_dicom'))
             dice_list = get_DICE_score(DICOM_dir,pred_dir,truth_dir)#for rtstruct files
     except Exception as e:
         print(e)
