@@ -162,12 +162,13 @@ def create_new_instance(instance_name, project_id, zone, machine_type, instance_
         if not removed_instance:
             raise Exception("Google Cloud is at its limit, please wait.")
            
+    disk_type = 'hyperdisk-balanced' if machine_type.split('-')[0] == 'c4' else 'pd-standard'
     vm_instance = create_instance_helper(
         project_id=project_id,
         zone=zone,
         instance_name=instance_name,
         machine_type=machine_type,
-        disk_type=f'projects/{project_id}/zones/{zone}/diskTypes/pd-standard',
+        disk_type=f'projects/{project_id}/zones/{zone}/diskTypes/{disk_type}',
         source_image='projects/cos-cloud/global/images/cos-101-17162-386-59',
         disk_size=50,
         service_account=service_account_email
@@ -212,8 +213,11 @@ def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_
     # startup_request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=startup_metadata, project=_PROJECT_ID, zone=_ZONE)
     return first_metadata_request.result(timeout=_MAX_TIMEOUT_NORMAL_REQUEST)
 
-def remove_instance_metadata(project_id: str, zone: str, instance: compute_v1.Instance, keys_to_remove: List[str]):
+def remove_instance_metadata(project_id: str, zone: str, instance: compute_v1.Instance, keys_to_remove: List[str], add_idling=False):
     new_metadata = list(filter(lambda i: i.key not in keys_to_remove, instance.metadata.items))
+    if add_idling and not any([m.key == 'idling' for m in new_metadata]):
+        new_metadata += [compute_v1.Items(key='idling', value='True')]
+        
     latest_metadata = get_instance(project_id, zone, instance.name).metadata
     # print('LATEST',latest_metadata)
     newest_fingerprint = latest_metadata.fingerprint
@@ -247,7 +251,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
                         f'--project={project_id}', 
                         f'--zone={zone}',
                         '--quiet',
-                        f'--command=mkdir -p /home/{username}/images/{dicom_series_id} && mkdir -p /home/{username}/model_outputs/{dicom_series_id} && rm -rf /home/{username}/images/{dicom_series_id}'], check=True, input='\n', text=True)
+                        f'--command=mkdir -p /home/{username}/images/{dicom_series_id} && mkdir -p /home/{username}/model_outputs/{dicom_series_id} && rm -rf /home/{username}/images/{dicom_series_id}/*'], check=True, input='\n', text=True)
         # Upload
         print('Copying over dicom images..')
         # subprocess.run(['gcloud', 'compute', 'scp',
@@ -265,7 +269,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
                         '--verbosity=debug',
                         '--quiet',
                         dicom_image_directory,
-                        f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}'], check=True)
+                        f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}/'], check=True)
         print('ok')
     except Exception as e:
         print('DICOM upload failed')

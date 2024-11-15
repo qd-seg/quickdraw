@@ -101,6 +101,13 @@ def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[
     
     return os.path.join(save_directory, f'{patient.patient_id} {patient.name}') if extract_zip else zip_path
 
+def extract_dicom_series_zip(zip_path, save_directory, remove_original=False):
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(save_directory)
+            if remove_original:
+                os.remove(zip_path)
+    
+    return save_directory
 
 def uploadSegFile(file_path, remove_original=False):
     orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')

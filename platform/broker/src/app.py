@@ -24,7 +24,8 @@ from orthanc_functions import (
     get_dicom_series_by_id, get_first_dicom_image_series_from_study, 
     uploadSegFile, 
     get_modality_of_series,
-    get_next_available_iterative_name_for_series
+    get_next_available_iterative_name_for_series, 
+    extract_dicom_series_zip
 )
 from seg_converter_main_func import process_conversion
 from getRTStructWithoutDICEDict import getRTStructWithoutDICEDict
@@ -483,6 +484,9 @@ def convert_cached_pred_result_to_seg(dicom_series_obj, dcm_prediction_dir, cach
     print('Converting to SEG...')
     
     temp_seg_path = os.path.join(dcm_prediction_dir, '__convert/')
+    temp_image_path = os.path.join(dcm_prediction_dir, '__image/')
+    extract_dicom_series_zip(cached_dicom_series_path, temp_image_path, remove_original=True)
+    # os.remove(os.path.join(dcm_prediction_dir, 'series.zip'))
     # temp_images_path = os.path.join(dcm_prediction_dir, '_images/')
     os.makedirs(temp_seg_path, exist_ok=True)
     # os.makedirs(temp_images_path, exist_ok=True)
@@ -493,15 +497,19 @@ def convert_cached_pred_result_to_seg(dicom_series_obj, dcm_prediction_dir, cach
     success_count = 0
     for f in dcm_pred_files:
         if os.path.isfile(filepath := os.path.join(dcm_prediction_dir, f)):
+            print(filepath)
+            if not filepath.endswith('.npz'):
+                continue
+            
             success_count += 1
             # data = np.load(filepath)
-            with gzip.open(filepath, 'rb') as f:
-                with np.load(f) as data:
-                    if not os.path.exists(cached_dicom_series_path):
-                        print('path doesnt exist', cached_dicom_series_path)
+            with gzip.open(filepath, 'rb') as gzf:
+                with np.load(gzf) as data:
+                    if not os.path.exists(temp_image_path):
+                        print('path doesnt exist', temp_image_path)
                         # load from orthanc ...
                         
-                    dicom_series = load_dicom_series(cached_dicom_series_path)
+                    dicom_series = load_dicom_series(temp_image_path)
                     
                     # iterative naming
                     # get all SEG series with same parent 
@@ -656,8 +664,17 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         print(e)
         emit_toast('Something went wrong when running your prediction. Is your uploaded model outputting a .npz mask?', type='error')
         set_tracked_model_instance_running(selected_model, False)
-        stop_instance(_PROJECT_ID, _ZONE, instance.name)
-        remove_instance_metadata(_PROJECT_ID, _ZONE, get_instance(_PROJECT_ID, _ZONE, instance.name), ['dicom-image', 'model-displayname'])
+        
+        if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
+            if not pred_cache_dir.startswith(cache_dir):
+                pred_cache_dir = os.path.abspath(os.path.join(cache_dir, pred_cache_dir))
+        if os.path.exists(pred_cache_dir):
+            print('Removing', pred_cache_dir)
+            shutil.rmtree(pred_cache_dir)
+        if stop_instance_at_end:
+            stop_instance(_PROJECT_ID, _ZONE, instance.name)
+        remove_instance_metadata(_PROJECT_ID, _ZONE, get_instance(_PROJECT_ID, _ZONE, instance.name), ['dicom-image', 'model-displayname'], add_idling=True)
+        # set_
         return False
 
 PREDICTION_LOCK = 0    
@@ -749,7 +766,7 @@ def run_prediction():
         PREDICTION_LOCK = 0
         return jsonify({ 'message': "Error: Google Cloud is at its limit, please wait." }), 429
     
-    thread = threading.Thread(target=setup_compute_and_run_pred_helper, args=(selected_model, True, series_id, study_id), kwargs={'stop_instance_at_end': True})
+    thread = threading.Thread(target=setup_compute_and_run_pred_helper, args=(selected_model, True, series_id, study_id), kwargs={'stop_instance_at_end': False})
     thread.start()
     return jsonify({ 'message': 'Your prediction job is now running...' }), 202
 
