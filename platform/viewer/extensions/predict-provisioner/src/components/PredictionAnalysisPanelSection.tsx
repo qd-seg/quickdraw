@@ -113,13 +113,73 @@ export default ({ status, setStatus, servicesManager }) => {
         type: 'success',
         duration: 5000,
       });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setStatus({ ...status, calculating: false });
+    }
+  };
 
-      setStatus({ ...status, calulating: false });
+  const saveDiscrepency = async () => {
+    const { uiNotificationService } = servicesManager.services;
+
+    let activeDisplayUIDSet;
+
+    try {
+      activeDisplayUIDSet = getActiveDisplayUIDSet({ servicesManager });
     } catch (error) {
       console.error(error);
 
-      setStatus({ ...status, calculating: false });
       return;
+    }
+
+    if (selectedMask.value === undefined || availableMasks[selectedMask.value] === undefined) {
+      uiNotificationService.show({
+        title: 'Unable to Process',
+        message: 'Please select a segmentaion to compare.',
+        type: 'error',
+        duration: 5000,
+      });
+
+      return;
+    }
+
+    if (selectedTruth.value === undefined || availableMasks[selectedTruth.value] === undefined) {
+      uiNotificationService.show({
+        title: 'Unable to Process',
+        message: 'Please select a ground truth segmentaion to compare against.',
+        type: 'error',
+        duration: 5000,
+      });
+
+      return;
+    }
+
+    setStatus({ ...status, calculating: true });
+
+    try {
+      const response = await fetch(`/api/saveDiscrepancyMask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          parent_id: activeDisplayUIDSet.parent_id,
+          predSeriesUid: selectedMask.value,
+          truthSeriesUid: selectedTruth.value,
+        }),
+      });
+
+      const body = await response.json();
+
+      uiNotificationService.show({
+        title: body.saved_mask ? 'Complete' : 'No Discrepancies',
+        message: body.message || 'Success',
+        type: body.saved_mask ? 'success' : 'warning',
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setStatus({ ...status, calculating: false });
     }
   };
 
@@ -181,7 +241,12 @@ export default ({ status, setStatus, servicesManager }) => {
         disabled={isAnalysisAvailable() === false}
       ></Button>
 
-      <Button className="mb-1 mt-1" children="Generate Discrepency"></Button>
+      <Button
+        className="mb-1 mt-1"
+        children="Save Discrepency"
+        onClick={() => saveDiscrepency().catch(console.error)}
+        disabled={isAnalysisAvailable() === false}
+      ></Button>
     </PanelSection>
   );
 };
