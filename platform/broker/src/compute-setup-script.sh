@@ -52,6 +52,14 @@ echo "Running docker image"
 #     exit 1
 # fi
 # echo "Docker image running on container $CONTAINER_ID"
+echo unzip dcm files
+# mkdir -p "/home/$USERNAME/images/$DICOM_IMAGE"
+TEMP_DIR = $(mktemp -d)
+unzip "/home/$USERNAME/images/$DICOM_IMAGE/series.zip" -d "$TEMP_DIR"
+
+find "$TEMP_DIR" -type f -name '*.dcm' -exec cp {} "/home/$USERNAME/images/$DICOM_IMAGE" \;
+rm -rf "$TEMP_DIR"
+rm -f "/home/$USERNAME/images/$DICOM_IMAGE/series.zip"
 
 echo running with user: ${USERNAME}
 

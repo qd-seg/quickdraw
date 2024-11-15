@@ -1,9 +1,8 @@
 ## This is a script for manually uploading the model to artifact registry
 # Only meant to be used in the CLI, not with Flask
 
-from flask_helpers import upload_docker_image_to_artifact_registry, auth_with_key_file_json, read_env_vars
-from dotenv import load_dotenv
-import os
+from docker_registry_helpers import upload_docker_image_to_artifact_registry
+from gcloud_auth import auth_with_key_file_json, read_env_vars
 
 if __name__ == '__main__':
     import argparse

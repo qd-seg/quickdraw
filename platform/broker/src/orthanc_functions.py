@@ -70,7 +70,7 @@ def get_first_dicom_image_series_from_study(patient_id, study_UID, save_director
     image_folder = os.listdir(study_dir)[image_order_num]
     return first_folder, study_dir + "/"+image_folder
 
-def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[]):
+def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[], extract_zip=True):
     print('saving', save_directory)
     url = orthanc_url
 
@@ -87,11 +87,11 @@ def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[
     os.makedirs(save_directory, exist_ok=True)
     zip_path = os.path.join(save_directory, 'series.zip')
     a_series.download(zip_path, with_progres=False)
-    # NOTE probably just unzip it with command line
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        # zip_ref.extractall(zip_path, [r'PANCREAS_0005 PANCREAS_0005/'])
-        zip_ref.extractall(save_directory)
-        os.remove(zip_path)
+    if extract_zip:
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            # zip_ref.extractall(zip_path, [r'PANCREAS_0005 PANCREAS_0005/'])
+            zip_ref.extractall(save_directory)
+            os.remove(zip_path)
     
     patient = a_series.parent_patient 
     if isinstance(series_obj_out, list):
@@ -99,7 +99,7 @@ def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[
         # a_series.parent_study.uid
         # a_series.description
     
-    return os.path.join(save_directory, f'{patient.patient_id} {patient.name}')
+    return os.path.join(save_directory, f'{patient.patient_id} {patient.name}') if extract_zip else zip_path
 
 
 def uploadSegFile(file_path, remove_original=False):

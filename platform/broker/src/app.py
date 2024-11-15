@@ -7,18 +7,16 @@ from flask_socketio import SocketIO  # Import SocketIO
 import math as Math
 from dotenv import load_dotenv
 from flask_helpers import (
-    read_env_vars,
+    # read_env_vars,
     list_instances, get_instance, delete_instance,
     remove_instance_metadata,
-    list_docker_images,
     generate_instance_name,
     setup_compute_instance, start_instance, stop_instance,
     run_predictions,
-    read_json, write_json,
-    delete_docker_image,
     get_dicom_series_from_orthanc_to_cache
 )
-from gcloud_auth import auth_with_key_file_json
+from docker_registry_helpers import list_docker_images
+from gcloud_auth import auth_with_key_file_json, read_env_vars
 from werkzeug.middleware.proxy_fix import ProxyFix
 from orthanc_get import get_files_and_dice_score
 from orthanc_functions import (
@@ -40,6 +38,7 @@ from typing import Union
 from google.cloud.compute_v1.types import Instance
 import json
 from datetime import datetime
+import gzip
 
 app = Flask(__name__)
 
@@ -495,48 +494,50 @@ def convert_cached_pred_result_to_seg(dicom_series_obj, dcm_prediction_dir, cach
     for f in dcm_pred_files:
         if os.path.isfile(filepath := os.path.join(dcm_prediction_dir, f)):
             success_count += 1
-            data = np.load(filepath)
-            if not os.path.exists(cached_dicom_series_path):
-                print('path doesnt exist', cached_dicom_series_path)
-                # load from orthanc ...
-                
-            dicom_series = load_dicom_series(cached_dicom_series_path)
-            
-            # iterative naming
-            # get all SEG series with same parent 
-            # find next avail name
-            seg_name = f'Predict_{selected_model}'
-            parent_study_uid = None
-            print(dicom_series_obj)
-            try: 
-                seg_name += f'_{dicom_series_obj.description}'
-                parent_study_uid = dicom_series_obj.parent_study.uid
-                assert (parent_study_uid is not None)
-            except Exception as e:
-                print('Something went wrong with dcm loading:', e)
-                pass
-            
-            print(seg_name, '| before')
-            
-            seg_name = get_next_available_iterative_name_for_series(seg_name, parent_study_uid)
-            print(seg_name, '| after')
-            
-            seg_save_dir = convert_3d_numpy_array_to_dicom_seg(
-                dicom_series, 
-                data['data'], 
-                data['rois'], 
-                os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'),
-                slice_axis=2,
-                seg_series_description=seg_name
-            )
-            if seg_save_dir is None:
-                raise Exception('Something went wrong with saving SEG')
-            
-            # Upload to orthanc
-            uploadSegFile(seg_save_dir, remove_original=True)
-            
-            print('Removing', filepath, '...')
-            os.remove(filepath)
+            # data = np.load(filepath)
+            with gzip.open(filepath, 'rb') as f:
+                with np.load(f) as data:
+                    if not os.path.exists(cached_dicom_series_path):
+                        print('path doesnt exist', cached_dicom_series_path)
+                        # load from orthanc ...
+                        
+                    dicom_series = load_dicom_series(cached_dicom_series_path)
+                    
+                    # iterative naming
+                    # get all SEG series with same parent 
+                    # find next avail name
+                    seg_name = f'Predict_{selected_model}'
+                    parent_study_uid = None
+                    print(dicom_series_obj)
+                    try: 
+                        seg_name += f'_{dicom_series_obj.description}'
+                        parent_study_uid = dicom_series_obj.parent_study.uid
+                        assert (parent_study_uid is not None)
+                    except Exception as e:
+                        print('Something went wrong with dcm loading:', e)
+                        pass
+                    
+                    print(seg_name, '| before')
+                    
+                    seg_name = get_next_available_iterative_name_for_series(seg_name, parent_study_uid)
+                    print(seg_name, '| after')
+                    
+                    seg_save_dir = convert_3d_numpy_array_to_dicom_seg(
+                        dicom_series, 
+                        data['data'], 
+                        data['rois'], 
+                        os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'),
+                        slice_axis=2,
+                        seg_series_description=seg_name
+                    )
+                    if seg_save_dir is None:
+                        raise Exception('Something went wrong with saving SEG')
+                    
+                    # Upload to orthanc
+                    uploadSegFile(seg_save_dir, remove_original=True)
+                    
+                    print('Removing', filepath, '...')
+                    os.remove(filepath)
 
     # shutil.rmtree(temp_images_path)
     # shutil.rmtree(temp_seg_path)
@@ -603,8 +604,9 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M_%S_%f')
         pred_cache_dir = f'prediction/{timestamp}'
         series_obj = []
-        cached_dicom_series_path, temp_images_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id, cache_subdir=pred_cache_dir, series_obj_out=series_obj)
+        cached_dicom_series_path, temp_images_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id, cache_subdir=pred_cache_dir, series_obj_out=series_obj, extract_zip=False)
         series_obj = series_obj[0]
+        print(cached_dicom_series_path, temp_images_path)
         
         emit_update_progressbar(35)
         emit_status_update('Running predictions...')
@@ -1003,5 +1005,14 @@ else:
     if not _NO_GOOGLE_CLOUD:
         clear_unused_instances()
     clear_backup_region_instances()
+    try:
+        if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
+            for name in os.listdir(cache_dir):
+                if os.path.isdir(name):
+                    shutil.rmtree(os.path.join(cache_dir, name))
+    except Exception as e:
+        print(e)
+        print('The above exception occurred while trying to clear the cache in', cache_dir)
+        
     app.register_blueprint(bp)
     # socketio.run(app, debug=True)

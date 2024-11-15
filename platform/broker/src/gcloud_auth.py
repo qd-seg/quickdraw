@@ -1,11 +1,56 @@
 from google.cloud import compute_v1, artifactregistry
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
+import json
+from typing import Union, List
+import os
 
 _CREDENTIALS = None
 _COMPUTE_CLIENT = None
 _REGISTRY_CLIENT = None
 _KEY_FILE_PATH = None
+
+def read_json(filename, default_as_dict=True) -> Union[List, dict]:
+    """Reads a JSON file and returns its content."""
+    try:
+        with open(filename, 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {} if default_as_dict else []
+
+def write_json(filename, data):
+    """Writes data to a JSON file."""
+    with open(filename, 'w') as file:
+        json.dump(data, file)
+
+def read_env_vars(local=False):
+    # print(os.environ.get('SERVICE_CONFIGURATION'), os.environ.get('SERVICE_ACCOUNT'))
+    service_config = read_json(os.path.join(os.getcwd(), '../../../secret/service_configuration.json') if local else os.environ.get('SERVICE_CONFIGURATION'))
+    service_accnt = read_json(os.path.join(os.getcwd(), '../../../secret/service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'))
+    # print(service_config)
+    # print(service_accnt, flush=True)
+    return {
+        'key_file': os.path.join(os.getcwd(), '../../../secret/service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'),
+        'project_id': service_accnt['project_id'],
+        'zone': service_config['zone'],
+        'region': service_config['zone'].split('-')[:-1],
+        'backup_zones': service_config['backupZones'],
+        'machine_type': service_config['machineType'],
+        'repository': service_config['repository'],
+        'service_account_email': service_accnt['client_email'],
+        'instance_limit': service_config['instanceLimit'] or 1,
+    }
+    # print(env_vars)
+    # _SERVICE_ACCOUNT_KEYS = env_vars['serviceAccountKeys']
+    # _KEY_FILE = 'serviceAccountKeys.json'
+    # write_json(_KEY_FILE, _SERVICE_ACCOUNT_KEYS)
+    # _PROJECT_ID = _SERVICE_ACCOUNT_KEYS['project_id']
+    # _ZONE = env_vars['zone']
+    # _REGION = '-'.join(_ZONE.split('-')[:-1])
+    # _MACHINE_TYPE = env_vars['machineType']
+    # _REPOSITORY = env_vars['repository']
+    # _SERVICE_ACCOUNT_EMAIL = _SERVICE_ACCOUNT_KEYS['client_email']
+    # _INSTANCE_LIMIT = 1
 
 def get_credentials():
     refresh_credentials_if_expired()
