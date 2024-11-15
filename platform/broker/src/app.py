@@ -766,7 +766,7 @@ def run_prediction():
         PREDICTION_LOCK = 0
         return jsonify({ 'message': "Error: Google Cloud is at its limit, please wait." }), 429
     
-    thread = threading.Thread(target=setup_compute_and_run_pred_helper, args=(selected_model, True, series_id, study_id), kwargs={'stop_instance_at_end': False})
+    thread = threading.Thread(target=setup_compute_and_run_pred_helper, args=(selected_model, True, series_id, study_id), kwargs={'stop_instance_at_end': True})
     thread.start()
     return jsonify({ 'message': 'Your prediction job is now running...' }), 202
 
