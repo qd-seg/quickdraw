@@ -414,7 +414,7 @@ def setup_compute_instance(project_id: str, zone: str, instance_name: str | None
     return instance
 
 # Run predictions on existing compute instance. Assumes DICOM images have already been uploaded to ./dicom-images/
-def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, cached_dicom_series_path: str, dicom_series_id: str, instance_name: str, skip_predictions: bool = False, progress_bar_update_callback = None, stop_instance_at_end: bool = True) -> str | None:
+def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, cached_dicom_series_path: str, dicom_series_id: str, instance_name: str, skip_predictions: bool = False, progress_bar_update_callback = None, stop_instance_at_end: bool = True, pred_cache_dir: str = 'dcm-predictions/') -> str | None:
     # Need:
     # where does dicom series come from -> the cache/temp-dcm/study_id/instance_id/...
     # where are images uploaded to -> /home/USER/images/instance_id (uid)
@@ -473,7 +473,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         if progress_bar_update_callback is not None:
                 progress_bar_update_callback(85)
                 
-        dcm_prediction_dir = f'dcm-prediction/'
+        dcm_prediction_dir = pred_cache_dir
         if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
             dcm_prediction_dir = os.path.abspath(os.path.join(cache_dir, dcm_prediction_dir))
             

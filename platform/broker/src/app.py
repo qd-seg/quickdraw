@@ -39,6 +39,7 @@ import traceback
 from typing import Union
 from google.cloud.compute_v1.types import Instance
 import json
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -541,9 +542,9 @@ def convert_cached_pred_result_to_seg(dicom_series_obj, dcm_prediction_dir, cach
     # shutil.rmtree(temp_seg_path)
     print('Removing', dcm_prediction_dir)
     shutil.rmtree(dcm_prediction_dir)
-    print('Removing', cached_dicom_series_path)
-    shutil.rmtree(cached_dicom_series_path)
-    shutil.rmtree(temp_images_path)
+    # print('Removing', cached_dicom_series_path)
+    # shutil.rmtree(cached_dicom_series_path)
+    # shutil.rmtree(temp_images_path)
     
     # there were no model outputs that were actually converted to SEG. Probably because something with the 
     # prediction failed
@@ -598,8 +599,11 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
 
         # Pull the images from Orthanc into cache
         emit_status_update('Getting DICOM images...')
+        
+        timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M_%S_%f')
+        pred_cache_dir = f'prediction/{timestamp}'
         series_obj = []
-        cached_dicom_series_path, temp_images_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id, series_obj_out=series_obj)
+        cached_dicom_series_path, temp_images_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id, cache_subdir=pred_cache_dir, series_obj_out=series_obj)
         series_obj = series_obj[0]
         
         emit_update_progressbar(35)
@@ -613,7 +617,8 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
             dicom_series_id, 
             instance.name, 
             progress_bar_update_callback=emit_update_progressbar,
-            stop_instance_at_end=stop_instance_at_end
+            stop_instance_at_end=stop_instance_at_end,
+            pred_cache_dir=pred_cache_dir
         )
         
         if dcm_pred_dir is None:
@@ -629,6 +634,12 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         
         # TODO: maybe delete instance here? it gets paused anyway so not sure if needed
         set_tracked_model_instance_running(selected_model, False)
+        
+        if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
+            pred_cache_dir = os.path.abspath(os.path.join(cache_dir, pred_cache_dir))
+        if os.path.exists(pred_cache_dir):
+            print('Removing', pred_cache_dir)
+            shutil.rmtree(pred_cache_dir)
         
         print('Removing old metadata...')
         instance = get_instance(_PROJECT_ID, _ZONE, instance.name)
@@ -646,8 +657,41 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         stop_instance(_PROJECT_ID, _ZONE, instance.name)
         remove_instance_metadata(_PROJECT_ID, _ZONE, get_instance(_PROJECT_ID, _ZONE, instance.name), ['dicom-image', 'model-displayname'])
         return False
+
+PREDICTION_LOCK = 0    
+def setup_compute_and_run_pred_helper(
+        selected_model: str, start_compute: bool, dicom_series_id: str,
+        study_id: str, stop_instance_at_end: bool = True):
+    global PREDICTION_LOCK
     
-PREDICTION_LOCK = 0
+    try:
+        instance = setup_compute_with_model_helper(selected_model, start_compute=start_compute, dicom_series_id=dicom_series_id)
+        if instance is None:
+            PREDICTION_LOCK = 0
+            emit_toast('Error: Google Cloud is at its limit, please wait.', type='error')
+            return False
+    except Exception as e:
+        print(e)
+        print(traceback.format_exc())
+        # return jsonify({ 'message': 'Issue creating Compute instance. Google Cloud Services likely experiencing temporary resource shortage. Please try again later.' }), 500
+        PREDICTION_LOCK = 0
+        emit_toast('Issue creating Compute instance. Google Cloud Services likely experiencing temporary resource shortage. Please try again later.', type='error')
+        return False
+            
+    # thread = threading.Thread(target=run_pred_helper, args=(instance, selected_model, study_id, series_id), kwargs={'stop_instance_at_end': True})
+    # thread.start()
+    PREDICTION_LOCK = 0 # unlock here because in theory you could run multiple predictions at once on different instances
+    try:
+        run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_instance_at_end=stop_instance_at_end)
+    except Exception as e:
+        print(e)
+        emit_toast('Something went wrong while running predictions.', type='error')
+        return False
+        
+    emit_toast('Prediction successful.')
+    # return jsonify({ 'message': 'Prediction job successfully started' }), 202
+    return True
+    
 @bp.route("/run", methods=["POST"])
 def run_prediction():
     global _ZONE
@@ -699,86 +743,44 @@ def run_prediction():
         PREDICTION_LOCK = 0
         return jsonify({ 'message': f'You are trying to predict on a {series_modality}, not an image series.'}), 400
     
-    try:
-        instance = setup_compute_with_model_helper(selected_model, start_compute=True, dicom_series_id=series_id)
-        if instance is None:
-            PREDICTION_LOCK = 0
-            return jsonify({ 'message': "Error: Google Cloud is at its limit, please wait." }), 400
-    except Exception as e:
-        print(e)
-        print(traceback.format_exc())
-        # return jsonify({ 'message': 'Issue creating Compute instance. Google Cloud Services likely experiencing temporary resource shortage. Please try again later.' }), 500
+    if is_tracked_model_instance_running(selected_model):
         PREDICTION_LOCK = 0
-        return jsonify({ 'message': str(e) }), 500
+        return jsonify({ 'message': "Error: Google Cloud is at its limit, please wait." }), 429
     
-    # try:
-    #     print('check if able to predict', selected_model, series_id)
-    #     if not is_able_to_predict_on_dicom_series(selected_model, series_id):
-    #         # start_instance(_PROJECT_ID, _ZONE, instance.name)
-    #         # stop_instance(_PROJECT_ID, _ZONE, instance)
-    #         return jsonify({ 'message': 'Another model is currently predicting on this series. Please wait for it to finish first.' }), 400
-    # except Exception as e:
-    #     print(e)
-    #     return jsonify({ 'message': 'Google Cloud Compute is having issues. Please try again later.' }), 500
-    # print(instance.name)
-    # return jsonify({'message':'....'}), 200
-    try:
-        # emit_update_progressbar(20)
-        if instance is not None:
-            # if is_tracked_model_instance_running(selected_model):
-                # raise Exception(f'Selected model {selectedModel} already running')
-                # return jsonify({ 'message': f'Selected model {selected_model} already running' }), 500
-            
-            thread = threading.Thread(target=run_pred_helper, args=(instance, selected_model, study_id, series_id), kwargs={'stop_instance_at_end': True})
-            thread.start()
-            PREDICTION_LOCK = 0
-            return jsonify({ 'message': 'Prediction job successfully started' }), 202
-        
-        else:
-            # TODO: maybe handle this differently
-            set_tracked_model_instance_running(selected_model, False)
-            PREDICTION_LOCK = 0
-            return jsonify({ 'message': 'Issue creating Compute instance. Google Cloud likely experiencing temporary resource shortage.' }), 500
-            
-    # Catch any exceptions
-    except Exception as e:
-        print(e)
-        emit_status_update("Error running prediction")
-        set_tracked_model_instance_running(selected_model, False)
-        PREDICTION_LOCK = 0
-        return jsonify({ 'message': f"Error running prediction: {str(e)}" }), 500
-        
+    thread = threading.Thread(target=setup_compute_and_run_pred_helper, args=(selected_model, True, series_id, study_id), kwargs={'stop_instance_at_end': True})
+    thread.start()
+    return jsonify({ 'message': 'Your prediction job is now running...' }), 202
 
-# This currently is not called by anything
-@bp.route("/deleteModel", methods=["POST"])
-def deleteModel():
-    """
-    Delete a model from Artifact Registry
-    """
+# # This currently is not called by anything
+# @bp.route("/deleteModel", methods=["POST"])
+# def deleteModel():
+#     """
+#     Delete a model from Artifact Registry
+#     """
 
-    status_code = 500
-    try:
-        # Get the tarball
-        if "imagename" not in request.form:
-            return jsonify({"error": "No file part"})
+#     status_code = 500
+#     try:
+#         # Get the tarball
+#         if "imagename" not in request.form:
+#             return jsonify({"error": "No file part"})
 
-        imagename = request.form["imagename"]
+#         imagename = request.form["imagename"]
 
-        emit_status_update("Deletion in progress . . .")
+#         emit_status_update("Deletion in progress . . .")
 
-        # Execute the bash script
-        delete_docker_image(_PROJECT_ID, _ZONE, _REPOSITORY, imagename)
+#         # Execute the bash script
+#         delete_docker_image(_PROJECT_ID, _ZONE, _REPOSITORY, imagename)
 
-        emit_status_update("Model successfully deleted !")
-        status_code = 200
-        message = f"Successfully deleted model !"
-    # Catch any exceptions
-    except Exception as e:
-        emit_status_update("Error uploading image")
-        message = f"Error uploading image: {str(e)}"
-        status_code = 500
-    emit_status_update(message)
-    return jsonify({"message": message}), status_code
+#         emit_status_update("Model successfully deleted !")
+#         status_code = 200
+#         message = f"Successfully deleted model !"
+#     # Catch any exceptions
+#     except Exception as e:
+#         emit_status_update("Error uploading image")
+#         message = f"Error uploading image: {str(e)}"
+#         status_code = 500
+#     emit_status_update(message)
+#     return jsonify({"message": message}), status_code
 
 DISC_LOCK = 0
 @bp.route('/saveDiscrepancyMask', methods=['POST'])
@@ -813,8 +815,10 @@ def save_discrepancy_mask():
     dicom_series = load_dicom_series(cached_dicom_series_path)
     shutil.rmtree(temp_images_path)
     
-    pred_series, temp_pred_path = get_dicom_series_from_orthanc_to_cache(pred_series_id, cache_subdir=os.path.join(disc_path, '_pred/'))
-    truth_series, temp_truth_path = get_dicom_series_from_orthanc_to_cache(truth_series_id, cache_subdir=os.path.join(disc_path, '_truth/'))
+    pred_series_obj, truth_series_obj = [], []
+    pred_series, temp_pred_path = get_dicom_series_from_orthanc_to_cache(pred_series_id, cache_subdir=os.path.join(disc_path, '_pred/'), series_obj_out=pred_series_obj)
+    truth_series, temp_truth_path = get_dicom_series_from_orthanc_to_cache(truth_series_id, cache_subdir=os.path.join(disc_path, '_truth/'), series_obj_out=truth_series_obj)
+    pred_series_obj, truth_series_obj = pred_series_obj[0], truth_series_obj[0]
     
     for dirpath, _, fnames in os.walk(pred_series):
         print(fnames)
@@ -833,9 +837,25 @@ def save_discrepancy_mask():
     
     temp_seg_path = os.path.join(disc_path, '_res/')
     os.makedirs(temp_seg_path, exist_ok=True)
+    
+    seg_name = f'Discrepancy'
+    # print(dicom_series_obj)
+    try: 
+        seg_name += f'_{pred_series_obj.description}'
+        seg_name += f'_{truth_series_obj.description}'
+        parent_study_uid = pred_series_obj.parent_study.uid
+    except Exception as e:
+        print('Something went wrong with dcm loading:', e)
+        pass
+    
+    print(seg_name, '| before')
+    
+    seg_name = get_next_available_iterative_name_for_series(seg_name, parent_study_uid)
+    print(seg_name, '| after')
+    
     out_name = get_non_intersection_mask_to_seg(dicom_series, pred_mask, truth_mask, dcm_pred, dcm_truth, 
                                      os.path.join(temp_seg_path, f'discrepancy.dcm'),
-                                     output_desc=f'Prediction Discrepancy',
+                                     output_desc=seg_name,
                                      separate_fp_fn=False,
                                      merge_all_rois=False)
     
