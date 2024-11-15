@@ -34,11 +34,12 @@ def read_env_vars(local=False):
         'project_id': service_accnt['project_id'],
         'zone': service_config['zone'],
         'region': service_config['zone'].split('-')[:-1],
-        'backup_zones': service_config['backupZones'],
+        'backup_zones': service_config.get('backupZones', None) or [],
         'machine_type': service_config['machineType'],
         'repository': service_config['repository'],
         'service_account_email': service_accnt['client_email'],
-        'instance_limit': service_config['instanceLimit'] or 1,
+        'instance_limit': service_config.get('instanceLimit', None) or 1,
+        'allow_run_without_google_cloud': service_config.get('allowRunWithoutGoogleCloud', False)
     }
     # print(env_vars)
     # _SERVICE_ACCOUNT_KEYS = env_vars['serviceAccountKeys']
@@ -102,3 +103,31 @@ def get_registry_client(credentials: service_account.Credentials = None) -> arti
         _REGISTRY_CLIENT = artifactregistry.ArtifactRegistryClient(credentials=(get_credentials() if credentials is None else credentials))
         
     return _REGISTRY_CLIENT
+
+def validate_zone(project_id: str, zone: str, avail_zones_out: List | None = None):
+    client = compute_v1.ZonesClient(credentials=get_credentials())
+    request = compute_v1.ListZonesRequest(project=project_id)
+    res = client.list(request)
+    for page in res.pages:
+        for avail_zone in page.items:
+            if avail_zones_out is None:
+                if avail_zone.name == zone:
+                    return True
+            else:
+                avail_zones_out.append(avail_zone.name)
+            
+    return avail_zones_out is not None and zone in avail_zones_out
+    
+def validate_machine_type(project_id: str, zone: str, machine_type: str, avail_types_out: List | None = None):
+    client = compute_v1.MachineTypesClient(credentials=get_credentials())
+    request = compute_v1.ListMachineTypesRequest(project=project_id, zone=zone)
+    res = client.list(request)
+    for page in res.pages:
+        for machine in page.items:
+            if avail_types_out is None:
+                if machine.name == machine_type:
+                    return True
+            else:
+                avail_types_out.append(machine.name)
+            
+    return avail_types_out is not None and machine_type in avail_types_out

@@ -16,7 +16,7 @@ from flask_helpers import (
     get_dicom_series_from_orthanc_to_cache
 )
 from docker_registry_helpers import list_docker_images
-from gcloud_auth import auth_with_key_file_json, read_env_vars
+from gcloud_auth import auth_with_key_file_json, read_env_vars, validate_zone, validate_machine_type
 from werkzeug.middleware.proxy_fix import ProxyFix
 from orthanc_get import get_files_and_dice_score
 from orthanc_functions import (
@@ -70,17 +70,29 @@ _INSTANCE_LIMIT = env_vars['instance_limit']
 # _KEY_FILE = os.getenv('KEY_FILE')
 # _REPOSITORY = os.getenv('REPOSITORY')
 
-_MODEL_INSTANCES_FILEPATH = 'model_instances/model_instances.json'
+# _MODEL_INSTANCES_FILEPATH = 'model_instances/model_instances.json'
 _NO_GOOGLE_CLOUD = False
 
 try:
     auth_with_key_file_json(_KEY_FILE)
+    
+    available_zones = []
+    if not validate_zone(_PROJECT_ID, _ZONE, avail_zones_out=available_zones):
+        raise Exception(f'Zone {_ZONE} is not available for project {_PROJECT_ID}. Available zones are: {available_zones}')
+    available_machine_types = []
+    if not validate_machine_type(_PROJECT_ID, _ZONE, _MACHINE_TYPE, avail_types_out=available_machine_types):
+        raise Exception(f'Machine type {_MACHINE_TYPE} is not available for zone {_ZONE}. Available types are: {available_machine_types}')
+    
 except Exception as e:
     print('An error occurred in authentication. It is likely that you did ' +
-          'not provide a valid service account key file, or you are not connected to the internet. ' +
-          'The Flask server will continue to run, but no Google Cloud functionality will be available.')
+          'not provide a valid service account key file, or you are not connected to the internet.')
     print(e)
-    _NO_GOOGLE_CLOUD = True
+    if env_vars['allow_run_without_google_cloud']:
+        print('You have specified in the secret config file that you wish to continue running without Google Cloud. ' + \
+            'The Flask server will continue running, but Google Cloud functionality is disabled.')
+        _NO_GOOGLE_CLOUD = True
+    else:
+        exit(3) # quit out
 
 app = Flask(__name__, static_folder="./Viewers-master/platform/app/dist")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
