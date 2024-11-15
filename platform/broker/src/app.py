@@ -11,7 +11,7 @@ from flask_helpers import (
     list_instances, get_instance, delete_instance,
     remove_instance_metadata,
     generate_instance_name,
-    setup_compute_instance, start_instance, stop_instance,
+    setup_compute_instance, start_instance, stop_instance, resume_instance, suspend_instance,
     run_predictions,
     get_dicom_series_from_orthanc_to_cache
 )
@@ -211,7 +211,7 @@ def get_existing_instance_for_model(model_name: str, try_any_avail=False):
         # print(instance.metadata.items)
         # print(this_name)
         # print(instance.status)
-        if (try_any_avail and (instance.status == 'TERMINATED' or this_name is None or (is_idling is not None and is_idling.value == 'True'))):
+        if (try_any_avail and (instance.status in ['TERMINATED', 'SUSPENDED'] or this_name is None or (is_idling is not None and is_idling.value == 'True'))):
             possible_any_avail_models.append(instance)
         elif (this_name is not None and this_name.value == model_name):
         # if (this_name is not None and this_name.value == model_name):
@@ -278,7 +278,7 @@ def is_tracked_model_instance_running(model_name_or_instance: Union[str | Instan
     is_idling = None if instance is None else next(filter(lambda m: m.key == 'idling', instance.metadata.items), None)
     this_name = None if instance is None else next(filter(lambda m: m.key == 'model-displayname', instance.metadata.items), None)
     print(is_idling, this_name)
-    return instance is not None and this_name is not None and (instance.status != 'TERMINATED' and (is_idling is None or is_idling.value != 'True'))
+    return instance is not None and this_name is not None and (instance.status not in ['TERMINATED', 'SUSPENDED'] and (is_idling is None or is_idling.value != 'True'))
     # filename = _MODEL_INSTANCES_FILEPATH
     # model_instances = read_json(filename, default_as_dict=False)
     # for model_instance in model_instances:
@@ -448,7 +448,11 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
         if start_compute:
             print('check if able to predict', selected_model, dicom_series_id)
             if is_able_to_predict_on_dicom_series(selected_model, dicom_series_id):
-                start_instance(_PROJECT_ID, _ZONE, new_instance.name)
+                if new_instance.status == 'SUSPENDED':
+                    resume_instance(_PROJECT_ID, _ZONE, new_instance.name)
+                else:
+                    start_instance(_PROJECT_ID, _ZONE, new_instance.name)
+                    
                 remove_instance_metadata(_PROJECT_ID, _ZONE, new_instance, ['idling'])
             else:
                 message = 'You are already running a prediction on that DICOM image. Please wait until the other prediction finishes.'
@@ -526,7 +530,7 @@ def convert_cached_pred_result_to_seg(dicom_series_obj, dcm_prediction_dir, cach
                     # iterative naming
                     # get all SEG series with same parent 
                     # find next avail name
-                    seg_name = f'Predict_{selected_model}'
+                    seg_name = f'p_{selected_model}'
                     parent_study_uid = None
                     print(dicom_series_obj)
                     try: 
@@ -685,6 +689,8 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
             shutil.rmtree(pred_cache_dir)
         if stop_instance_at_end:
             stop_instance(_PROJECT_ID, _ZONE, instance.name)
+        else:
+            suspend_instance(_PROJECT_ID, _ZONE, instance.name)
         remove_instance_metadata(_PROJECT_ID, _ZONE, get_instance(_PROJECT_ID, _ZONE, instance.name), ['dicom-image', 'model-displayname'], add_idling=True)
         # set_
         return False
@@ -778,7 +784,7 @@ def run_prediction():
         PREDICTION_LOCK = 0
         return jsonify({ 'message': "Error: Google Cloud is at its limit, please wait." }), 429
     
-    thread = threading.Thread(target=setup_compute_and_run_pred_helper, args=(selected_model, True, series_id, study_id), kwargs={'stop_instance_at_end': True})
+    thread = threading.Thread(target=setup_compute_and_run_pred_helper, args=(selected_model, True, series_id, study_id), kwargs={'stop_instance_at_end': False})
     thread.start()
     return jsonify({ 'message': 'Your prediction job is now running...' }), 202
 
@@ -869,7 +875,7 @@ def save_discrepancy_mask():
     temp_seg_path = os.path.join(disc_path, '_res/')
     os.makedirs(temp_seg_path, exist_ok=True)
     
-    seg_name = f'Discrepancy'
+    seg_name = f'd'
     # print(dicom_series_obj)
     try: 
         seg_name += f'_{pred_series_obj.description}'
@@ -884,11 +890,16 @@ def save_discrepancy_mask():
     seg_name = get_next_available_iterative_name_for_series(seg_name, parent_study_uid)
     print(seg_name, '| after')
     
-    out_name = get_non_intersection_mask_to_seg(dicom_series, pred_mask, truth_mask, dcm_pred, dcm_truth, 
-                                     os.path.join(temp_seg_path, f'discrepancy.dcm'),
-                                     output_desc=seg_name,
-                                     separate_fp_fn=False,
-                                     merge_all_rois=False)
+    try:
+        out_name = get_non_intersection_mask_to_seg(dicom_series, pred_mask, truth_mask, dcm_pred, dcm_truth, 
+                                                    os.path.join(temp_seg_path, f'discrepancy.dcm'),
+                                                    output_desc=seg_name,
+                                                    separate_fp_fn=False,
+                                                    merge_all_rois=False)
+    except Exception as e:
+        print(e)
+        DISC_LOCK = 0
+        return jsonify({ 'saved_mask': False, 'message': str(e) }), 500
     
     if out_name is None:
         # print('something went wrong')

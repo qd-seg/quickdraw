@@ -29,6 +29,16 @@ def read_env_vars(local=False):
     service_accnt = read_json(os.path.join(os.getcwd(), '../../../secret/service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'))
     # print(service_config)
     # print(service_accnt, flush=True)
+    instance_limit = service_config.get('instanceLimit', None) or 1
+    if not isinstance(instance_limit, int):
+        print(f'{instance_limit} is not a valid integer value for instanceLimit. Setting Instance limit to 1.')
+        instance_limit = 1
+        
+    allow_run_without_google_cloud = service_config.get('allowRunWithoutGoogleCloud', False)
+    if not isinstance(allow_run_without_google_cloud, bool):
+        print(f'{allow_run_without_google_cloud} is not a valid boolean value for allowRunWithoutGoogleCloud. Setting it to False.')
+        allow_run_without_google_cloud = False
+        
     return {
         'key_file': os.path.join(os.getcwd(), '../../../secret/service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'),
         'project_id': service_accnt['project_id'],
@@ -38,8 +48,8 @@ def read_env_vars(local=False):
         'machine_type': service_config['machineType'],
         'repository': service_config['repository'],
         'service_account_email': service_accnt['client_email'],
-        'instance_limit': service_config.get('instanceLimit', None) or 1,
-        'allow_run_without_google_cloud': service_config.get('allowRunWithoutGoogleCloud', False)
+        'instance_limit': instance_limit,
+        'allow_run_without_google_cloud': allow_run_without_google_cloud
     }
     # print(env_vars)
     # _SERVICE_ACCOUNT_KEYS = env_vars['serviceAccountKeys']

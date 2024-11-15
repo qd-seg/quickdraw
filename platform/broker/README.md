@@ -9,10 +9,35 @@ Create a Google Cloud Project with the following APIs activated:
 - Compute Engine
 - Artifact Registry
 
-Create a Google Cloud Service Account. The instructions for doing so is [here](https://cloud.google.com/iam/docs/service-accounts-create#iam-service-accounts-create-console), and how to get the key file is [here](https://cloud.google.com/iam/docs/keys-create-delete#iam-service-account-keys-create-console). Make sure to name the JSON key file `serviceAccountKeys.json` and put it into the root project directory. The service account must have the following permissions:
+Create a Google Cloud Service Account. The instructions for doing so is [here](https://cloud.google.com/iam/docs/service-accounts-create#iam-service-accounts-create-console), and how to get the key file is [here](https://cloud.google.com/iam/docs/keys-create-delete#iam-service-account-keys-create-console). 
+The service account must have the following permissions:
 - Service Account User
 - Compute Admin	
 - Artifact Registry Repository Administrator
+ 
+Download the service account's key json file.
+
+In the root directory of the project, create a folder named `secret`. Place the service account key json file into this
+folder and name it `service_account.json`.
+
+Create a new file named `service_configuration.json` and paste the following into it:
+```json
+{
+    "zone": "us-east4-b",
+    "backupZones": [],
+    "machineType": "c2-standard-8",
+    "repository": "models",
+    "instanceLimit": 1,
+    "allowRunWithoutGoogleCloud": false
+}
+```
+Replace these variables as needed:
+- `zone: string`:  [zone to create Compute Instance in](https://cloud.google.com/compute/docs/regions-zones)
+- `backupZones: string[]`: list of zones to check if original zone is out of resources
+- `machineType: string`: [machine type to create Instance from](https://cloud.google.com/compute/docs/machine-resource)
+- `repository: string`: name of Artifact Registry repository for model Docker images
+- `instanceLimit: int`: maximum number of Compute Instances that can exist at once. **Recommended value=1**
+- `allowRunWithoutGoogleCloud: boolean`: whether or not to continue running Flask server even if Google Cloud Services is down
 
 An `.env` file is required with the following entries. The *values* in the parentheses are the recommended/placeholder values
 - PROJECT_ID=`<your Google Cloud project id>` *(radiology-b0759*)
@@ -38,11 +63,15 @@ Your image should appear if you run `docker images`. To test it:
 - `docker run -v <model-root-path>/images:/app/images -v <model-root-path>/model_outputs:/app/model_outputs <dicom-series-name> [OPTIONAL-ARGS]` 
   
 You can push the model directly to Registry:
+- `cd platform/broker/src`
 - `python3 upload_model.py <image-name> --direct-push`
 
 Or, if you wish to save the image to a tarball first:
 - `docker save -o <image-name>.tar <image-name>`
 - `python3 upload_model.py <image-name> --tarball-path=<tarball-path>`
+
+If you are having issues, double check your service account configuration secret files are correct.
+Also ensure the service account has the proper permissions as described [here](README.md#google-cloud-setup)
   
 An example Dockerfile and .dockerignore is provided in `/example_docker/`.
 

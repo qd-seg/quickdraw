@@ -59,6 +59,16 @@ def stop_instance(project_id, zone, instance_name):
     response = get_compute_client().stop(request)
     return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
 
+def resume_instance(project_id, zone, instance_name):
+    request = compute_v1.ResumeInstanceRequest(project=project_id, zone=zone, instance=instance_name)
+    response = get_compute_client().resume(request)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
+
+def suspend_instance(project_id, zone, instance_name):
+    request = compute_v1.SuspendInstanceRequest(discard_local_ssd=False, project=project_id, zone=zone, instance=instance_name)
+    response = get_compute_client().suspend(request)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
+
 def get_instance(project_id, zone, instance_name):    
     request = compute_v1.GetInstanceRequest(instance=instance_name, project=project_id, zone=zone)
     try:
@@ -329,7 +339,12 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         # Start the instance
         start_instance(project_id, zone, instance_name)
         time.sleep(1)
+    except Exception as e:
+        print(e)
+        resume_instance(project_id, zone, instance_name)
+        time.sleep(1)
         
+    try:    
         # Log into service account with gcloud
         subprocess.run(['gcloud', 'auth', 'activate-service-account', service_account, f'--key-file={key_filepath}'], check=True)
         if not skip_predictions:
@@ -401,7 +416,9 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         if stop_instance_at_end:
             print('Stopping Instance')
             stop_instance(project_id, zone, instance_name)
-        # else:
+        else:
+            suspend_instance(project_id, zone, instance_name)
+            
         print('Now idling...')
         subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
                         f'--project={project_id}', 
@@ -412,7 +429,8 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         print(e, flush=True)
         if stop_instance_at_end:
             stop_instance(project_id, zone, instance_name)
-        # else:
+        else:
+            suspend_instance(project_id, zone, instance_name)
         print('Now idling...')
         subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
                         f'--project={project_id}', 

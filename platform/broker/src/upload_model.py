@@ -36,11 +36,7 @@ if __name__ == '__main__':
     _KEY_FILE = env_vars['key_file']
     _PROJECT_ID = env_vars['project_id']
     _ZONE = env_vars['zone']
-    _REGION = env_vars['region']
-    _MACHINE_TYPE = env_vars['machine_type']
     _REPOSITORY = env_vars['repository']
-    _SERVICE_ACCOUNT_EMAIL = env_vars['service_account_email']
-    _INSTANCE_LIMIT = env_vars['instance_limit']
 
     auth_with_key_file_json(_KEY_FILE)
         
