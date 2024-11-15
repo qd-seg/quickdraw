@@ -3,7 +3,7 @@ import * as React from 'react';
 import { PanelSection, Select, Typography, Label } from '@ohif/ui';
 
 export default ({ value, onChange, options, label }) => {
-  const children = [
+  const child = (
     <Select
       className="mb-2 w-full"
       closeMenuOnSelect={true}
@@ -12,8 +12,8 @@ export default ({ value, onChange, options, label }) => {
       options={options}
       onChange={onChange}
       value={value}
-    />,
-  ];
+    />
+  );
 
   const text = (
     <Typography
@@ -24,5 +24,5 @@ export default ({ value, onChange, options, label }) => {
     />
   );
 
-  return <Label children={children} text={text}></Label>;
+  return <Label children={child} text={text}></Label>;
 };
