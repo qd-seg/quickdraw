@@ -1,9 +1,11 @@
 import * as React from 'react';
 import { PanelSection, Button } from '@ohif/ui';
 
+import getActiveDisplayUIDSet from '../auxiliary/getActiveDisplayUIDSet';
+
 import WrappedSelect from './WrappedSelect';
 
-export default ({ status, setStatus, servicesManager, getActiveDisplayUIDSet }) => {
+export default ({ status, setStatus, servicesManager }) => {
   const [availableModels, setAvailableModels] = React.useState([]);
   const [selectedModel, setSelectedModel] = React.useState({ value: undefined, label: undefined });
 
@@ -32,7 +34,7 @@ export default ({ status, setStatus, servicesManager, getActiveDisplayUIDSet }) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selectedModel: availableModels[selectedModel.value]?.name,
-          ...getActiveDisplayUIDSet(),
+          ...getActiveDisplayUIDSet(servicesManager),
         }),
       });
 
