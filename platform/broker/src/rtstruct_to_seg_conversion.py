@@ -103,6 +103,7 @@ def convert_4d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array
         series_number=1,
         software_versions="1.0",
         series_description=seg_series_description,
+        omit_empty_frames=False
     )
 
     try:
