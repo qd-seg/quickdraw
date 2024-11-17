@@ -24,9 +24,13 @@ def write_json(filename, data):
         json.dump(data, file)
 
 def read_env_vars(local=False):
+    local_dir = None
+    if local:
+        local_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../secret/'))
+
     # print(os.environ.get('SERVICE_CONFIGURATION'), os.environ.get('SERVICE_ACCOUNT'))
-    service_config = read_json(os.path.join(os.getcwd(), '../../../secret/service_configuration.json') if local else os.environ.get('SERVICE_CONFIGURATION'))
-    service_accnt = read_json(os.path.join(os.getcwd(), '../../../secret/service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'))
+    service_config = read_json(os.path.join(local_dir, 'service_configuration.json') if local else os.environ.get('SERVICE_CONFIGURATION'))
+    service_accnt = read_json(os.path.join(local_dir, 'service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'))
     # print(service_config)
     # print(service_accnt, flush=True)
     instance_limit = service_config.get('instanceLimit', None) or 1
@@ -40,7 +44,7 @@ def read_env_vars(local=False):
         allow_run_without_google_cloud = False
         
     return {
-        'key_file': os.path.join(os.getcwd(), '../../../secret/service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'),
+        'key_file': os.path.join(local_dir, 'service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'),
         'project_id': service_accnt['project_id'],
         'zone': service_config['zone'],
         'region': service_config['zone'].split('-')[:-1],

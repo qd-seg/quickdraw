@@ -51,7 +51,28 @@ An `.env` file is required with the following entries. The *values* in the paren
 You should have already created a Python virtual environment and installed the required packages as described [here](/README.md#activate-the-virtual-environment).
 
 ### Dockerizing a Model
-A Dockerized model `organ-segmentation-model` is already available on radiology-b0759's Google Cloud Artifact Registry. Only follow the below instructions if you do not have access to that project, or if you would like to create your own:
+A Dockerized model `organ-segmentation-model` is already available on radiology-b0759's Google Cloud Artifact Registry. Only follow the below instructions if you do not have access to that project, or if you would like to create your own model.
+
+#### Using the Existing Model
+Follow these instructions to use the existing Organ Segmentation model, created by Rahul Pemmaraju and Neehar Peri
+in your own Google Cloud project.
+
+Create a Python virtual environment and upload the model:
+- `python3 -m venv .venv`
+- `source .venv/bin/activate` (MacOS/Linux), or `.venv\Scripts\activate.bat` (Windows)
+- `pip install -r ./platform/broker/src/upload_requirements.txt`
+
+If you have a .tar file:
+- `python3 ./platform/broker/src/upload_model.py <image-name> --tarball-path <tarball-path>`
+
+Or, if you want to build the image from the `organ_seg_model` branch:
+- Navigate into a directory *outside* of this project's root directory
+- `git clone -b organ_seg_model gitlab@para.cs.umd.edu:purtilo/radiology.git`
+- `cd` into the project directory
+- `docker build -t <image-name>`
+- `python3 ./platform/broker/src/upload_model.py <image-name> --direct-push`
+
+#### Creating a New Model
 - Create Dockerfile with an ENTRYPOINT that is that python file ran to make predictions. Ex: `ENTRYPOINT ["python", "predict.py"]`
 - `predict.py` should take 1 required command-line argument, which is the name of the DICOM series that will be fed to the model
 - `predict.py` **MUST** take in inputs from `./images` and output to `./model_outputs/<dicom-series-name>/<output>.[dcm|npz]`, relative to the directory that `predict.py` is stored (probably `/app/`)
@@ -63,12 +84,11 @@ Your image should appear if you run `docker images`. To test it:
 - `docker run -v <model-root-path>/images:/app/images -v <model-root-path>/model_outputs:/app/model_outputs <dicom-series-name> [OPTIONAL-ARGS]` 
   
 You can push the model directly to Registry:
-- `cd platform/broker/src`
-- `python3 upload_model.py <image-name> --direct-push`
+- `python3 ./platform/broker/src/upload_model.py <image-name> --direct-push`
 
 Or, if you wish to save the image to a tarball first:
 - `docker save -o <image-name>.tar <image-name>`
-- `python3 upload_model.py <image-name> --tarball-path=<tarball-path>`
+- `python3 ./platform/broker/src/upload_model.py <image-name> --tarball-path <tarball-path>`
 
 If you are having issues, double check your service account configuration secret files are correct.
 Also ensure the service account has the proper permissions as described [here](README.md#google-cloud-setup)

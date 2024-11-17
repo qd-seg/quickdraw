@@ -42,31 +42,33 @@ def delete_docker_image(project_id: str, zone: str, models_repo: str, image_name
         print(e)
         return None
     
-def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, models_repo: str, service_account_access_token: str, image_name: str, tarball_path: str, LOG=False, skip_push=False, override_existing=False, direct_push=False):
+def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, models_repo: str, service_account_access_token: str, image_name: str, tarball_path: str, LOG=False, skip_push=False, direct_push=False):
     region = get_region_name(zone)
     if LOG:
         print('Logging into docker with service account')
     subprocess.run(['docker', 'login', '-u', 'oauth2accesstoken', '--password-stdin', f'https://{region}-docker.pkg.dev'], check=True, input=service_account_access_token, text=True)
     
-    _IMAGE_NAME = image_name
-    _TAG = 'latest'
-    docker_tag = f'{region}-docker.pkg.dev/{project_id}/{models_repo}/{_IMAGE_NAME}:{_TAG}'
-    
-    docker_img_exists_output = subprocess.check_output(['docker', 'images', '-q', f'{_IMAGE_NAME}:{_TAG}'], text=True)
-    
-    if not direct_push and (override_existing or docker_img_exists_output.strip() == ''):
+    if not direct_push:
         if LOG:
             print('Loading docker image. This may take a while...')
         try:
             # TODO: instead of import use load? or just put entrypoint in docker run
             # subprocess.run(f'docker import "{tarball_path}" "{_IMAGE_NAME}:{_TAG}"', check=True, shell=True, cwd='.')
-            subprocess.run(f'docker load -i "{tarball_path}"', check=True, shell=True, cwd='.')
+            load_output = subprocess.run(f'docker load -i "{tarball_path}"', check=True, shell=True, cwd='.', text=True, capture_output=True)
+            image_name = load_output.stdout.splitlines()[0].split(':')[1].strip()
+            print('Loaded', image_name)
         except Exception as e:
             print('Could not load docker image from tarball')
-            # print(e)
-            exit()
-    else: 
-        print(f'Docker image of name {_IMAGE_NAME} already exists')
+            print(e)
+            exit(1)
+    # else: 
+    #     print(f'Docker image of name {_IMAGE_NAME} already exists')
+        
+    _IMAGE_NAME = image_name
+    _TAG = 'latest'
+    docker_tag = f'{region}-docker.pkg.dev/{project_id}/{models_repo}/{_IMAGE_NAME}:{_TAG}'
+    
+    # docker_img_exists_output = subprocess.check_output(['docker', 'images', '-q', f'{_IMAGE_NAME}:{_TAG}'], text=True)
     
     if LOG:
         print('running tag')
@@ -81,7 +83,7 @@ def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, 
     
 # Uploads a Dockerized ML model to Google Artifact Registry
 # NOTE: image_name MUST be the same as the name used for docker build + docker save
-def upload_docker_image_to_artifact_registry(project_id: str, zone: str, models_repo: str, image_name: str, tarball_path: str, LOG=False, skip_push=False, override_existing=False, direct_push=False):
+def upload_docker_image_to_artifact_registry(project_id: str, zone: str, models_repo: str, image_name: str, tarball_path: str, LOG=False, skip_push=False, direct_push=False):
     credentials = get_credentials()
-    return upload_docker_image_to_artifact_registry_helper(project_id, zone, models_repo, credentials.token, image_name, tarball_path, LOG=LOG, skip_push=skip_push, override_existing=override_existing, direct_push=direct_push)
+    return upload_docker_image_to_artifact_registry_helper(project_id, zone, models_repo, credentials.token, image_name, tarball_path, LOG=LOG, skip_push=skip_push, direct_push=direct_push)
   
