@@ -140,13 +140,22 @@ def get_next_available_iterative_name_for_series(base_series_name, parent_study_
     # print([s.modality for s in valid_studies[0].series])
     # print([s.description for s in valid_studies[0].series])
     # print([split_char.join(s.description.split(split_char)[:-1]) for s in valid_studies[0].series])
-    
-    intersecting_series = [s.description for s in valid_studies[0].series if (
-        s.modality==modality and 
-        s.description.count(split_char) >= 1 and
-        split_char.join(s.description.split(split_char)[:-1])==base_series_name
-        # s.description.startswith(base_series_name)
-        )]
+    intersecting_series = []
+    for s in valid_studies[0].series:
+        try:
+            if s.modality == modality and \
+               s.description.count(split_char) >= 1 and \
+               split_char.join(s.description.split(split_char)[:-1]) == base_series_name:
+                   intersecting_series.append(s.description)
+        except Exception as e:
+            continue
+                
+    # intersecting_series = [s.description for s in valid_studies[0].series if (
+    #     s.modality==modality and 
+    #     s.description.count(split_char) >= 1 and
+    #     split_char.join(s.description.split(split_char)[:-1])==base_series_name
+    #     # s.description.startswith(base_series_name)
+    #     )]
     # print(intersecting_series)
     # intersecting_series.sort(key=lambda s: s.description)
     next_valid_iteration = 1
