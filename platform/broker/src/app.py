@@ -211,7 +211,8 @@ def get_existing_instance_for_model(model_name: str, try_any_avail=False):
         # print(instance.metadata.items)
         # print(this_name)
         # print(instance.status)
-        if (try_any_avail and (instance.status in ['TERMINATED', 'SUSPENDED'] or this_name is None or (is_idling is not None and is_idling.value == 'True'))):
+        if (try_any_avail and (instance.status in ['TERMINATED', 'SUSPENDED'] or this_name is None or 
+                               (is_idling is not None and is_idling.value == 'True' and instance.status in ['RUNNING']))):
             possible_any_avail_models.append(instance)
         elif (this_name is not None and this_name.value == model_name):
         # if (this_name is not None and this_name.value == model_name):
@@ -278,7 +279,8 @@ def is_tracked_model_instance_running(model_name_or_instance: Union[str | Instan
     is_idling = None if instance is None else next(filter(lambda m: m.key == 'idling', instance.metadata.items), None)
     this_name = None if instance is None else next(filter(lambda m: m.key == 'model-displayname', instance.metadata.items), None)
     print(is_idling, this_name)
-    return instance is not None and this_name is not None and (instance.status not in ['TERMINATED', 'SUSPENDED'] and (is_idling is None or is_idling.value != 'True'))
+    return instance is not None and this_name is not None and (instance.status not in ['TERMINATED', 'SUSPENDED'] and 
+                                                               (is_idling is None or is_idling.value != 'True' or instance.status in ['SUSPENDING', 'STOPPING']))
     # filename = _MODEL_INSTANCES_FILEPATH
     # model_instances = read_json(filename, default_as_dict=False)
     # for model_instance in model_instances:
@@ -678,6 +680,7 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         return True
     except Exception as e:
         print(e)
+        print(traceback.format_exc())
         emit_toast('Something went wrong when running your prediction. Is your uploaded model outputting a .npz mask?', type='error')
         set_tracked_model_instance_running(selected_model, False)
         
@@ -690,7 +693,8 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         if stop_instance_at_end:
             stop_instance(_PROJECT_ID, _ZONE, instance.name)
         else:
-            suspend_instance(_PROJECT_ID, _ZONE, instance.name)
+            if not instance.status == 'SUSPENDED':
+                suspend_instance(_PROJECT_ID, _ZONE, instance.name)
         remove_instance_metadata(_PROJECT_ID, _ZONE, get_instance(_PROJECT_ID, _ZONE, instance.name), ['dicom-image', 'model-displayname'], add_idling=True)
         # set_
         return False
@@ -824,7 +828,7 @@ DISC_LOCK = 0
 def save_discrepancy_mask():
     global DISC_LOCK
     if DISC_LOCK != 0:
-        return jsonify({ 'message', 'Currently calculating another discrepancy mask. Please wait.' }), 429
+        return jsonify({ 'message': 'Currently calculating another discrepancy mask. Please wait.' }), 429
     
     DISC_LOCK = 1
     if request.is_json:

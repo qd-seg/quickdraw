@@ -49,25 +49,25 @@ def list_instances(project_id, zone):
         print(e)
         return None
 
-def start_instance(project_id, zone, instance_name):
+def start_instance(project_id, zone, instance_name, block=True):
     request = compute_v1.StartInstanceRequest(project=project_id, zone=zone, instance=instance_name)
     response = get_compute_client().start(request)
-    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST) if block else response
 
-def stop_instance(project_id, zone, instance_name):
+def stop_instance(project_id, zone, instance_name, block=True):
     request = compute_v1.StopInstanceRequest(discard_local_ssd=False, project=project_id, zone=zone, instance=instance_name)
     response = get_compute_client().stop(request)
-    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST) if block else response
 
-def resume_instance(project_id, zone, instance_name):
+def resume_instance(project_id, zone, instance_name, block=True):
     request = compute_v1.ResumeInstanceRequest(project=project_id, zone=zone, instance=instance_name)
     response = get_compute_client().resume(request)
-    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST) if block else response
 
-def suspend_instance(project_id, zone, instance_name):
+def suspend_instance(project_id, zone, instance_name, block=True):
     request = compute_v1.SuspendInstanceRequest(discard_local_ssd=False, project=project_id, zone=zone, instance=instance_name)
     response = get_compute_client().suspend(request)
-    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST) if block else response
 
 def get_instance(project_id, zone, instance_name):    
     request = compute_v1.GetInstanceRequest(instance=instance_name, project=project_id, zone=zone)
@@ -413,17 +413,19 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                         f'--command=rm -rf /home/{username}/model_outputs/{dicom_series_id}'], check=True, input='\n', text=True)
                         # rm -rf /home/{username}/images && rm -rf /home/{username}/model_outputs'
         # Stop the instance
-        if stop_instance_at_end:
-            print('Stopping Instance')
-            stop_instance(project_id, zone, instance_name)
-        else:
-            suspend_instance(project_id, zone, instance_name)
-            
         print('Now idling...')
         subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
                         f'--project={project_id}', 
                         f'--zone={zone}',
                         f'--metadata=idling=True'], check=True)
+        
+        if stop_instance_at_end:
+            print('Stopping Instance')
+            stop_instance(project_id, zone, instance_name, block=False)
+        else:
+            print('Suspending Instance')
+            suspend_instance(project_id, zone, instance_name, block=False)
+            
     except Exception as e:
         print('Something went wrong with running predictions:')
         print(e, flush=True)

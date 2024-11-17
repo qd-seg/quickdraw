@@ -37,7 +37,7 @@ def change_tags(series_UID):#make sure this is an RTstruct series
 
 
 def get_first_dicom_image_series_from_study(patient_id, study_UID, save_directory):
-    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
+    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc', timeout=60)
 
     patient_file_id = pyorthanc.find_patients(orthanc,query={'PatientID': patient_id})[0]#there should only be one
     patient = pyorthanc.Patient(patient_file_id.get_main_information()["ID"],orthanc)
@@ -74,7 +74,7 @@ def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[
     print('saving', save_directory)
     url = orthanc_url
 
-    orthanc = pyorthanc.Orthanc(url, username='orthanc', password='orthanc')
+    orthanc = pyorthanc.Orthanc(url, username='orthanc', password='orthanc', timeout=60)
     valid_series = pyorthanc.find_series(orthanc, query={'SeriesInstanceUID': series_instance_uid})
     if len(valid_series) == 0:
         raise Exception('No series found with UID:', series_instance_uid)
@@ -110,7 +110,8 @@ def extract_dicom_series_zip(zip_path, save_directory, remove_original=False):
     return save_directory
 
 def uploadSegFile(file_path, remove_original=False):
-    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
+    print('Uploading', file_path, 'to orthanc...')
+    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc', timeout=60)
     with open(file_path, 'rb') as file:
         orthanc.post_instances(file.read())
 
@@ -120,7 +121,7 @@ def uploadSegFile(file_path, remove_original=False):
             os.remove(file_path)
             
 def get_modality_of_series(series_UID):
-    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
+    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc', timeout=60)
     series = None
     try:
         series = pyorthanc.find_series(orthanc, query={"SeriesInstanceUID":series_UID})[0]#Should only be one
@@ -131,7 +132,7 @@ def get_modality_of_series(series_UID):
     return series["MainDicomTags"]["Modality"]
 
 def get_next_available_iterative_name_for_series(base_series_name, parent_study_uid, split_char='_', modality='SEG'):
-    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
+    orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc', timeout=60)
     valid_studies = pyorthanc.find_studies(orthanc, query={'StudyInstanceUID': parent_study_uid})
     if len(valid_studies) == 0:
         raise Exception('Could not find any studies with UID', parent_study_uid)
