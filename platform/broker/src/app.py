@@ -87,6 +87,7 @@ except Exception as e:
     print('An error occurred in authentication. It is likely that you did ' +
           'not provide a valid service account key file, or you are not connected to the internet.')
     print(e)
+    print(traceback.format_exc())
     if env_vars['allow_run_without_google_cloud']:
         print('You have specified in the secret config file that you wish to continue running without Google Cloud. ' + \
             'The Flask server will continue running, but Google Cloud functionality is disabled.')

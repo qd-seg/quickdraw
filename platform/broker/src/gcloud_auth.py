@@ -73,10 +73,11 @@ def auth_with_key_file_json(key_file_path):
     global _KEY_FILE_PATH
     
     print('Authenticating with service account from', key_file_path)
-    credentials = service_account.Credentials.from_service_account_file(key_file_path)
+    credentials = service_account.Credentials.from_service_account_file(key_file_path)     
+    print('Loaded credentials')
     _KEY_FILE_PATH = key_file_path
     scoped_credentials = credentials.with_scopes(['https://www.googleapis.com/auth/cloud-platform'])
-    
+    print('Refreshing credentials')
     scoped_credentials.refresh(Request())
     print('Successfully authenticated.')
     _CREDENTIALS = scoped_credentials
