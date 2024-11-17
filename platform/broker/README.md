@@ -63,14 +63,14 @@ Create a Python virtual environment and upload the model:
 - `pip install -r ./platform/broker/src/upload_requirements.txt`
 
 If you have a .tar file:
-- `python3 ./platform/broker/src/upload_model.py <image-name> --tarball-path <tarball-path>`
+- `python3 ./platform/broker/src/upload_model.py --tarball-path <tarball-path>`
 
 Or, if you want to build the image from the `organ_seg_model` branch:
 - Navigate into a directory *outside* of this project's root directory
 - `git clone -b organ_seg_model gitlab@para.cs.umd.edu:purtilo/radiology.git`
 - `cd` into the project directory
 - `docker build -t <image-name>`
-- `python3 ./platform/broker/src/upload_model.py <image-name> --direct-push`
+- `python3 ./platform/broker/src/upload_model.py --image-name <image-name> --direct-push`
 
 #### Creating a New Model
 - Create Dockerfile with an ENTRYPOINT that is that python file ran to make predictions. Ex: `ENTRYPOINT ["python", "predict.py"]`
@@ -84,11 +84,11 @@ Your image should appear if you run `docker images`. To test it:
 - `docker run -v <model-root-path>/images:/app/images -v <model-root-path>/model_outputs:/app/model_outputs <dicom-series-name> [OPTIONAL-ARGS]` 
   
 You can push the model directly to Registry:
-- `python3 ./platform/broker/src/upload_model.py <image-name> --direct-push`
+- `python3 ./platform/broker/src/upload_model.py --image-name <image-name> --direct-push`
 
 Or, if you wish to save the image to a tarball first:
 - `docker save -o <image-name>.tar <image-name>`
-- `python3 ./platform/broker/src/upload_model.py <image-name> --tarball-path <tarball-path>`
+- `python3 ./platform/broker/src/upload_model.py --tarball-path <tarball-path>`
 
 If you are having issues, double check your service account configuration secret files are correct.
 Also ensure the service account has the proper permissions as described [here](README.md#google-cloud-setup)
