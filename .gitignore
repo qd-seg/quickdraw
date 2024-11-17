@@ -127,3 +127,4 @@ serviceAccountKeys.json
 flaskVars.json
 dcm-prediction
 dicom-images
+*.tar

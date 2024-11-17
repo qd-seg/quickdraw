@@ -1,5 +1,6 @@
 from google.cloud import artifactregistry
 from gcloud_auth import get_credentials, get_registry_client
+from google.api_core.exceptions import NotFound
 import subprocess
 
 _MAX_TIMEOUT_NORMAL_REQUEST = 90
@@ -47,6 +48,24 @@ def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, 
     if LOG:
         print('Logging into docker with service account')
     subprocess.run(['docker', 'login', '-u', 'oauth2accesstoken', '--password-stdin', f'https://{region}-docker.pkg.dev'], check=True, input=service_account_access_token, text=True)
+    
+    get_repo_request = artifactregistry.GetRepositoryRequest(name=f'projects/{project_id}/locations/{region}/repositories/{models_repo}')
+    try:
+        repo = get_registry_client().get_repository(get_repo_request)
+    except NotFound as nfe:
+        print('Repository does not exist. Creating...')
+        repo_docker_conf = artifactregistry.Repository.DockerRepositoryConfig(immutable_tags=False)
+        repo_format = artifactregistry.Repository.Format.DOCKER
+        repo = artifactregistry.Repository(
+            name=f'projects/{project_id}/locations/{region}/repositories/{models_repo}',
+            docker_config=repo_docker_conf,
+            format_=repo_format)
+        create_repo_request = artifactregistry.CreateRepositoryRequest(
+            parent=f'projects/{project_id}/locations/{region}',
+            repository_id=f'{models_repo}',
+            repository=repo)
+        result = get_registry_client().create_repository(create_repo_request)
+        result.result(timeout=_MAX_TIMEOUT_NORMAL_REQUEST)   
     
     if not direct_push:
         if LOG:
