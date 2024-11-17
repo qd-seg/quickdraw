@@ -25,15 +25,21 @@ def get_roi_masks(dicom_series_path, rt_struct_path):
         print(f"Available ROIs: {roi_names}")
 
         masks = {}
+        valid_roi_names = []
         for roi_name in roi_names:
             try:
                 mask = rtstruct.get_roi_mask_by_name(roi_name)
                 print(f"Retrieved mask for {roi_name}")
 
-                if mask is None or mask.size == 0:
+                if mask is None:
                     print(f"No mask available for {roi_name}")
                     continue
 
+                voxel_count = np.sum(mask > 0)
+                if voxel_count == 0:
+                    print(f"Skipping {roi_name} - no non-zero voxels found")
+                    continue   
+                    
                 if mask.dtype != np.int32:
                     mask = mask.astype(np.int32)
 
@@ -43,14 +49,17 @@ def get_roi_masks(dicom_series_path, rt_struct_path):
                     'voxels': np.sum(mask)
                 }
 
+                valid_roi_names.append(roi_name)
+                print(f"Successfully added {roi_name} with {voxel_count} voxels")
+
             except cv.error as cv_err:
                 print(f"\nException: OpenCV error processing {roi_name}: {cv_err}")
                 continue
 
-        return masks
+        return masks, valid_roi_names
     except Exception as e:
         print(f"Failed to process RT struct: {e}")
-        return {}
+        return {},[]
     
 # NOTE: there shouldn't really ever be a reason to use this over convert_3d
 # It takes up more memory for no benefit
