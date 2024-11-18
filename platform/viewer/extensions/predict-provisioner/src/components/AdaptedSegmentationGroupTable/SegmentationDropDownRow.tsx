@@ -1,12 +1,16 @@
 import React from 'react';
-import { Select, Icon, Dropdown, Tooltip } from '@ohif/ui';
+import { Select, Icon, Dropdown, Tooltip, Button } from '@ohif/ui';
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
+import WrappedSelect from '../WrappedSelect';
 
 function SegmentationDropDownRow({
   segmentations = [],
   activeSegmentation,
   onActiveSegmentationChange,
+  analysis,
+  activeTruth,
+  setActiveTruth,
   disableEditing,
   onToggleSegmentationVisibility,
   onSegmentationEdit,
@@ -17,107 +21,123 @@ function SegmentationDropDownRow({
   onSegmentationAdd,
   addSegmentationClassName,
 }) {
-  const handleChange = option => {
-    onActiveSegmentationChange(option.value); // Notify the parent
-  };
-
-  const selectOptions = segmentations.map(s => ({
-    value: s.id,
-    label: s.label,
-  }));
-  const { t } = useTranslation('SegmentationTable');
-
   if (!activeSegmentation) {
     return null;
   }
 
+  const handleActiveSegmentationChange = option => {
+    onActiveSegmentationChange(option.value);
+  };
+
+  const activeSegmentationOptions = segmentations.map(s => ({
+    value: s.id,
+    label: s.label,
+  }));
+
+  const truthSegmentationOptions = Object.values(analysis)
+    .filter(r => r.maskUIDs.display_set_uid === activeSegmentation.id)
+    .map(r => ({
+      value: r.truthUIDs.display_set_uid,
+      label: r.truthUIDs.series_desc,
+    }));
+
+  const { t } = useTranslation('SegmentationTable');
+
+  if (activeTruth === undefined && truthSegmentationOptions.length > 0) {
+    setActiveTruth(truthSegmentationOptions[0].value);
+  }
+
   return (
-    <div className="group mx-0.5 mt-[8px] flex items-center pb-[10px]">
-      <div
-        onClick={e => {
-          e.stopPropagation();
-        }}
-      >
-        <Dropdown
-          id="segmentation-dropdown"
-          showDropdownIcon={false}
-          alignment="left"
-          itemsClassName={`text-primary-active ${addSegmentationClassName}`}
-          showBorders={false}
-          maxCharactersPerLine={30}
-          list={[
-            ...(!disableEditing
-              ? [
-                  {
-                    title: t('Add new segmentation'),
-                    onClick: () => {
-                      onSegmentationAdd();
-                    },
-                  },
-                ]
-              : []),
-            ...(!disableEditing
-              ? [
-                  {
-                    title: t('Rename'),
-                    onClick: () => {
-                      onSegmentationEdit(activeSegmentation.id);
-                    },
-                  },
-                ]
-              : []),
-            {
-              title: t('Delete'),
-              onClick: () => {
-                onSegmentationDelete(activeSegmentation.id);
-              },
-            },
-            ...(!disableEditing
-              ? [
-                  {
-                    title: t('Export DICOM SEG'),
-                    onClick: () => {
-                      storeSegmentation(activeSegmentation.id);
-                    },
-                  },
-                ]
-              : []),
-            ...[
-              {
-                title: t('Download DICOM SEG'),
-                onClick: () => {
-                  onSegmentationDownload(activeSegmentation.id);
-                },
-              },
-              {
-                title: t('Download DICOM RTSTRUCT'),
-                onClick: () => {
-                  onSegmentationDownloadRTSS(activeSegmentation.id);
-                },
-              },
-            ],
-          ]}
-        >
-          <div className="hover:bg-secondary-dark grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]">
-            <Icon name="icon-more-menu"></Icon>
-          </div>
-        </Dropdown>
-      </div>
-      {selectOptions?.length && (
-        <Select
-          id="segmentation-select"
-          isClearable={false}
-          onChange={handleChange}
-          components={{
-            DropdownIndicator: () => <Icon name={'chevron-down-new'} className="mr-2" />,
-          }}
-          isSearchable={false}
-          options={selectOptions}
-          value={selectOptions?.find(o => o.value === activeSegmentation.id)}
-          className="text-aqua-pale h-[26px] w-1/2 text-[13px]"
-        />
+    <div>
+      {activeSegmentationOptions?.length && (
+        <div>
+          <WrappedSelect
+            label="Active Segmentation"
+            options={activeSegmentationOptions}
+            value={activeSegmentationOptions?.find(o => o.value === activeSegmentation.id)}
+            onChange={handleActiveSegmentationChange}
+          />
+
+          <WrappedSelect
+            label="Ground Truth for DICE Score"
+            options={truthSegmentationOptions}
+            value={truthSegmentationOptions?.find(o => o.value === activeTruth)}
+            onChange={o => setActiveTruth(o.value)}
+          ></WrappedSelect>
+        </div>
       )}
-      <div className="flex items-center">
+
+      <div className="group mx-0.5 mt-[8px] flex items-center justify-around pb-[10px]">
+        <div
+          onClick={e => {
+            e.stopPropagation();
+          }}
+        >
+          <Dropdown
+            id="segmentation-dropdown"
+            showDropdownIcon={false}
+            alignment="left"
+            itemsClassName={`text-primary-active ${addSegmentationClassName}`}
+            showBorders={false}
+            maxCharactersPerLine={30}
+            list={[
+              ...(!disableEditing
+                ? [
+                    {
+                      title: t('Add new segmentation'),
+                      onClick: () => {
+                        onSegmentationAdd();
+                      },
+                    },
+                  ]
+                : []),
+              ...(!disableEditing
+                ? [
+                    {
+                      title: t('Rename'),
+                      onClick: () => {
+                        onSegmentationEdit(activeSegmentation.id);
+                      },
+                    },
+                  ]
+                : []),
+              {
+                title: t('Delete'),
+                onClick: () => {
+                  onSegmentationDelete(activeSegmentation.id);
+                },
+              },
+              ...(!disableEditing
+                ? [
+                    {
+                      title: t('Export DICOM SEG'),
+                      onClick: () => {
+                        storeSegmentation(activeSegmentation.id);
+                      },
+                    },
+                  ]
+                : []),
+              ...[
+                {
+                  title: t('Download DICOM SEG'),
+                  onClick: () => {
+                    onSegmentationDownload(activeSegmentation.id);
+                  },
+                },
+                {
+                  title: t('Download DICOM RTSTRUCT'),
+                  onClick: () => {
+                    onSegmentationDownloadRTSS(activeSegmentation.id);
+                  },
+                },
+              ],
+            ]}
+          >
+            <div className="hover:bg-secondary-dark grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]">
+              <Icon name="icon-more-menu"></Icon>
+            </div>
+          </Dropdown>
+        </div>
         <Tooltip
           position="bottom-right"
           content={

@@ -49,6 +49,7 @@ const SegmentationGroupTable = ({
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [activeSegmentationId, setActiveSegmentationId] = useState(null);
   const [activeSegmentationScores, setActiveSegmentationScores] = useState(undefined);
+  const [activeTruth, setActiveTruth] = useState(undefined);
 
   const onActiveSegmentationChange = segmentationId => {
     onSegmentationClick(segmentationId);
@@ -57,9 +58,7 @@ const SegmentationGroupTable = ({
   };
 
   const determineActiveSegmentationScores = segmentationId => {
-    const scores = Object.values(analysis).find(
-      record => record.maskUIDs.display_set_uid === segmentationId
-    )?.scores;
+    const scores = analysis[`${segmentationId}:${activeTruth}`]?.scores;
 
     if (scores) setActiveSegmentationScores(scores);
     else setActiveSegmentationScores(undefined);
@@ -67,7 +66,7 @@ const SegmentationGroupTable = ({
 
   useEffect(() => {
     determineActiveSegmentationScores(activeSegmentationId);
-  }, [analysis]);
+  }, [analysis, activeTruth]);
 
   useEffect(() => {
     // find the first active segmentation to set
@@ -130,6 +129,9 @@ const SegmentationGroupTable = ({
           ) : (
             <div className="mt-1 select-none">
               <SegmentationDropDownRow
+                analysis={analysis}
+                activeTruth={activeTruth}
+                setActiveTruth={setActiveTruth}
                 segmentations={segmentations}
                 disableEditing={disableEditing}
                 activeSegmentation={activeSegmentation}
