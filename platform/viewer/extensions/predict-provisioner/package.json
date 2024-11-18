@@ -25,6 +25,10 @@
     "react-dom": "^18.3.1"
   },
   "dependencies": {
-    "@babel/runtime": "^7.20.13"
+    "@babel/runtime": "^7.20.13",
+    "classnames": "^2.5.1",
+    "prop-types": "^15.8.1",
+    "react-color": "^2.19.3",
+    "react-i18next": "^15.1.1"
   }
 }

@@ -1,8 +1,8 @@
 {
   "private": true,
   "workspaces": [
-    "src/app/extensions/predict-provisioner",
-    "src/app/modes/radiology-ai"
+    "platform/viewer/extensions/predict-provisioner",
+    "platform/viewer/modes/radiology-ai"
   ],
   "scripts": {
     "start": "yarn run start:development",

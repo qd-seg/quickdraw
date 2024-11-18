@@ -1,5 +1,4 @@
 import * as React from 'react';
-
 import { PanelSection, Select, Typography, Label } from '@ohif/ui';
 
 export default ({ value, onChange, options, label }) => {
