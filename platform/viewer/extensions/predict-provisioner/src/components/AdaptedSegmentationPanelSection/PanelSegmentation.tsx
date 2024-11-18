@@ -202,7 +202,6 @@ export default function PanelSegmentation({
     segmentationService.removeSegment(segmentationUID, segmentIndex);
   };
 
-  // segment hide
   const onToggleSegmentVisibility = (segmentationUID, segmentIndex) => {
     const segmentation = segmentationService.getSegmentation(segmentationUID);
     const segmentInfo = segmentation.segments[segmentIndex];
@@ -246,7 +245,7 @@ export default function PanelSegmentation({
   const _setSegmentationConfiguration = React.useCallback(
     (segmentationUID, key, value) => {
       segmentationService.setConfiguration({
-        segmentationUID,
+        segmentationId: segmentationUID,
         [key]: value,
       });
     },
@@ -254,7 +253,7 @@ export default function PanelSegmentation({
   );
 
   const onSegmentationDownload = segmentationUID => {
-    commandsManager.runCommand('downloadSegmentation', { segmentationUID });
+    commandsManager.runCommand('downloadSegmentation', { segmentationId: segmentationUID });
   };
 
   const onSegmentationStore = async segmentationUID => {
@@ -264,7 +263,7 @@ export default function PanelSegmentation({
       servicesManager,
       getReport: () =>
         commandsManager.runCommand('storeSegmentation', {
-          segmentationUID,
+          segmentationId: segmentationUID,
           dataSource: datasources[0],
         }),
       reportType: 'Segmentation',
@@ -281,7 +280,7 @@ export default function PanelSegmentation({
   };
 
   const onSegmentationDownloadRTSS = segmentationUID => {
-    commandsManager.runCommand('downloadRTSS', { segmentationUID });
+    commandsManager.runCommand('downloadRTSS', { segmentationId: segmentationUID });
   };
 
   const allowAddSegment = configuration?.addSegment;

@@ -72,7 +72,7 @@ export default ({
               ...(!disableEditing
                 ? [
                     {
-                      title: 'Add New Segmentation',
+                      title: 'Add',
                       onClick: () => onSegmentationAdd(),
                     },
                   ]
@@ -92,19 +92,15 @@ export default ({
               ...(!disableEditing
                 ? [
                     {
-                      title: 'Export DICOM SEG',
+                      title: 'Export',
                       onClick: () => onSegmentationStore(activeSegmentation.id),
                     },
                   ]
                 : []),
               ...[
                 {
-                  title: 'Download DICOM SEG',
+                  title: 'Download',
                   onClick: () => onSegmentationDownload(activeSegmentation.id),
-                },
-                {
-                  title: 'Download DICOM RTSTRUCT',
-                  onClick: () => onSegmentationDownloadRTSS(activeSegmentation.id),
                 },
               ],
             ]}
