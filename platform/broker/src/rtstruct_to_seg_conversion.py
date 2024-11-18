@@ -39,7 +39,7 @@ def get_roi_masks(dicom_series_path, rt_struct_path):
                 if voxel_count == 0:
                     print(f"Skipping {roi_name} - no non-zero voxels found")
                     continue   
-                    
+
                 if mask.dtype != np.int32:
                     mask = mask.astype(np.int32)
 
@@ -59,7 +59,7 @@ def get_roi_masks(dicom_series_path, rt_struct_path):
         return masks, valid_roi_names
     except Exception as e:
         print(f"Failed to process RT struct: {e}")
-        return {},[]
+        return {}, []
     
 # NOTE: there shouldn't really ever be a reason to use this over convert_3d
 # It takes up more memory for no benefit
