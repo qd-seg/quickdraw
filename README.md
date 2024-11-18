@@ -138,7 +138,9 @@ In order to upload models using the CLI script, several Python libraries are req
 
 A Dockerized model for organ segmentation is already available the radiology project's Google Cloud Artifact Registry. Follow the below instructions if you [want to use the existing model on a different Cloud project](#using-the-existing-model). If you would like to create your own model, [instructions are here](#creating-a-new-model).
 
-##### Using the Existing Model
+---
+
+#### Using the Existing Model
 Follow these instructions to use the existing Organ Segmentation model, created by Rahul Pemmaraju and Neehar Peri,
 in your own Google Cloud project.
 
@@ -158,6 +160,8 @@ Or, if you want to build the image from the `organ_seg_model` branch:
 - `docker build -t <image-name> .`
 - **`cd` back into original project's root directory**
 - `yarn run manage:upload -i <image-name>`
+
+---
 
 #### Creating a New Model
 - Create Dockerfile with an ENTRYPOINT that is that python file ran to make predictions. Ex: `ENTRYPOINT ["python", "predict.py"]`
