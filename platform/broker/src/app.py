@@ -825,30 +825,10 @@ def run_prediction():
 #     return jsonify({"message": message}), status_code
 
 DISC_LOCK = 0
-@bp.route('/saveDiscrepancyMask', methods=['POST'])
-def save_discrepancy_mask():
+def save_discrepancy_mask_helper(dicom_series_id, pred_series_id, truth_series_id):
     global DISC_LOCK
-    if DISC_LOCK != 0:
-        return jsonify({ 'message': 'Currently calculating another discrepancy mask. Please wait.' }), 429
-    
-    DISC_LOCK = 1
-    if request.is_json:
-        json_data = request.get_json()
-    else:
-        print('not json')
-        DISC_LOCK = 0
-        return jsonify({ 'message': 'Something went wrong' }), 500
-    
-    dicom_series_id = json_data.get('parent_id')
-    pred_series_id = json_data.get('predSeriesUid')
-    truth_series_id = json_data.get('truthSeriesUid')
-    
-    if dicom_series_id is None or pred_series_id is None or truth_series_id is None:
-        DISC_LOCK = 0
-        return jsonify({ 'message': 'Please select a prediction and truth mask.' })
-    
     # Pull the images from Orthanc into cache
-    emit_status_update('Getting DICOM images...')
+    # emit_status_update('Getting DICOM images...')
     disc_path = 'discrepancy/'
     if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
         disc_path = os.path.abspath(os.path.join(cache_dir, disc_path))
@@ -904,12 +884,16 @@ def save_discrepancy_mask():
     except Exception as e:
         print(e)
         DISC_LOCK = 0
-        return jsonify({ 'saved_mask': False, 'message': str(e) }), 500
+        emit_toast(f'Something went wrong: {str(e)}', type='error')
+        return
+        # return jsonify({ 'saved_mask': False, 'message': str(e) }), 500
     
     if out_name is None:
         # print('something went wrong')
         DISC_LOCK = 0
-        return jsonify({ 'saved_mask': False, 'message': 'There were no discrepancies between the two masks.' }), 200
+        emit_toast('There were no discrepancies between the two masks. Nothing was saved.', type='warning')
+        return
+        # return jsonify({ 'saved_mask': False, 'message': 'There were no discrepancies between the two masks.' }), 200
     
     print('Uploading SEG')
     uploadSegFile(out_name, remove_original=False)
@@ -919,15 +903,42 @@ def save_discrepancy_mask():
     
     print('Done')
     DISC_LOCK = 0
-    return jsonify({ 'saved_mask': True, 'message': 'Succesfully saved discrepancy mask.' }), 200
+    emit_toast('Successfully saved discrepancy mask.')
+    # return jsonify({ 'saved_mask': True, 'message': 'Succesfully saved    discrepancy mask.' }), 200
 
+@bp.route('/saveDiscrepancyMask', methods=['POST'])
+def save_discrepancy_mask():
+    global DISC_LOCK
+    if DISC_LOCK != 0:
+        return jsonify({ 'message': 'Currently calculating another discrepancy mask. Please wait.' }), 429
+    
+    DISC_LOCK = 1
+    if request.is_json:
+        json_data = request.get_json()
+    else:
+        print('not json')
+        DISC_LOCK = 0
+        return jsonify({ 'message': 'Something went wrong' }), 500
+    
+    dicom_series_id = json_data.get('parent_id')
+    pred_series_id = json_data.get('predSeriesUid')
+    truth_series_id = json_data.get('truthSeriesUid')
+    
+    if dicom_series_id is None or pred_series_id is None or truth_series_id is None:
+        DISC_LOCK = 0
+        return jsonify({ 'message': 'Please select a prediction and truth mask.' }), 400
+    
+    thread = threading.Thread(target=save_discrepancy_mask_helper, args=(dicom_series_id, pred_series_id, truth_series_id))
+    thread.start()
+    return jsonify({ 'message': 'Calculating discrepancy mask...' }), 202
+    
 DICE_LOCK = 0
 @bp.route('/getDICEScores', methods=['POST'])
 def getDICEScores():
     global DICE_LOCK
     
     if DICE_LOCK != 0:
-        return jsonify({ 'message', 'Currently calculating another DICE score. Please wait.' }), 429
+        return jsonify({ 'message': 'Currently calculating another DICE score. Please wait.' }), 429
     
     DICE_LOCK = 1
     if request.is_json:
