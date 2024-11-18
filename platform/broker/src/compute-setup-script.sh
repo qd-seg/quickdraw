@@ -52,6 +52,23 @@ echo "Running docker image"
 #     exit 1
 # fi
 # echo "Docker image running on container $CONTAINER_ID"
+# mkdir -p "/home/$USERNAME/images/$DICOM_IMAGE"
+echo Installing unzip
+# cd "/home/$USERNAME"
+sudo mkdir /mnt/disks/scratch
+sudo mount -t tmpfs tmpfs /mnt/disks/scratch/
+curl -Lo /mnt/disks/scratch/unzip https://busybox.net/downloads/binaries/1.30.0-i686/busybox_UNZIP
+chmod +x /mnt/disks/scratch/unzip
+TEMP_DIR=$(mktemp -d)
+echo unzip dcm files
+/mnt/disks/scratch/unzip "/home/$USERNAME/images/$DICOM_IMAGE/series.zip" -d "$TEMP_DIR"
+
+find "$TEMP_DIR" -type f -name '*.dcm' -exec cp {} "/home/$USERNAME/images/$DICOM_IMAGE" \;
+rm -rf "$TEMP_DIR"
+rm -f "/home/$USERNAME/images/$DICOM_IMAGE/series.zip"
+
+sudo umount /mnt/disks/scratch
+sudo rm -rf /mnt/disks/scratch
 
 echo running with user: ${USERNAME}
 

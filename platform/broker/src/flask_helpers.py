@@ -1,6 +1,5 @@
 import os
-from gcloud_auth import get_compute_client, get_credentials, auth_with_key_file_json, get_registry_client
-from dotenv import load_dotenv
+from gcloud_auth import get_compute_client, get_credentials, auth_with_key_file_json, get_registry_client, read_env_vars
 from google.cloud import compute_v1, artifactregistry
 from google.api_core.extended_operation import ExtendedOperation
 from datetime import datetime
@@ -16,48 +15,6 @@ from orthanc_functions import get_dicom_series_by_id
 _USERNAME = 'cmsc435'
 _MAX_TIMEOUT_NORMAL_REQUEST = 90
 _MAX_TIMEOUT_COMPUTE_REQUEST = 640
-
-def read_env_vars(local=False):
-    # print(os.environ.get('SERVICE_CONFIGURATION'), os.environ.get('SERVICE_ACCOUNT'))
-    service_config = read_json(os.path.join(os.getcwd(), '../../../secret/service_configuration.json') if local else os.environ.get('SERVICE_CONFIGURATION'))
-    service_accnt = read_json(os.path.join(os.getcwd(), '../../../secret/service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'))
-    # print(service_config)
-    # print(service_accnt, flush=True)
-    return {
-        'key_file': os.path.join(os.getcwd(), '../../../secret/service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'),
-        'project_id': service_accnt['project_id'],
-        'zone': service_config['zone'],
-        'region': service_config['zone'].split('-')[:-1],
-        'backup_zones': service_config['backupZones'],
-        'machine_type': service_config['machineType'],
-        'repository': service_config['repository'],
-        'service_account_email': service_accnt['client_email'],
-        'instance_limit': service_config['instanceLimit'] or 1,
-    }
-    # print(env_vars)
-    # _SERVICE_ACCOUNT_KEYS = env_vars['serviceAccountKeys']
-    # _KEY_FILE = 'serviceAccountKeys.json'
-    # write_json(_KEY_FILE, _SERVICE_ACCOUNT_KEYS)
-    # _PROJECT_ID = _SERVICE_ACCOUNT_KEYS['project_id']
-    # _ZONE = env_vars['zone']
-    # _REGION = '-'.join(_ZONE.split('-')[:-1])
-    # _MACHINE_TYPE = env_vars['machineType']
-    # _REPOSITORY = env_vars['repository']
-    # _SERVICE_ACCOUNT_EMAIL = _SERVICE_ACCOUNT_KEYS['client_email']
-    # _INSTANCE_LIMIT = 1
-
-def read_json(filename, default_as_dict=True) -> Union[List, dict]:
-    """Reads a JSON file and returns its content."""
-    try:
-        with open(filename, 'r') as file:
-            return json.load(file)
-    except FileNotFoundError:
-        return {} if default_as_dict else []
-
-def write_json(filename, data):
-    """Writes data to a JSON file."""
-    with open(filename, 'w') as file:
-        json.dump(data, file)
 
 def get_region_name(zone: str):
     return '-'.join(zone.split('-')[:-1])
@@ -92,15 +49,25 @@ def list_instances(project_id, zone):
         print(e)
         return None
 
-def start_instance(project_id, zone, instance_name):
+def start_instance(project_id, zone, instance_name, block=True):
     request = compute_v1.StartInstanceRequest(project=project_id, zone=zone, instance=instance_name)
     response = get_compute_client().start(request)
-    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST) if block else response
 
-def stop_instance(project_id, zone, instance_name):
+def stop_instance(project_id, zone, instance_name, block=True):
     request = compute_v1.StopInstanceRequest(discard_local_ssd=False, project=project_id, zone=zone, instance=instance_name)
     response = get_compute_client().stop(request)
-    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST) if block else response
+
+def resume_instance(project_id, zone, instance_name, block=True):
+    request = compute_v1.ResumeInstanceRequest(project=project_id, zone=zone, instance=instance_name)
+    response = get_compute_client().resume(request)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST) if block else response
+
+def suspend_instance(project_id, zone, instance_name, block=True):
+    request = compute_v1.SuspendInstanceRequest(discard_local_ssd=False, project=project_id, zone=zone, instance=instance_name)
+    response = get_compute_client().suspend(request)
+    return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST) if block else response
 
 def get_instance(project_id, zone, instance_name):    
     request = compute_v1.GetInstanceRequest(instance=instance_name, project=project_id, zone=zone)
@@ -205,12 +172,13 @@ def create_new_instance(instance_name, project_id, zone, machine_type, instance_
         if not removed_instance:
             raise Exception("Google Cloud is at its limit, please wait.")
            
+    disk_type = 'hyperdisk-balanced' if machine_type.split('-')[0] == 'c4' else 'pd-standard'
     vm_instance = create_instance_helper(
         project_id=project_id,
         zone=zone,
         instance_name=instance_name,
         machine_type=machine_type,
-        disk_type=f'projects/{project_id}/zones/{zone}/diskTypes/pd-standard',
+        disk_type=f'projects/{project_id}/zones/{zone}/diskTypes/{disk_type}',
         source_image='projects/cos-cloud/global/images/cos-101-17162-386-59',
         disk_size=50,
         service_account=service_account_email
@@ -227,84 +195,7 @@ def create_new_instance(instance_name, project_id, zone, machine_type, instance_
         instance = get_instance(project_id, zone, instance_name)
     
     return instance
-
-## Docker Images and Artifact Registry
-def list_docker_images(project_id: str, zone: str, models_repo: str, specific_tags: bool = False):
-    '''Lists all Docker images. If specific_tags, list all tags. Otherwise, list all packages.'''
-    if specific_tags:
-        request = artifactregistry.ListDockerImagesRequest(parent=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}')
-        response = get_registry_client().list_docker_images(request)
-        return list(response)
-
-    else:
-        request = artifactregistry.ListPackagesRequest(parent=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}')
-        response = get_registry_client().list_packages(request)
-        return list(response)
-    
-def get_docker_image(project_id: str, zone: str, models_repo: str, image_name: str):
-    request = artifactregistry.GetDockerImageRequest(name=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}/dockerImages/{image_name}:latest')
-    try:
-        response = get_registry_client().get_docker_image(request)
-        artifactregistry.GetTagRequest()
-        return response
-    except Exception as e:
-        print('Could not get docker image of name', image_name)
-        print(e)
-        return None
-    
-def delete_docker_image(project_id: str, zone: str, models_repo: str, image_name: str):
-    request = artifactregistry.DeletePackageRequest(name=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}/packages/{image_name}')
-    try:
-        response = get_registry_client().delete_package(request)
-        return response.result(timeout=_MAX_TIMEOUT_COMPUTE_REQUEST)
-    except Exception as e:
-        print('Could not get docker image of name', image_name)
-        print(e)
-        return None
-    
-def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, models_repo: str, service_account_access_token: str, image_name: str, tarball_path: str, LOG=False, skip_push=False, override_existing=False, direct_push=False):
-    region = get_region_name(zone)
-    if LOG:
-        print('Logging into docker with service account')
-    subprocess.run(['docker', 'login', '-u', 'oauth2accesstoken', '--password-stdin', f'https://{region}-docker.pkg.dev'], check=True, input=service_account_access_token, text=True)
-    
-    _IMAGE_NAME = image_name
-    _TAG = 'latest'
-    docker_tag = f'{region}-docker.pkg.dev/{project_id}/{models_repo}/{_IMAGE_NAME}:{_TAG}'
-    
-    docker_img_exists_output = subprocess.check_output(['docker', 'images', '-q', f'{_IMAGE_NAME}:{_TAG}'], text=True)
-    
-    if not direct_push and (override_existing or docker_img_exists_output.strip() == ''):
-        if LOG:
-            print('Loading docker image. This may take a while...')
-        try:
-            # TODO: instead of import use load? or just put entrypoint in docker run
-            # subprocess.run(f'docker import "{tarball_path}" "{_IMAGE_NAME}:{_TAG}"', check=True, shell=True, cwd='.')
-            subprocess.run(f'docker load -i "{tarball_path}"', check=True, shell=True, cwd='.')
-        except Exception as e:
-            print('Could not load docker image from tarball')
-            # print(e)
-            exit()
-    else: 
-        print(f'Docker image of name {_IMAGE_NAME} already exists')
-    
-    if LOG:
-        print('running tag')
-    subprocess.run(['docker', 'tag', f'{_IMAGE_NAME}:{_TAG}', docker_tag])
-    
-    if skip_push:
-        return
-    
-    if LOG:
-        print('running push')
-    subprocess.run(['docker', 'push', docker_tag])
-    
-# Uploads a Dockerized ML model to Google Artifact Registry
-# NOTE: image_name MUST be the same as the name used for docker build + docker save
-def upload_docker_image_to_artifact_registry(project_id: str, zone: str, models_repo: str, image_name: str, tarball_path: str, LOG=False, skip_push=False, override_existing=False, direct_push=False):
-    credentials = get_credentials()
-    return upload_docker_image_to_artifact_registry_helper(project_id, zone, models_repo, credentials.token, image_name, tarball_path, LOG=LOG, skip_push=skip_push, override_existing=override_existing, direct_push=direct_push)
-    
+  
 ## Connecting Compute and Registry
 # Put setup script and other metadata into instance
 def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_name: str, instance: compute_v1.Instance, dicom_series_id: str = None):
@@ -332,8 +223,11 @@ def setup_instance_metadata(project_id: str, zone: str, models_repo: str, image_
     # startup_request = compute_v1.SetMetadataInstanceRequest(instance=instance.name, metadata_resource=startup_metadata, project=_PROJECT_ID, zone=_ZONE)
     return first_metadata_request.result(timeout=_MAX_TIMEOUT_NORMAL_REQUEST)
 
-def remove_instance_metadata(project_id: str, zone: str, instance: compute_v1.Instance, keys_to_remove: List[str]):
+def remove_instance_metadata(project_id: str, zone: str, instance: compute_v1.Instance, keys_to_remove: List[str], add_idling=False):
     new_metadata = list(filter(lambda i: i.key not in keys_to_remove, instance.metadata.items))
+    if add_idling and not any([m.key == 'idling' for m in new_metadata]):
+        new_metadata += [compute_v1.Items(key='idling', value='True')]
+        
     latest_metadata = get_instance(project_id, zone, instance.name).metadata
     # print('LATEST',latest_metadata)
     newest_fingerprint = latest_metadata.fingerprint
@@ -357,19 +251,36 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
             
         username = _USERNAME
         # Create images/ directory
+        print('Creating directory on instance...')
+        # subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
+        #                 f'--project={project_id}', 
+        #                 f'--zone={zone}',
+        #                 '--quiet',
+        #                 f'--command=mkdir -p /home/{username}/images && mkdir -p /home/{username}/model_outputs/{dicom_series_id} && rm -rf /home/{username}/images/{dicom_series_id}'], check=True, input='\n', text=True)
         subprocess.run(['gcloud', 'compute', 'ssh', f'{username}@{instance_name}', 
                         f'--project={project_id}', 
                         f'--zone={zone}',
                         '--quiet',
-                        f'--command=mkdir -p /home/{username}/images && mkdir -p /home/{username}/model_outputs/{dicom_series_id} && rm -rf /home/{username}/images/{dicom_series_id}'], check=True, input='\n', text=True)
+                        f'--command=mkdir -p /home/{username}/images/{dicom_series_id} && mkdir -p /home/{username}/model_outputs/{dicom_series_id} && rm -rf /home/{username}/images/{dicom_series_id}/*'], check=True, input='\n', text=True)
         # Upload
+        print('Copying over dicom images..')
+        # subprocess.run(['gcloud', 'compute', 'scp',
+        #                 f'--project={project_id}', 
+        #                 f'--zone={zone}',
+        #                 '--recurse',
+        #                 '--verbosity=debug',
+        #                 '--quiet',
+        #                 dicom_image_directory,
+        #                 f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}'], check=True)
+        
         subprocess.run(['gcloud', 'compute', 'scp',
                         f'--project={project_id}', 
                         f'--zone={zone}',
-                        '--recurse',
+                        '--verbosity=debug',
                         '--quiet',
                         dicom_image_directory,
-                        f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}'], check=True)
+                        f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}/'], check=True)
+        print('ok')
     except Exception as e:
         print('DICOM upload failed')
         print(e, flush=True)
@@ -377,7 +288,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
     
     return True
 
-def get_dicom_series_from_orthanc_to_cache(dicom_series_id: str, cache_subdir='dcm-images/'):
+def get_dicom_series_from_orthanc_to_cache(dicom_series_id: str, cache_subdir='dcm-images/', series_obj_out=[], extract_zip=True):
     if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
         cache_subdir = os.path.abspath(os.path.join(cache_dir, cache_subdir))
     temp_images_path = os.path.join(cache_subdir, dicom_series_id)
@@ -385,7 +296,7 @@ def get_dicom_series_from_orthanc_to_cache(dicom_series_id: str, cache_subdir='d
     
     # TODO: sometimes there is an out of memory issues and it SIGKILLS the flask process.
     # only happened one time and cannot reproduce
-    dicom_series_path = get_dicom_series_by_id(dicom_series_id, temp_images_path)
+    dicom_series_path = get_dicom_series_by_id(dicom_series_id, temp_images_path, series_obj_out=series_obj_out, extract_zip=extract_zip)
     # dicom_series_path = get_first_dicom_image_series_from_study(patient_id, study_id, temp_images_path)
     print(dicom_series_path)
     return dicom_series_path, temp_images_path
@@ -414,7 +325,7 @@ def setup_compute_instance(project_id: str, zone: str, instance_name: str | None
     return instance
 
 # Run predictions on existing compute instance. Assumes DICOM images have already been uploaded to ./dicom-images/
-def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, cached_dicom_series_path: str, dicom_series_id: str, instance_name: str, skip_predictions: bool = False, progress_bar_update_callback = None, stop_instance_at_end: bool = True) -> str | None:
+def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, cached_dicom_series_path: str, dicom_series_id: str, instance_name: str, skip_predictions: bool = False, progress_bar_update_callback = None, stop_instance_at_end: bool = True, pred_cache_dir: str = 'dcm-predictions/') -> str | None:
     # Need:
     # where does dicom series come from -> the cache/temp-dcm/study_id/instance_id/...
     # where are images uploaded to -> /home/USER/images/instance_id (uid)
@@ -428,7 +339,12 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         # Start the instance
         start_instance(project_id, zone, instance_name)
         time.sleep(1)
+    except Exception as e:
+        print(e)
+        resume_instance(project_id, zone, instance_name)
+        time.sleep(1)
         
+    try:    
         # Log into service account with gcloud
         subprocess.run(['gcloud', 'auth', 'activate-service-account', service_account, f'--key-file={key_filepath}'], check=True)
         if not skip_predictions:
@@ -453,7 +369,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                 dicom_series_id, 
                 instance_name, 
                 run_auth=False):
-                    raise Exception()
+                    raise Exception('Upload failed')
             
             if progress_bar_update_callback is not None:
                 progress_bar_update_callback(60)
@@ -473,7 +389,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         if progress_bar_update_callback is not None:
                 progress_bar_update_callback(85)
                 
-        dcm_prediction_dir = f'dcm-prediction/'
+        dcm_prediction_dir = pred_cache_dir
         if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
             dcm_prediction_dir = os.path.abspath(os.path.join(cache_dir, dcm_prediction_dir))
             
@@ -483,6 +399,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                         f'--project={project_id}', 
                         f'--zone={zone}',
                         '--recurse',
+                        '--verbosity=debug',
                         '--quiet',
                         f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_id}/',
                         dcm_prediction_dir])
@@ -496,26 +413,31 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                         f'--command=rm -rf /home/{username}/model_outputs/{dicom_series_id}'], check=True, input='\n', text=True)
                         # rm -rf /home/{username}/images && rm -rf /home/{username}/model_outputs'
         # Stop the instance
+        print('Now idling...')
+        subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
+                        f'--project={project_id}', 
+                        f'--zone={zone}',
+                        f'--metadata=idling=True'], check=True)
+        
         if stop_instance_at_end:
             print('Stopping Instance')
-            stop_instance(project_id, zone, instance_name)
+            stop_instance(project_id, zone, instance_name, block=False)
         else:
-            print('Now idling...')
-            subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
-                            f'--project={project_id}', 
-                            f'--zone={zone}',
-                            f'--metadata=idling=True'], check=True)
+            print('Suspending Instance')
+            suspend_instance(project_id, zone, instance_name, block=False)
+            
     except Exception as e:
         print('Something went wrong with running predictions:')
         print(e, flush=True)
         if stop_instance_at_end:
             stop_instance(project_id, zone, instance_name)
         else:
-            print('Now idling...')
-            subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
-                            f'--project={project_id}', 
-                            f'--zone={zone}',
-                            f'--metadata=idling=True'], check=True)
+            suspend_instance(project_id, zone, instance_name)
+        print('Now idling...')
+        subprocess.run(['gcloud', 'compute', 'instances', 'add-metadata', instance_name, 
+                        f'--project={project_id}', 
+                        f'--zone={zone}',
+                        f'--metadata=idling=True'], check=True)
         return None
     
     dcm_prediction_dir = os.path.join(dcm_prediction_dir, dicom_series_id)

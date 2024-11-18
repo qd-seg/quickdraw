@@ -1,0 +1,3 @@
+google-cloud-compute
+google-cloud-artifact-registry
+google-auth

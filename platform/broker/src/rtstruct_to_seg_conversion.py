@@ -112,6 +112,7 @@ def convert_4d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array
         series_number=1,
         software_versions="1.0",
         series_description=seg_series_description,
+        omit_empty_frames=False
     )
 
     try:
@@ -175,20 +176,22 @@ def convert_3d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array
 
     num_slices_in_dicom_series = len(dicom_series)
     if num_slices_in_dicom_series != num_slices:
-        print(f"Slice mismatch: DICOM series has {num_slices_in_dicom_series}, pixel_array has {num_slices}.")
-        return
+        # print(f"Slice mismatch: DICOM series has {num_slices_in_dicom_series}, pixel_array has {num_slices}.")
+        raise Exception(f"Slice mismatch: DICOM series has {num_slices_in_dicom_series}, pixel_array has {num_slices}.")
 
     dicom_height = dicom_series[0].Rows
     dicom_width = dicom_series[0].Columns
     if dicom_height != height or dicom_width != width:
-        print(f"Dimension mismatch: DICOM image is {dicom_height}x{dicom_width}, pixel_array is {height}x{width}.")
-        return
+        # print(f"Dimension mismatch: DICOM image is {dicom_height}x{dicom_width}, pixel_array is {height}x{width}.")
+        raise Exception(f"Dimension mismatch: DICOM image is {dicom_height}x{dicom_width}, pixel_array is {height}x{width}.")
 
     print('Creating SEG object')
     print(segment_descriptions)
     numpy_array = numpy_array.astype(np.uint8)
     print(numpy_array.shape, numpy_array.dtype)
     print(numpy_array.max(), numpy_array.min())
+    
+    
     seg = Segmentation(
         source_images=dicom_series,
         pixel_array=numpy_array,
@@ -203,7 +206,7 @@ def convert_3d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array
         series_number=1,
         software_versions="1.0",
         series_description=seg_series_description,
-        # omit_empty_frames=False
+        omit_empty_frames=False
     )
 
     try:
@@ -212,8 +215,9 @@ def convert_3d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array
         print(f"DICOM SEG file saved at: {seg_filename}")
         return seg_filename
     except Exception as e:
-        print(f"Error saving DICOM SEG file: {e}")
-        return None
+        # print(f"Error saving DICOM SEG file: {e}")
+        # return None
+        raise Exception(f"Error saving DICOM SEG file: {e}")
 
 # Converts binary 3D masks into a DICOM SEG object
 def convert_mask_to_dicom_seg(dicom_series, binary_masks, roi_names, seg_filename, seg_series_description=None):
@@ -261,6 +265,7 @@ def get_non_intersection_mask_to_seg(
         separate_fp_fn: bool = False,
         merge_all_rois: bool = False):
     
+    print('!!!',pred_data.shape, truth_data.shape)
     if truth_data.shape != pred_data.shape:
         print('Padding...')
         if truth_data.shape[0] < pred_data.shape[0]:
@@ -350,11 +355,17 @@ def get_non_intersection_mask_to_seg(
     #     label_names = reduce(lambda a, c: a + [f'{c} FP', f'{c} FN'], label_names, [])
         
     if merge_all_rois:
-        output_desc += ' Merged'
+        output_desc += '_m'
     if separate_fp_fn:
-        output_desc += ' FP/FN'
+        output_desc += '_fpn'
     
     print(non_intersections.shape, non_intersections.dtype)
     print(label_names)
     print('Converting to SEG...')
+    print(output_desc)
+    if len(output_desc) > 64:
+        prefix_len = (64 - 5) // 2  # Length of the prefix
+        suffix_len = 64 - 5 - prefix_len  # Length of the suffix
+        return output_desc[:prefix_len] + '-xxx-' + output_desc[-suffix_len:]
+    
     return convert_3d_numpy_array_to_dicom_seg(dicom_series, non_intersections, label_names, output_filename, slice_axis=0, seg_series_description=output_desc)
