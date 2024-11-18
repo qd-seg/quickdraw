@@ -124,8 +124,15 @@ containers.
 > yarn run start:production
 ```
 
-The user should have permissions to bind to both port 80 and 443. This will start the containers in
-a background process which will run until it is stopped.
+By default, the process will bind to ports `8080` and `8443` for HTTP and HTTPS respectively. To
+change this behaviour, overwrite the environment variable by prepending assignements to the
+`HTTP_PORT` and `HTTPS_PORT` environment variables.
+
+```
+> HTTP_PORT=8080 HTTPS_PORT=8443 yarn run ...
+```
+
+The process will run in the background until it is manually stopped.
 
 ```
 > yarn run stop:production
