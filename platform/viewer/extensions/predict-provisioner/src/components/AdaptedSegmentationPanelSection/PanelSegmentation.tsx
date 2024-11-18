@@ -5,20 +5,7 @@ import callInputDialog from './callInputDialog';
 import callColorPickerDialog from './colorPickerDialog';
 import { useTranslation } from 'react-i18next';
 
-import {
-  SegmentationGroupTable,
-  SegmentationGroupTableExpanded,
-} from '../AdaptedSegmentationGroupTable';
-
-enum SegmentationPanelMode {
-  Expanded = 'expanded',
-  Dropdown = 'dropdown',
-}
-
-const components = {
-  [SegmentationPanelMode.Expanded]: SegmentationGroupTableExpanded,
-  [SegmentationPanelMode.Dropdown]: SegmentationGroupTable,
-};
+import AdaptedSegmentationGroupTable from '../AdaptedSegmentationGroupTable';
 
 export default function PanelSegmentation({
   analysis,
@@ -319,8 +306,6 @@ export default function PanelSegmentation({
     });
   };
 
-  const SegmentationGroupTableComponent =
-    components[configuration?.segmentationPanelMode] || SegmentationGroupTable;
   const allowAddSegment = configuration?.addSegment;
   const onSegmentationAddWrapper =
     configuration?.onSegmentationAdd && typeof configuration?.onSegmentationAdd === 'function'
@@ -328,7 +313,7 @@ export default function PanelSegmentation({
       : onSegmentationAdd;
 
   return (
-    <SegmentationGroupTableComponent
+    <AdaptedSegmentationGroupTable
       analysis={analysis}
       title={t('Segmentations')}
       segmentations={segmentations}
