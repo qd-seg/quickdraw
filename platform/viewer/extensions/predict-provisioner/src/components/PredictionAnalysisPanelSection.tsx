@@ -188,14 +188,25 @@ export default ({ status, setStatus, setAnalysis, servicesManager }) => {
         }),
       });
 
-      const body = await response.json();
+      if (response.ok || response.status === 202) {
+        uiNotificationService.show({
+          title: 'Discrepancy Processing',
+          message: 'Creating Discrepancy mask in the background. Please wait a few minutes...',
+          type: 'success',
+          duration: 5000,
+        });
+      }
 
-      uiNotificationService.show({
-        title: body.saved_mask ? 'Complete' : 'No Discrepancies',
-        message: body.message || 'Success',
-        type: body.saved_mask ? 'success' : 'warning',
-        duration: 5000,
-      });
+      if (!response.ok) {
+        const json = await response.json();
+
+        uiNotificationService.show({
+          title: 'Discrepancy Error',
+          message: json.message || 'Something went wrong with the discrepancy calculation.',
+          type: 'error',
+          duration: 5000,
+        });
+      }
     } catch (error) {
       console.error(error);
     } finally {

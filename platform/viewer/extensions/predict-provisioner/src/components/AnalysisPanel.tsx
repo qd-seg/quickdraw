@@ -27,14 +27,14 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
   React.useEffect(() => {
     const { uiNotificationService } = servicesManager.services;
 
-    const socket = io('/api/socket.io');
+    const socket = io({ path: '/api/socket.io' });
 
     socket.on('toast_message', ({ type, message }) => {
       uiNotificationService.show({
         title: 'Status Update',
         message,
         type,
-        duration: 5000,
+        duration: 8000,
       });
     });
 
