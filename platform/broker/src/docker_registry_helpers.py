@@ -43,7 +43,7 @@ def delete_docker_image(project_id: str, zone: str, models_repo: str, image_name
         print(e)
         return None
     
-def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, models_repo: str, service_account_access_token: str, image_name: str, tarball_path: str, LOG=False, skip_push=False, direct_push=False):
+def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, models_repo: str, service_account_access_token: str, image_name: str, tarball_path: str, LOG=False, skip_push=False):
     region = get_region_name(zone)
     if LOG:
         print('Logging into docker with service account')
@@ -67,7 +67,7 @@ def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, 
         result = get_registry_client().create_repository(create_repo_request)
         result.result(timeout=_MAX_TIMEOUT_NORMAL_REQUEST)   
     
-    if not direct_push:
+    if image_name is None:
         if LOG:
             print('Loading docker image. This may take a while...')
         try:
@@ -102,7 +102,7 @@ def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, 
     
 # Uploads a Dockerized ML model to Google Artifact Registry
 # NOTE: image_name MUST be the same as the name used for docker build + docker save
-def upload_docker_image_to_artifact_registry(project_id: str, zone: str, models_repo: str, image_name: str, tarball_path: str, LOG=False, skip_push=False, direct_push=False):
+def upload_docker_image_to_artifact_registry(project_id: str, zone: str, models_repo: str, image_name: str, tarball_path: str, LOG=False, skip_push=False):
     credentials = get_credentials()
-    return upload_docker_image_to_artifact_registry_helper(project_id, zone, models_repo, credentials.token, image_name, tarball_path, LOG=LOG, skip_push=skip_push, direct_push=direct_push)
+    return upload_docker_image_to_artifact_registry_helper(project_id, zone, models_repo, credentials.token, image_name, tarball_path, LOG=LOG, skip_push=skip_push)
   

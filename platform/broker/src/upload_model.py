@@ -12,21 +12,21 @@ if __name__ == '__main__':
     parser.add_argument("-t", "--tarball-path", dest='tarball_path', type=str, help="Path to .tar of Docker image")
     parser.add_argument("-s", "--skip-push", dest='skip_push', action='store_true', default=False, help="Whether or not to skip the last push step to Registry")
     # parser.add_argument("--override-existing", dest='override_existing', action='store_true', default=False, help="Whether or not to ignore checking for existing image with the same name")
-    parser.add_argument("-d", "--direct-push", dest='direct_push', action='store_true', default=False, help="Whether or not to push an image directly instead of loading from tar")
+    # parser.add_argument("-d", "--direct-push", dest='direct_push', action='store_true', default=False, help="Whether or not to push an image directly instead of loading from tar")
     args = parser.parse_args()
     
     # image_name, tarball_path, skip_push, override_existing, direct_push = args.image_name, args.tarball_path, args.skip_push, args.override_existing, args.direct_push
-    image_name, tarball_path, skip_push, direct_push = args.image_name, args.tarball_path, args.skip_push, args.direct_push
+    image_name, tarball_path, skip_push = args.image_name, args.tarball_path, args.skip_push
 
     
-    if not direct_push and not tarball_path:
-        parser.error('Must either provide --tarball-path or use --direct-push.')
+    if not image_name and not tarball_path:
+        parser.error('Must either provide --tarball-path or --image-name.')
         
-    if direct_push and tarball_path:
-        parser.error('Cannot use both --tarball-path and --direct-push.')
+    if image_name and tarball_path:
+        parser.error('Cannot use both --tarball-path and --image-name.')
         
-    if direct_push and not image_name:
-        parser.error('Please provide --image-name. Ex: python3 upload_model.py --direct-push --image-name seg-model')
+    # if direct_push and not image_name:
+    #     parser.error('Please provide --image-name. Ex: python3 upload_model.py --direct-push --image-name seg-model')
     
     if tarball_path:
         print('tar ball path:', tarball_path)
@@ -55,4 +55,4 @@ if __name__ == '__main__':
 
     auth_with_key_file_json(_KEY_FILE)
         
-    upload_docker_image_to_artifact_registry(_PROJECT_ID, _ZONE, _REPOSITORY, image_name, tarball_path, LOG=True, skip_push=skip_push, direct_push=direct_push)
+    upload_docker_image_to_artifact_registry(_PROJECT_ID, _ZONE, _REPOSITORY, image_name, tarball_path, LOG=True, skip_push=skip_push)

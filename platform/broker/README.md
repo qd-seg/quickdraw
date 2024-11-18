@@ -50,31 +50,34 @@ Replace these variables as needed:
 - `instanceLimit: int`: maximum number of Compute Instances that can exist at once. **Recommended value=1**
 - `allowRunWithoutGoogleCloud: boolean`: whether or not to continue running Flask server even if Google Cloud Services is down
 
-### Dockerizing a Model
-#### Uploading a Model
-A Dockerized model for organ segmentation is already available on radiology-b0759's Google Cloud Artifact Registry. Follow the below instructions if you [want to use the existing model on a different project](#using-the-existing-model), or if you would like to [create your own model](#creating-a-new-model).
+### Uploading an Existing Model
+A Dockerized model for organ segmentation is already available on radiology-b0759's Google Cloud Artifact Registry. Follow the below instructions if you [want to use the existing model on a different Cloud project](#using-the-existing-model). If you would like to create your own model, [instructions are here](#creating-a-new-model).
 
 #### Using the Existing Model
 Follow these instructions to use the existing Organ Segmentation model, created by Rahul Pemmaraju and Neehar Peri
 in your own Google Cloud project.
 
+Install [Python>=3.10](https://www.python.org/downloads/)
+
 Create a Python virtual environment and upload the model:
-- `python3 -m venv .venv`
-- `source .venv/bin/activate` (MacOS/Linux), or `.venv\Scripts\activate.bat` (Windows)
-- `pip install -r ./platform/broker/src/upload_requirements.txt`
+- `python3 -m venv .venv` (*or python, or py*)
+- `source .venv/bin/activate` (MacOS/Linux), or `.venv\Scripts\activate` (Windows)
 
-If you have a .tar file:
-- `python3 ./platform/broker/src/upload_model.py -t <tarball-path>`
+If you have a .tar file of the Dockerized model:
+- `yarn run upload-model:<python3|python|py> -t <tarball-path>` 
 
+(*Usage of python3, python or py depends on your Python installation. ex: `yarn run upload-model:python3 -t c:/Users/me/Downloads/model.tar`*)
+
+---
 Or, if you want to build the image from the `organ_seg_model` branch:
 - Navigate into a directory *outside* of this project's root directory
 - `git clone -b organ_seg_model gitlab@para.cs.umd.edu:purtilo/radiology.git`
 - `cd` into the organ_seg_model branch directory
 - `docker build -t <image-name> .`
-- `cd` back into original project's root directory
-- `python3 ./platform/broker/src/upload_model.py -i <image-name> -d`
+- **`cd` back into original project's root directory**
+- `yarn run upload-model:<python3|python|py> -i <image-name>`
 
-#### Creating a New Model
+### Creating a New Model
 - Create Dockerfile with an ENTRYPOINT that is that python file ran to make predictions. Ex: `ENTRYPOINT ["python", "predict.py"]`
 - `predict.py` should take 1 required command-line argument, which is the name of the DICOM series that will be fed to the model
 - `predict.py` **MUST** take in inputs from `./images` and output to `./model_outputs/<dicom-series-name>/<output>.[dcm|npz]`, relative to the directory that `predict.py` is stored (probably `/app/`)
@@ -86,11 +89,11 @@ Your image should appear if you run `docker images`. To test it:
 - `docker run -v <model-root-path>/images:/app/images -v <model-root-path>/model_outputs:/app/model_outputs <dicom-series-name> [OPTIONAL-ARGS]` 
   
 You can push the model directly to Registry:
-- `python3 ./platform/broker/src/upload_model.py -i <image-name> -d`
+- `yarn run upload-model:<python3|python|py> -i <image-name>`
 
 Or, if you wish to save the image to a tarball first:
 - `docker save -o <image-name>.tar <image-name>`
-- `python3 ./platform/broker/src/upload_model.py -t <tarball-path>`
+- `yarn run upload-model:<python3|python|py> -t <tarball-path>`
 
 If you are having issues, double check your service account configuration secret files are correct.
 Also ensure the service account has the proper permissions as described [here](README.md#google-cloud-setup)

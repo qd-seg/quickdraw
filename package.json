@@ -15,7 +15,10 @@
     "stop:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env stop",
     "stop:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env stop",
     "clean:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env down",
-    "clean:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env down"
+    "clean:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env down",
+    "upload-model:python": "pip install -r ./platform/broker/src/upload_requirements.txt && python ./platform/broker/src/upload_model.py",
+    "upload-model:py": "pip install -r ./platform/broker/src/upload_requirements.txt && py ./platform/broker/src/upload_model.py",
+    "upload-model:python3": "pip install -r ./platform/broker/src/upload_requirements.txt && python3 ./platform/broker/src/upload_model.py"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
