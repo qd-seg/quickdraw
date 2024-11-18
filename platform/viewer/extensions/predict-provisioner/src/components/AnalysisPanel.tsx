@@ -1,11 +1,12 @@
 import * as React from 'react';
-
-import { ProgressLoadingBar } from '@ohif/ui';
+import { ProgressLoadingBar, Toolbox } from '@ohif/ui';
 
 import ModelRelationPanelSection from './ModelRelationPanelSection';
 import PredictionAnalysisPanelSection from './PredictionAnalysisPanelSection';
+import AdaptedSegmentationPanelSection from './AdaptedSegmentationPanelSection';
 
-export default ({ servicesManager }) => {
+export default ({ servicesManager, commandsManager, extensionManager }) => {
+  const [analysis, setAnalysis] = React.useState<Record<string, any>>({});
   const [progress, setProgress] = React.useState<number | undefined>(0);
   const [status, setStatus] = React.useState<Record<string, boolean>>({
     uploading: false,
@@ -35,7 +36,23 @@ export default ({ servicesManager }) => {
       <PredictionAnalysisPanelSection
         status={status}
         setStatus={setStatus}
+        setAnalysis={setAnalysis}
         servicesManager={servicesManager}
+      />
+
+      <Toolbox
+        commandsManager={commandsManager}
+        servicesManager={servicesManager}
+        extensionManager={extensionManager}
+        buttonSectionId="segmentationToolbox"
+        title="Segmentation Tools"
+      />
+
+      <AdaptedSegmentationPanelSection
+        analysis={analysis}
+        commandsManager={commandsManager}
+        servicesManager={servicesManager}
+        extensionManager={extensionManager}
       />
     </div>
   );

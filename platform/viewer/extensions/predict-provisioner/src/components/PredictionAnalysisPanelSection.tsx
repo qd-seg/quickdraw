@@ -2,9 +2,9 @@ import * as React from 'react';
 import { PanelSection, Button } from '@ohif/ui';
 
 import WrappedSelect from './WrappedSelect';
-import getActiveDisplayUIDSet from '../auxiliary/getActiveDisplayUIDSet';
+import getActiveDisplayUIDSet from './getActiveDisplayUIDSet';
 
-export default ({ status, setStatus, servicesManager }) => {
+export default ({ status, setStatus, setAnalysis, servicesManager }) => {
   const [availableMasks, setAvailableMasks] = React.useState<Record<string, any>>({});
   const [selectedMask, setSelectedMask] = React.useState<Record<string, any>>({
     value: undefined,
@@ -40,7 +40,7 @@ export default ({ status, setStatus, servicesManager }) => {
   };
 
   const calculateDICEScore = async () => {
-    const { uiNotificationService } = servicesManager.services;
+    const { uiNotificationService, displaySetService } = servicesManager.services;
 
     let activeDisplayUIDSet;
 
@@ -107,6 +107,26 @@ export default ({ status, setStatus, servicesManager }) => {
 
       const body = await response.json();
 
+      const activeDisplaySets = displaySetService.getActiveDisplaySets();
+
+      const maskDisplaySetInstanceUID = activeDisplaySets.find(
+        x => x.SeriesInstanceUID === selectedMaskUIDs.series_uid
+      ).displaySetInstanceUID;
+
+      const truthDisplaySetInstanceUID = activeDisplaySets.find(
+        x => x.SeriesInstanceUID === selectedTruthUIDs.series_uid
+      ).displaySetInstanceUID;
+
+      setAnalysis(p => {
+        p[`${maskDisplaySetInstanceUID}:${truthDisplaySetInstanceUID}`] = {
+          maskUIDs: { ...selectedMaskUIDs, display_set_uid: maskDisplaySetInstanceUID },
+          truthUIDs: { ...selectedTruthUIDs, display_set_uid: truthDisplaySetInstanceUID },
+          scores: body,
+        };
+
+        return JSON.parse(JSON.stringify(p));
+      });
+
       uiNotificationService.show({
         title: 'Complete',
         message: `Analysis was a success.`,
@@ -120,7 +140,7 @@ export default ({ status, setStatus, servicesManager }) => {
     }
   };
 
-  const saveDiscrepency = async () => {
+  const saveDiscrepancy = async () => {
     const { uiNotificationService } = servicesManager.services;
 
     let activeDisplayUIDSet;
@@ -243,8 +263,8 @@ export default ({ status, setStatus, servicesManager }) => {
 
       <Button
         className="mb-1 mt-1"
-        children="Save Discrepency"
-        onClick={() => saveDiscrepency().catch(console.error)}
+        children="Save Discrepancy"
+        onClick={() => saveDiscrepancy().catch(console.error)}
         disabled={isAnalysisAvailable() === false}
       ></Button>
     </PanelSection>

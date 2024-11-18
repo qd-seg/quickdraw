@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { PanelSection, Button } from '@ohif/ui';
 
-import getActiveDisplayUIDSet from '../auxiliary/getActiveDisplayUIDSet';
+import getActiveDisplayUIDSet from './getActiveDisplayUIDSet';
 import WrappedSelect from './WrappedSelect';
 
 export default ({ status, setStatus, servicesManager }) => {
