@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { io } from 'socket.io-client';
 import { ProgressLoadingBar, Toolbox } from '@ohif/ui';
 
 import ModelRelationPanelSection from './ModelRelationPanelSection';
@@ -22,6 +23,25 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
   React.useEffect(() => {
     isProcessing() ? setProgress(undefined) : setProgress(0);
   }, [status]);
+
+  React.useEffect(() => {
+    const { uiNotificationService } = servicesManager.services;
+
+    const socket = io('/api/socket.io');
+
+    socket.on('toast_message', ({ type, message }) => {
+      uiNotificationService.show({
+        title: 'Status Update',
+        message,
+        type,
+        duration: 5000,
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   return (
     <div>
