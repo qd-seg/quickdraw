@@ -10,6 +10,7 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
   const [appConfig] = useAppConfig();
   const { customizationService } = servicesManager.services;
 
+  const [analysis, setAnalysis] = React.useState<Record<string, any>>({});
   const [progress, setProgress] = React.useState<number | undefined>(0);
   const [status, setStatus] = React.useState<Record<string, boolean>>({
     uploading: false,
@@ -39,6 +40,7 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
       <PredictionAnalysisPanelSection
         status={status}
         setStatus={setStatus}
+        setAnalysis={setAnalysis}
         servicesManager={servicesManager}
       />
 
@@ -51,6 +53,7 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
       />
 
       <AdaptedSegmentationPanelSection
+        analysis={analysis}
         commandsManager={commandsManager}
         servicesManager={servicesManager}
         extensionManager={extensionManager}

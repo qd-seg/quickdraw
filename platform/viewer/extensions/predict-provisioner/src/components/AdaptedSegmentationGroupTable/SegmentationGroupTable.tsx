@@ -9,6 +9,8 @@ import SegmentationGroupSegment from './SegmentationGroupSegment';
 import { useTranslation } from 'react-i18next';
 
 const SegmentationGroupTable = ({
+  analysis,
+
   segmentations,
   // segmentation initial config
   segmentationConfig,
@@ -51,6 +53,10 @@ const SegmentationGroupTable = ({
     onSegmentationClick(segmentationId);
     setActiveSegmentationId(segmentationId);
   };
+
+  useEffect(() => {
+    console.log('DEBUG:', analysis);
+  }, [analysis]);
 
   useEffect(() => {
     // find the first active segmentation to set

@@ -4,7 +4,7 @@ import { PanelSection, Button } from '@ohif/ui';
 import WrappedSelect from './WrappedSelect';
 import getActiveDisplayUIDSet from '../auxiliary/getActiveDisplayUIDSet';
 
-export default ({ status, setStatus, servicesManager }) => {
+export default ({ status, setStatus, setAnalysis, servicesManager }) => {
   const [availableMasks, setAvailableMasks] = React.useState<Record<string, any>>({});
   const [selectedMask, setSelectedMask] = React.useState<Record<string, any>>({
     value: undefined,
@@ -106,6 +106,16 @@ export default ({ status, setStatus, servicesManager }) => {
       });
 
       const body = await response.json();
+
+      setAnalysis(p => {
+        p[`${selectedMaskUIDs.series_uid}:${selectedTruthUIDs.series_uid}`] = {
+          maskUIDs: selectedMaskUIDs,
+          truthUIDs: selectedTruthUIDs,
+          scores: body,
+        };
+
+        return JSON.parse(JSON.stringify(p));
+      });
 
       uiNotificationService.show({
         title: 'Complete',

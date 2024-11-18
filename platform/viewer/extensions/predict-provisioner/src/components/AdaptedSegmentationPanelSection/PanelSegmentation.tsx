@@ -21,6 +21,7 @@ const components = {
 };
 
 export default function PanelSegmentation({
+  analysis,
   servicesManager,
   commandsManager,
   extensionManager,
@@ -328,6 +329,7 @@ export default function PanelSegmentation({
 
   return (
     <SegmentationGroupTableComponent
+      analysis={analysis}
       title={t('Segmentations')}
       segmentations={segmentations}
       disableEditing={configuration.disableEditing}
