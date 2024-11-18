@@ -40,7 +40,7 @@ export default ({ status, setStatus, setAnalysis, servicesManager }) => {
   };
 
   const calculateDICEScore = async () => {
-    const { uiNotificationService } = servicesManager.services;
+    const { uiNotificationService, displaySetService } = servicesManager.services;
 
     let activeDisplayUIDSet;
 
@@ -107,10 +107,20 @@ export default ({ status, setStatus, setAnalysis, servicesManager }) => {
 
       const body = await response.json();
 
+      const activeDisplaySets = displaySetService.getActiveDisplaySets();
+
+      const maskDisplaySetInstanceUID = activeDisplaySets.find(
+        x => x.SeriesInstanceUID === selectedMaskUIDs.series_uid
+      ).displaySetInstanceUID;
+
+      const truthDisplaySetInstanceUID = activeDisplaySets.find(
+        x => x.SeriesInstanceUID === selectedTruthUIDs.series_uid
+      ).displaySetInstanceUID;
+
       setAnalysis(p => {
-        p[`${selectedMaskUIDs.series_uid}:${selectedTruthUIDs.series_uid}`] = {
-          maskUIDs: selectedMaskUIDs,
-          truthUIDs: selectedTruthUIDs,
+        p[`${maskDisplaySetInstanceUID}:${truthDisplaySetInstanceUID}`] = {
+          maskUIDs: { ...selectedMaskUIDs, display_set_uid: maskDisplaySetInstanceUID },
+          truthUIDs: { ...selectedTruthUIDs, display_set_uid: truthDisplaySetInstanceUID },
           scores: body,
         };
 

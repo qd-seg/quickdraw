@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import classnames from 'classnames';
 
 import { Icon } from '@ohif/ui';
 
 const SegmentItem = ({
+  score,
   segmentIndex,
   segmentationId,
   label,
@@ -92,7 +93,10 @@ const SegmentItem = ({
                 }}
               />
             </div>
-            <div className="flex items-center py-1 hover:cursor-pointer">{label}</div>
+            <div className="flex items-center py-1 hover:cursor-pointer">
+              {score ? `${score.toFixed(2)} - ` : ''}
+              {label}
+            </div>
           </div>
           <div
             className={classnames(

@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import SegmentationItem from './SegmentationItem';
 
 const SegmentationGroupTableExpanded = ({
+  analysis,
   segmentations,
   // segmentation initial config
   segmentationConfig,
@@ -104,6 +105,7 @@ const SegmentationGroupTableExpanded = ({
                   <div key={segmentation.id}>
                     <SegmentationItem
                       key={segmentation.id}
+                      analysis={analysis}
                       segmentation={segmentation}
                       disableEditing={disableEditing}
                       onToggleSegmentationVisibility={onToggleSegmentationVisibility}

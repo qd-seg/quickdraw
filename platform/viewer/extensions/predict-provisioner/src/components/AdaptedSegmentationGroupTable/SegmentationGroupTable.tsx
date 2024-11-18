@@ -48,14 +48,25 @@ const SegmentationGroupTable = ({
 }) => {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [activeSegmentationId, setActiveSegmentationId] = useState(null);
+  const [activeSegmentationScores, setActiveSegmentationScores] = useState(undefined);
 
   const onActiveSegmentationChange = segmentationId => {
     onSegmentationClick(segmentationId);
     setActiveSegmentationId(segmentationId);
+    determineActiveSegmentationScores(segmentationId);
+  };
+
+  const determineActiveSegmentationScores = segmentationId => {
+    const scores = Object.values(analysis).find(
+      record => record.maskUIDs.display_set_uid === segmentationId
+    )?.scores;
+
+    if (scores) setActiveSegmentationScores(scores);
+    else setActiveSegmentationScores(undefined);
   };
 
   useEffect(() => {
-    console.log('DEBUG:', analysis);
+    determineActiveSegmentationScores(activeSegmentationId);
   }, [analysis]);
 
   useEffect(() => {
@@ -73,6 +84,7 @@ const SegmentationGroupTable = ({
     }
 
     setActiveSegmentationId(activeSegmentationIdToSet);
+    determineActiveSegmentationScores(activeSegmentationIdToSet);
   }, [segmentations]);
 
   const activeSegmentation = segmentations?.find(
@@ -145,9 +157,15 @@ const SegmentationGroupTable = ({
               }
 
               const { segmentIndex, color, label, isVisible, isLocked } = segment;
+
+              const score = activeSegmentationScores
+                ? activeSegmentationScores.find(s => Object.keys(s)[0] === label)[label]
+                : undefined;
+
               return (
                 <div className="mb-[1px]" key={segmentIndex}>
                   <SegmentationGroupSegment
+                    score={score}
                     segmentationId={activeSegmentationId}
                     segmentIndex={segmentIndex}
                     label={label}

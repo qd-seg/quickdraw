@@ -8,6 +8,7 @@ import SegmentationGroupSegment from './SegmentationGroupSegment';
 import { Tooltip } from '@ohif/ui';
 
 function SegmentationItem({
+  analysis,
   segmentation,
   disableEditing,
   onSegmentationEdit,
@@ -146,6 +147,7 @@ function SegmentationItem({
               return (
                 <div key={segmentIndex}>
                   <SegmentationGroupSegment
+                    analysis={analysis}
                     segmentationId={segmentation.id}
                     segmentIndex={segmentIndex}
                     label={label}
