@@ -29,19 +29,6 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
 
     const socket = io('/api/socket.io');
 
-    socket.on('status_update', ({ message }) => {
-      uiNotificationService.show({
-        title: 'Status Update',
-        message,
-        type: 'info',
-        duration: 5000,
-      });
-    });
-
-    socket.on('progress_update', ({ value }) => {
-      setProgress(value);
-    });
-
     socket.on('toast_message', ({ type, message }) => {
       uiNotificationService.show({
         title: 'Status Update',
