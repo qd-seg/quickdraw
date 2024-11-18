@@ -102,6 +102,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 bp = Blueprint('flask_backend', __name__)
 
+app.config['SECRET_KEY'] = 'asdfjkl'
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*", path='/api/socket.io' if __name__ == '__main__' else 'socket.io')
 
@@ -675,7 +676,7 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         remove_instance_metadata(_PROJECT_ID, _ZONE, instance, ['dicom-image', 'model-displayname'])
         
         emit_update_progressbar(100)
-        emit_status_update('Prediction done')
+        # emit_status_update('Prediction done')
         print('Prediction done')
         emit_toast('Prediction done. Reload to see changes.')
         return True
@@ -730,7 +731,7 @@ def setup_compute_and_run_pred_helper(
         emit_toast('Something went wrong while running predictions.', type='error')
         return False
         
-    emit_toast('Prediction successful.')
+    # emit_toast('Prediction successful.')
     # return jsonify({ 'message': 'Prediction job successfully started' }), 202
     return True
     
@@ -903,7 +904,7 @@ def save_discrepancy_mask_helper(dicom_series_id, pred_series_id, truth_series_i
     
     print('Done')
     DISC_LOCK = 0
-    emit_toast('Successfully saved discrepancy mask.')
+    emit_toast('Successfully saved discrepancy mask. Please reload page to see changes.')
     # return jsonify({ 'saved_mask': True, 'message': 'Succesfully saved    discrepancy mask.' }), 200
 
 @bp.route('/saveDiscrepancyMask', methods=['POST'])
@@ -911,14 +912,14 @@ def save_discrepancy_mask():
     global DISC_LOCK
     if DISC_LOCK != 0:
         return jsonify({ 'message': 'Currently calculating another discrepancy mask. Please wait.' }), 429
-    
+
     DISC_LOCK = 1
     if request.is_json:
         json_data = request.get_json()
     else:
         print('not json')
         DISC_LOCK = 0
-        return jsonify({ 'message': 'Something went wrong' }), 500
+        return jsonify({ 'message': 'Malformed Request' }), 500
     
     dicom_series_id = json_data.get('parent_id')
     pred_series_id = json_data.get('predSeriesUid')
@@ -1071,4 +1072,6 @@ else:
         print('The above exception occurred while trying to clear the cache in', cache_dir)
         
     app.register_blueprint(bp)
+    # socketio.init_app(app)
+    # print(socketio.)
     # socketio.run(app, debug=True)

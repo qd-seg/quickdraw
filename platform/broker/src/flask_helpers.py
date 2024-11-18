@@ -261,7 +261,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
                         f'--project={project_id}', 
                         f'--zone={zone}',
                         '--quiet',
-                        f'--command=mkdir -p /home/{username}/images/{dicom_series_id} && mkdir -p /home/{username}/model_outputs/{dicom_series_id} && rm -rf /home/{username}/images/{dicom_series_id}/*'], check=True, input='\n', text=True)
+                        f'--command=rm -rf /home/{username}/images/ && rm -rf /home/{username}/model_outputs/ && mkdir -p /home/{username}/images/{dicom_series_id} && mkdir -p /home/{username}/model_outputs/{dicom_series_id} && rm -rf /home/{username}/images/{dicom_series_id}/*'], check=True, input='\n', text=True)
         # Upload
         print('Copying over dicom images..')
         # subprocess.run(['gcloud', 'compute', 'scp',
@@ -278,6 +278,9 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
                         f'--zone={zone}',
                         '--verbosity=debug',
                         '--quiet',
+                        '--scp-flag=-l 50000',
+                        '--scp-flag=-o ServerAliveInterval=15',
+                        '--scp-flag=-o ServerAliveCountMax=10',
                         dicom_image_directory,
                         f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}/'], check=True)
         print('ok')
@@ -401,6 +404,9 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                         '--recurse',
                         '--verbosity=debug',
                         '--quiet',
+                        '--scp-flag=-l 50000',
+                        '--scp-flag=-o ServerAliveInterval=15',
+                        '--scp-flag=-o ServerAliveCountMax=10',
                         f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_id}/',
                         dcm_prediction_dir])
         
@@ -410,7 +416,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                         f'--project={project_id}', 
                         f'--zone={zone}',
                         '--quiet',
-                        f'--command=rm -rf /home/{username}/model_outputs/{dicom_series_id}'], check=True, input='\n', text=True)
+                        f'--command=rm -rf /home/{username}/images/{dicom_series_id} && rm -rf /home/{username}/model_outputs/{dicom_series_id}'], check=True, input='\n', text=True)
                         # rm -rf /home/{username}/images && rm -rf /home/{username}/model_outputs'
         # Stop the instance
         print('Now idling...')
