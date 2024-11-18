@@ -5,20 +5,16 @@
     "platform/viewer/modes/radiology-ai"
   ],
   "scripts": {
-    "start": "yarn run start:development",
-    "install:python": "pip install -r ./platform/broker/requirements.txt",
-    "install:nodejs": "yarn install",
-    "build:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env build",
-    "build:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env build",
-    "start:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env up",
-    "start:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env up -d",
-    "stop:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env stop",
-    "stop:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env stop",
-    "clean:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env down",
-    "clean:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/service.env down",
-    "upload-model:python": "pip install -r ./platform/broker/src/upload_requirements.txt && python ./platform/broker/src/upload_model.py",
-    "upload-model:py": "pip install -r ./platform/broker/src/upload_requirements.txt && py ./platform/broker/src/upload_model.py",
-    "upload-model:python3": "pip install -r ./platform/broker/src/upload_requirements.txt && python3 ./platform/broker/src/upload_model.py"
+    "build:common": "docker compose -f ./build/compose.common.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/process.env build",
+    "build:development": "yarn run build:common && docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/process.env build",
+    "build:production": "yarn run build:common && docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/process.env build",
+    "start:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/process.env up",
+    "start:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/process.env up -d",
+    "stop:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/process.env stop",
+    "stop:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/process.env stop",
+    "clean:development": "docker compose -f ./build/compose.development.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/process.env down",
+    "clean:production": "docker compose -f ./build/compose.production.yml --env-file ./build/configuration/versions.env --env-file ./build/configuration/process.env down",
+    "manage:upload": "python ./platform/broker/src/upload_model.py"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
