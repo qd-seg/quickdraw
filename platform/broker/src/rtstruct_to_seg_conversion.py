@@ -186,7 +186,7 @@ def convert_3d_numpy_array_to_dicom_seg(dicom_series: List[Dataset], numpy_array
         raise Exception(f"Dimension mismatch: DICOM image is {dicom_height}x{dicom_width}, pixel_array is {height}x{width}.")
 
     print('Creating SEG object')
-    print(segment_descriptions)
+    # print(segment_descriptions)
     numpy_array = numpy_array.astype(np.uint8)
     print(numpy_array.shape, numpy_array.dtype)
     print(numpy_array.max(), numpy_array.min())
@@ -366,6 +366,7 @@ def get_non_intersection_mask_to_seg(
     if len(output_desc) > 64:
         prefix_len = (64 - 5) // 2  # Length of the prefix
         suffix_len = 64 - 5 - prefix_len  # Length of the suffix
-        return output_desc[:prefix_len] + '-xxx-' + output_desc[-suffix_len:]
+        output_desc = output_desc[:prefix_len] + '-xxx-' + output_desc[-suffix_len:]
+        print('shortened description to', output_desc)
     
     return convert_3d_numpy_array_to_dicom_seg(dicom_series, non_intersections, label_names, output_filename, slice_axis=0, seg_series_description=output_desc)
