@@ -1,42 +1,40 @@
-import React, { useEffect, useState } from 'react';
-import PropTypes from 'prop-types';
+import * as React from 'react';
 import { PanelSection } from '@ohif/ui';
+
 import SegmentationConfig from './SegmentationConfig';
 import SegmentationDropDownRow from './SegmentationDropDownRow';
 import NoSegmentationRow from './NoSegmentationRow';
 import AddSegmentRow from './AddSegmentRow';
 import SegmentationGroupSegment from './SegmentationGroupSegment';
-import { useTranslation } from 'react-i18next';
 
-const SegmentationGroupTable = ({
+export default ({
   analysis,
-
   segmentations,
-  // segmentation initial config
-  segmentationConfig,
-  // UI show/hide
+
+  config,
+  segmentationClassName,
+
   disableEditing,
   showAddSegmentation,
   showAddSegment,
   showDeleteSegment,
-  // segmentation/segment handlers
+
   onSegmentationAdd,
   onSegmentationEdit,
   onSegmentationClick,
   onSegmentationDelete,
   onSegmentationDownload,
   onSegmentationDownloadRTSS,
-  storeSegmentation,
-  // segment handlers
+  onSegmentationStore,
   onSegmentClick,
+  onSegmentColorClick,
   onSegmentAdd,
   onSegmentDelete,
   onSegmentEdit,
   onToggleSegmentationVisibility,
   onToggleSegmentVisibility,
   onToggleSegmentLock,
-  onSegmentColorClick,
-  // segmentation config handlers
+
   setFillAlpha,
   setFillAlphaInactive,
   setOutlineWidthActive,
@@ -44,57 +42,53 @@ const SegmentationGroupTable = ({
   setRenderFill,
   setRenderInactiveSegmentations,
   setRenderOutline,
-  addSegmentationClassName,
 }) => {
-  const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [activeSegmentationId, setActiveSegmentationId] = useState(null);
-  const [activeSegmentationScores, setActiveSegmentationScores] = useState(undefined);
-  const [activeTruth, setActiveTruth] = useState(undefined);
+  const [isConfigOpen, setIsConfigOpen] = React.useState(false);
+  const [activeSegmentationUID, setActiveSegmentationUID] = React.useState(undefined);
+  const [activeTruthUID, setActiveTruthUID] = React.useState(undefined);
 
-  const onActiveSegmentationChange = segmentationId => {
-    onSegmentationClick(segmentationId);
-    setActiveSegmentationId(segmentationId);
-    determineActiveSegmentationScores(segmentationId);
+  const [activeSegmentationScores, setActiveSegmentationScores] = React.useState([]);
+
+  const onActiveSegmentationChange = segmentationUID => {
+    onSegmentationClick(segmentationUID);
+    setActiveSegmentationUID(segmentationUID);
+    getActiveSegmentationScores(segmentationUID);
   };
 
-  const determineActiveSegmentationScores = segmentationId => {
-    const scores = analysis[`${segmentationId}:${activeTruth}`]?.scores;
+  const onActiveTruthChange = truthUID => {
+    setActiveTruthUID(truthUID);
+    getActiveSegmentationScores(activeSegmentationUID);
+  };
+
+  const getActiveSegmentationScores = segmentationUID => {
+    const scores = analysis[`${segmentationUID}:${activeTruthUID}`]?.scores;
 
     if (scores) setActiveSegmentationScores(scores);
-    else setActiveSegmentationScores(undefined);
+    else setActiveSegmentationScores([]);
   };
 
-  useEffect(() => {
-    determineActiveSegmentationScores(activeSegmentationId);
-  }, [analysis, activeTruth]);
+  React.useEffect(() => {
+    getActiveSegmentationScores(activeSegmentationUID);
+  }, [analysis, activeTruthUID]);
 
-  useEffect(() => {
-    // find the first active segmentation to set
-    let activeSegmentationIdToSet = segmentations?.find(segmentation => segmentation.isActive)?.id;
+  React.useEffect(() => {
+    let activeUID = segmentations?.find(segmentation => segmentation.isActive)?.id;
 
-    // If there is no active segmentation, set the first one to be active
-    if (!activeSegmentationIdToSet && segmentations?.length > 0) {
-      activeSegmentationIdToSet = segmentations[0].id;
-    }
+    if (!activeUID && segmentations?.length > 0) activeUID = segmentations[0].id;
+    if (segmentations?.length === 0) activeUID = undefined;
 
-    // If there is no segmentation, set the active segmentation to null
-    if (segmentations?.length === 0) {
-      activeSegmentationIdToSet = null;
-    }
-
-    setActiveSegmentationId(activeSegmentationIdToSet);
-    determineActiveSegmentationScores(activeSegmentationIdToSet);
+    setActiveSegmentationUID(activeUID);
+    getActiveSegmentationScores(activeUID);
   }, [segmentations]);
 
   const activeSegmentation = segmentations?.find(
-    segmentation => segmentation.id === activeSegmentationId
+    segmentation => segmentation.id === activeSegmentationUID
   );
-  const { t } = useTranslation('SegmentationTable');
 
   return (
     <div className="flex min-h-0 flex-col bg-black text-[13px] font-[300]">
       <PanelSection
-        title={t('Segmentation')}
+        title={'Segmentation'}
         actionIcons={
           activeSegmentation && [
             {
@@ -106,6 +100,7 @@ const SegmentationGroupTable = ({
       >
         {isConfigOpen && (
           <SegmentationConfig
+            config={config}
             setFillAlpha={setFillAlpha}
             setFillAlphaInactive={setFillAlphaInactive}
             setOutlineWidthActive={setOutlineWidthActive}
@@ -113,16 +108,16 @@ const SegmentationGroupTable = ({
             setRenderFill={setRenderFill}
             setRenderInactiveSegmentations={setRenderInactiveSegmentations}
             setRenderOutline={setRenderOutline}
-            segmentationConfig={segmentationConfig}
           />
         )}
+
         <div className="bg-primary-dark">
           {segmentations?.length === 0 ? (
             <div className="select-none bg-black py-[3px]">
               {showAddSegmentation && !disableEditing && (
                 <NoSegmentationRow
                   onSegmentationAdd={onSegmentationAdd}
-                  addSegmentationClassName={addSegmentationClassName}
+                  segmentationClassName={segmentationClassName}
                 />
               )}
             </div>
@@ -130,56 +125,59 @@ const SegmentationGroupTable = ({
             <div className="mt-1 select-none">
               <SegmentationDropDownRow
                 analysis={analysis}
-                activeTruth={activeTruth}
-                setActiveTruth={setActiveTruth}
                 segmentations={segmentations}
-                disableEditing={disableEditing}
                 activeSegmentation={activeSegmentation}
+                activeTruthUID={activeTruthUID}
+                segmentationClassName={segmentationClassName}
+                disableEditing={disableEditing}
                 onActiveSegmentationChange={onActiveSegmentationChange}
-                onSegmentationDelete={onSegmentationDelete}
+                onActiveTruthChange={onActiveTruthChange}
+                onToggleSegmentationVisibility={onToggleSegmentationVisibility}
                 onSegmentationEdit={onSegmentationEdit}
                 onSegmentationDownload={onSegmentationDownload}
                 onSegmentationDownloadRTSS={onSegmentationDownloadRTSS}
-                storeSegmentation={storeSegmentation}
+                onSegmentationStore={onSegmentationStore}
+                onSegmentationDelete={onSegmentationDelete}
                 onSegmentationAdd={onSegmentationAdd}
-                addSegmentationClassName={addSegmentationClassName}
-                onToggleSegmentationVisibility={onToggleSegmentationVisibility}
               />
+
               {!disableEditing && showAddSegment && (
-                <AddSegmentRow onClick={() => onSegmentAdd(activeSegmentationId)} />
+                <AddSegmentRow
+                  onClick={() => onSegmentAdd(activeSegmentationUID)}
+                  onToggleSegmentationVisibility={() => {}}
+                  segmentation={undefined}
+                />
               )}
             </div>
           )}
         </div>
+
         {activeSegmentation && (
           <div className="ohif-scrollbar flex h-fit min-h-0 flex-1 flex-col overflow-auto bg-black">
             {activeSegmentation?.segments?.map(segment => {
-              if (!segment) {
-                return null;
-              }
+              if (!segment) return null;
 
-              const { segmentIndex, color, label, isVisible, isLocked } = segment;
-
-              const score = activeSegmentationScores
-                ? activeSegmentationScores.find(s => Object.keys(s)[0] === label)[label]
-                : undefined;
+              const { segmentIndex: index, color, label, isVisible, isLocked } = segment;
+              const record = activeSegmentationScores.find(s => Object.keys(s)[0] === label);
+              const score = record ? record[label] : undefined;
 
               return (
-                <div className="mb-[1px]" key={segmentIndex}>
+                <div className="mb-[1px]" key={index}>
                   <SegmentationGroupSegment
+                    segmentationUID={activeSegmentationUID}
                     score={score}
-                    segmentationId={activeSegmentationId}
-                    segmentIndex={segmentIndex}
+                    index={index}
                     label={label}
                     color={color}
-                    isActive={activeSegmentation.activeSegmentIndex === segmentIndex}
-                    disableEditing={disableEditing}
-                    isLocked={isLocked}
+                    isActive={activeSegmentation.activeSegmentIndex === index}
                     isVisible={isVisible}
+                    isLocked={isLocked}
+                    showDelete={showDeleteSegment}
+                    disableEditing={disableEditing}
+                    displayText={undefined}
                     onClick={onSegmentClick}
                     onEdit={onSegmentEdit}
                     onDelete={onSegmentDelete}
-                    showDelete={showDeleteSegment}
                     onColor={onSegmentColorClick}
                     onToggleVisibility={onToggleSegmentVisibility}
                     onToggleLocked={onToggleSegmentLock}
@@ -193,79 +191,3 @@ const SegmentationGroupTable = ({
     </div>
   );
 };
-
-SegmentationGroupTable.propTypes = {
-  segmentations: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      isActive: PropTypes.bool.isRequired,
-      segments: PropTypes.arrayOf(
-        PropTypes.shape({
-          segmentIndex: PropTypes.number.isRequired,
-          color: PropTypes.array.isRequired,
-          label: PropTypes.string.isRequired,
-          isVisible: PropTypes.bool.isRequired,
-          isLocked: PropTypes.bool.isRequired,
-        })
-      ),
-    })
-  ),
-  segmentationConfig: PropTypes.object.isRequired,
-  disableEditing: PropTypes.bool,
-  showAddSegmentation: PropTypes.bool,
-  showAddSegment: PropTypes.bool,
-  showDeleteSegment: PropTypes.bool,
-  onSegmentationAdd: PropTypes.func.isRequired,
-  onSegmentationEdit: PropTypes.func.isRequired,
-  onSegmentationClick: PropTypes.func.isRequired,
-  onSegmentationDelete: PropTypes.func.isRequired,
-  onSegmentationDownload: PropTypes.func.isRequired,
-  onSegmentationDownloadRTSS: PropTypes.func.isRequired,
-  storeSegmentation: PropTypes.func.isRequired,
-  onSegmentClick: PropTypes.func.isRequired,
-  onSegmentAdd: PropTypes.func.isRequired,
-  onSegmentDelete: PropTypes.func.isRequired,
-  onSegmentEdit: PropTypes.func.isRequired,
-  onToggleSegmentationVisibility: PropTypes.func.isRequired,
-  onToggleSegmentVisibility: PropTypes.func.isRequired,
-  onToggleSegmentLock: PropTypes.func.isRequired,
-  onSegmentColorClick: PropTypes.func.isRequired,
-  setFillAlpha: PropTypes.func.isRequired,
-  setFillAlphaInactive: PropTypes.func.isRequired,
-  setOutlineWidthActive: PropTypes.func.isRequired,
-  setOutlineOpacityActive: PropTypes.func.isRequired,
-  setRenderFill: PropTypes.func.isRequired,
-  setRenderInactiveSegmentations: PropTypes.func.isRequired,
-  setRenderOutline: PropTypes.func.isRequired,
-};
-
-SegmentationGroupTable.defaultProps = {
-  segmentations: [],
-  disableEditing: false,
-  showAddSegmentation: true,
-  showAddSegment: true,
-  showDeleteSegment: true,
-  onSegmentationAdd: () => {},
-  onSegmentationEdit: () => {},
-  onSegmentationClick: () => {},
-  onSegmentationDelete: () => {},
-  onSegmentationDownload: () => {},
-  onSemgnetationDownloadRTSS: () => {},
-  storeSegmentation: () => {},
-  onSegmentClick: () => {},
-  onSegmentAdd: () => {},
-  onSegmentDelete: () => {},
-  onSegmentEdit: () => {},
-  onToggleSegmentationVisibility: () => {},
-  onToggleSegmentVisibility: () => {},
-  onToggleSegmentLock: () => {},
-  onSegmentColorClick: () => {},
-  setFillAlpha: () => {},
-  setFillAlphaInactive: () => {},
-  setOutlineWidthActive: () => {},
-  setOutlineOpacityActive: () => {},
-  setRenderFill: () => {},
-  setRenderInactiveSegmentations: () => {},
-  setRenderOutline: () => {},
-};
-export default SegmentationGroupTable;

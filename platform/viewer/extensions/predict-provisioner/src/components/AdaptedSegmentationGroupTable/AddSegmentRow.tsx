@@ -1,9 +1,7 @@
-import React from 'react';
+import * as React from 'react';
 import { Icon } from '@ohif/ui';
-import { useTranslation } from 'react-i18next';
 
-function AddSegmentRow({ onClick, onToggleSegmentationVisibility = null, segmentation = null }) {
-  const { t } = useTranslation('SegmentationTable');
+export default ({ onClick, onToggleSegmentationVisibility, segmentation }) => {
   return (
     <div className="flex justify-between bg-black pl-[34px] hover:cursor-pointer">
       <div className="group py-[5px] pb-[5px]" onClick={onClick}>
@@ -11,9 +9,11 @@ function AddSegmentRow({ onClick, onToggleSegmentationVisibility = null, segment
           <div className="grid h-[28px] w-[28px] place-items-center">
             <Icon name="icon-add" />
           </div>
-          <span className="text-[13px]">{t('Add segment')}</span>
+
+          <span className="text-[13px]">Add Segment</span>
         </div>
       </div>
+
       {segmentation && (
         <div className="flex items-center">
           <div
@@ -30,6 +30,4 @@ function AddSegmentRow({ onClick, onToggleSegmentationVisibility = null, segment
       )}
     </div>
   );
-}
-
-export default AddSegmentRow;
+};

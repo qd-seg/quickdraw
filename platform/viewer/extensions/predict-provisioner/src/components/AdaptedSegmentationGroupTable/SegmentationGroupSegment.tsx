@@ -1,109 +1,84 @@
-import React, { useEffect, useState } from 'react';
-import PropTypes from 'prop-types';
-import classnames from 'classnames';
-
+import * as React from 'react';
 import { Icon } from '@ohif/ui';
 
-const SegmentItem = ({
+export default ({
+  segmentationUID,
+
   score,
-  segmentIndex,
-  segmentationId,
+  index,
   label,
+  color,
+
   isActive,
   isVisible,
-  color,
+  isLocked,
   showDelete,
   disableEditing,
-  isLocked = false,
+  displayText,
+
   onClick,
   onEdit,
   onDelete,
   onColor,
   onToggleVisibility,
   onToggleLocked,
-  displayText,
 }) => {
-  const [isNumberBoxHovering, setIsNumberBoxHovering] = useState(false);
-
-  const cssColor = `rgb(${color[0]},${color[1]},${color[2]})`;
+  const [isNumberBoxHovering, setIsNumberBoxHovering] = React.useState(false);
 
   return (
     <div
-      className={classnames(
-        'text-aqua-pale group/row bg-primary-dark flex min-h-[28px] flex-col overflow-hidden',
-        {
-          'bg-primary-light border-primary-light rounded-l-[6px] border text-black': isActive,
-        }
-      )}
+      className={`text-aqua-pale group/row bg-primary-dark flex min-h-[28px] flex-col overflow-hidden ${isActive === true ? 'bg-primary-light border-primary-light rounded-l-[6px] border text-black' : ''}`}
       onClick={e => {
         e.stopPropagation();
-        onClick(segmentationId, segmentIndex);
+        onClick(segmentationUID, index);
       }}
       tabIndex={0}
       data-cy={'segment-item'}
     >
       <div className="flex min-h-[28px]">
         <div
-          className={classnames('group/number grid w-[28px] place-items-center', {
-            'bg-primary-light border-primary-light rounded-l-[4px] border text-black': isActive,
-            'bg-primary-dark border-primary-dark border': !isActive,
-          })}
+          className={`group/number grid w-[28px] place-items-center ${isActive === true ? 'bg-primary-light border-primary-light rounded-l-[4px] border text-black' : 'bg-primary-dark border-primary-dark border'}`}
           onMouseEnter={() => setIsNumberBoxHovering(true)}
           onMouseLeave={() => setIsNumberBoxHovering(false)}
         >
           {isNumberBoxHovering && showDelete ? (
             <Icon
               name="close"
-              className={classnames('h-[8px] w-[8px]', {
-                'hover:cursor-pointer hover:opacity-60': !disableEditing,
-              })}
+              className={`h-[8px] w-[8px] ${!disableEditing ? 'hover:cursor-pointer hover:opacity-60' : ''}`}
               onClick={e => {
-                if (disableEditing) {
-                  return;
-                }
+                if (disableEditing) return;
                 e.stopPropagation();
-                onDelete(segmentationId, segmentIndex);
+                onDelete(segmentationUID, index);
               }}
             />
           ) : (
-            <div>{segmentIndex}</div>
+            <div>{index}</div>
           )}
         </div>
+
         <div
-          className={classnames('text-aqua-pale relative flex w-full', {
-            'border border-l-0 border-transparent': !isActive,
-          })}
-          style={{
-            width: 'calc(100% - 28px)',
-          }}
+          className={`text-aqua-pale relative flex w-full ${!isActive ? 'border border-l-0 border-transparent' : ''}`}
+          style={{ width: 'calc(100% - 28px)' }}
         >
           <div className="bg-primary-dark flex h-full flex-grow items-center">
             <div className="pl-2 pr-1.5">
               <div
-                className={classnames('h-[8px] w-[8px] grow-0 rounded-full', {
-                  'hover:cursor-pointer hover:opacity-60': !disableEditing,
-                })}
-                style={{ backgroundColor: cssColor }}
+                className={`h-[8px] w-[8px] grow-0 rounded-full ${!disableEditing ? 'hover:cursor-pointer hover:opacity-60' : ''}`}
+                style={{ backgroundColor: `rgb(${color[0]},${color[1]},${color[2]})` }}
                 onClick={e => {
-                  if (disableEditing) {
-                    return;
-                  }
+                  if (disableEditing) return;
                   e.stopPropagation();
-                  onColor(segmentationId, segmentIndex);
+                  onColor(segmentationUID, index);
                 }}
               />
             </div>
+
             <div className="flex items-center py-1 hover:cursor-pointer">
-              {score ? `${score.toFixed(2)} - ` : ''}
-              {label}
+              {`${score ? `${score.toFixed(2)} - ` : ''}${label}`}
             </div>
           </div>
-          <div
-            className={classnames(
-              'absolute right-[8px] top-0 flex flex-row-reverse rounded-lg pt-[3px]',
-              {}
-            )}
-          >
+
+          <div className="absolute right-[8px] top-0 flex flex-row-reverse rounded-lg pt-[3px]">
             <div className="group-hover/row:hidden">
               {!isVisible && (
                 <Icon
@@ -111,13 +86,12 @@ const SegmentItem = ({
                   className="h-5 w-5 text-[#3d5871]"
                   onClick={e => {
                     e.stopPropagation();
-                    onToggleVisibility(segmentationId, segmentIndex);
+                    onToggleVisibility(segmentationUID, index);
                   }}
                 />
               )}
             </div>
 
-            {/* Icon for 'row-lock' that shows when NOT hovering and 'isLocked' is true */}
             <div className="group-hover/row:hidden">
               {isLocked && (
                 <div className="flex">
@@ -126,32 +100,31 @@ const SegmentItem = ({
                     className="h-5 w-5 text-[#3d5871]"
                     onClick={e => {
                       e.stopPropagation();
-                      onToggleLocked(segmentationId, segmentIndex);
+                      onToggleLocked(segmentationUID, index);
                     }}
                   />
 
-                  {/* This icon is visible when 'isVisible' is true */}
                   {isVisible && <Icon name="row-hidden" className="h-5 w-5 opacity-0" />}
                 </div>
               )}
             </div>
 
-            {/* Icons that show only when hovering */}
             <div className="hidden group-hover/row:flex">
               <HoveringIcons
+                segmentationUID={segmentationUID}
+                index={index}
                 disableEditing={disableEditing}
-                onEdit={onEdit}
                 isLocked={isLocked}
                 isVisible={isVisible}
+                onEdit={onEdit}
                 onToggleLocked={onToggleLocked}
                 onToggleVisibility={onToggleVisibility}
-                segmentationId={segmentationId}
-                segmentIndex={segmentIndex}
               />
             </div>
           </div>
         </div>
       </div>
+
       {Array.isArray(displayText) ? (
         <div className="flex flex-col bg-black py-[5px] pl-[43px]">
           {displayText.map(text => (
@@ -172,39 +145,39 @@ const SegmentItem = ({
 };
 
 const HoveringIcons = ({
+  segmentationUID,
+  index,
   disableEditing,
-  onEdit,
   isLocked,
   isVisible,
   onToggleLocked,
   onToggleVisibility,
-  segmentationId,
-  segmentIndex,
+  onEdit,
 }) => {
-  const iconClass = 'w-5 h-5 hover:cursor-pointer hover:opacity-60';
-
   const handleIconClick = (e, action) => {
     e.stopPropagation();
-    action(segmentationId, segmentIndex);
+    action(segmentationUID, index);
   };
 
-  const createIcon = (name, action, color = null) => (
+  const createIcon = (name, action, color) => (
     <Icon
       name={name}
-      className={classnames(iconClass, color ?? 'text-white')}
+      className={`h-5 w-5 hover:cursor-pointer hover:opacity-60 ${color ?? 'text-white'}`}
       onClick={e => handleIconClick(e, action)}
     />
   );
 
   return (
     <div className="flex items-center">
-      {!disableEditing && createIcon('row-edit', onEdit)}
+      {!disableEditing && createIcon('row-edit', onEdit, null)}
+
       {!disableEditing &&
         createIcon(
           isLocked ? 'row-lock' : 'row-unlock',
           onToggleLocked,
           isLocked ? 'text-[#3d5871]' : null
         )}
+
       {createIcon(
         isVisible ? 'row-shown' : 'row-hidden',
         onToggleVisibility,
@@ -213,27 +186,3 @@ const HoveringIcons = ({
     </div>
   );
 };
-
-SegmentItem.propTypes = {
-  segmentIndex: PropTypes.number.isRequired,
-  segmentationId: PropTypes.string.isRequired,
-  label: PropTypes.string,
-  disableEditing: PropTypes.bool,
-  // color as array
-  color: PropTypes.array,
-  isActive: PropTypes.bool.isRequired,
-  isVisible: PropTypes.bool.isRequired,
-  isLocked: PropTypes.bool,
-  onClick: PropTypes.func.isRequired,
-  onEdit: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired,
-  onToggleVisibility: PropTypes.func.isRequired,
-  onToggleLocked: PropTypes.func,
-  displayText: PropTypes.string,
-};
-
-SegmentItem.defaultProps = {
-  isActive: false,
-};
-
-export default SegmentItem;

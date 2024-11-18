@@ -1,11 +1,11 @@
-import React from 'react';
-import { Dialog } from '@ohif/ui';
+import * as React from 'react';
 import { ChromePicker } from 'react-color';
+import { Dialog } from '@ohif/ui';
 
-import './colorPickerDialog.css';
+import './ColorPickerDialog.css';
 
-function callColorPickerDialog(uiDialogService, rgbaColor, callback) {
-  const dialogId = 'pick-color';
+export default (service, rgbaColor, callback) => {
+  const id = 'pick-color';
 
   const onSubmitHandler = ({ action, value }) => {
     switch (action.id) {
@@ -16,12 +16,12 @@ function callColorPickerDialog(uiDialogService, rgbaColor, callback) {
         callback('', action.id);
         break;
     }
-    uiDialogService.dismiss({ id: dialogId });
+    service.dismiss({ id });
   };
 
-  if (uiDialogService) {
-    uiDialogService.create({
-      id: dialogId,
+  if (service !== undefined) {
+    service.create({
+      id,
       centralize: true,
       isDraggable: false,
       showOverlay: true,
@@ -30,7 +30,7 @@ function callColorPickerDialog(uiDialogService, rgbaColor, callback) {
         title: 'Segment Color',
         value: { rgbaColor },
         noCloseButton: true,
-        onClose: () => uiDialogService.dismiss({ id: dialogId }),
+        onClose: () => service.dismiss({ id }),
         actions: [
           { id: 'cancel', text: 'Cancel', type: 'primary' },
           { id: 'save', text: 'Save', type: 'secondary' },
@@ -53,6 +53,4 @@ function callColorPickerDialog(uiDialogService, rgbaColor, callback) {
       },
     });
   }
-}
-
-export default callColorPickerDialog;
+};

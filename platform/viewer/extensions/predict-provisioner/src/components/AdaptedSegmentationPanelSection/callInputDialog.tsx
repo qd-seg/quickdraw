@@ -1,8 +1,8 @@
-import React from 'react';
+import * as React from 'react';
 import { Input, Dialog, ButtonEnums } from '@ohif/ui';
 
-function callInputDialog(uiDialogService, label, callback) {
-  const dialogId = 'enter-segment-label';
+export default (service, label, callback) => {
+  const id = 'enter-segment-label';
 
   const onSubmitHandler = ({ action, value }) => {
     switch (action.id) {
@@ -13,12 +13,13 @@ function callInputDialog(uiDialogService, label, callback) {
         callback('', action.id);
         break;
     }
-    uiDialogService.dismiss({ id: dialogId });
+
+    service.dismiss({ id });
   };
 
-  if (uiDialogService) {
-    uiDialogService.create({
-      id: dialogId,
+  if (service !== undefined) {
+    service.create({
+      id,
       centralize: true,
       isDraggable: false,
       showOverlay: true,
@@ -27,7 +28,7 @@ function callInputDialog(uiDialogService, label, callback) {
         title: 'Segment',
         value: { label },
         noCloseButton: true,
-        onClose: () => uiDialogService.dismiss({ id: dialogId }),
+        onClose: () => service.dismiss({ id }),
         actions: [
           { id: 'cancel', text: 'Cancel', type: ButtonEnums.type.secondary },
           { id: 'save', text: 'Confirm', type: ButtonEnums.type.primary },
@@ -47,9 +48,7 @@ function callInputDialog(uiDialogService, label, callback) {
                 setValue(value => ({ ...value, label: event.target.value }));
               }}
               onKeyPress={event => {
-                if (event.key === 'Enter') {
-                  onSubmitHandler({ value, action: { id: 'save' } });
-                }
+                if (event.key === 'Enter') onSubmitHandler({ value, action: { id: 'save' } });
               }}
             />
           );
@@ -57,6 +56,4 @@ function callInputDialog(uiDialogService, label, callback) {
       },
     });
   }
-}
-
-export default callInputDialog;
+};

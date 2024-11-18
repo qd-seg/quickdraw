@@ -1,5 +1,4 @@
-// Todo: use defaults in cs3d
-const initialState = {
+const initial = {
   renderOutline: true,
   renderFill: true,
   outlineOpacity: 0.9,
@@ -30,4 +29,4 @@ const reducer = (state, action) => {
   }
 };
 
-export { initialState, reducer };
+export { initial, reducer };

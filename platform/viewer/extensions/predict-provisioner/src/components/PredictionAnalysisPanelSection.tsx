@@ -2,7 +2,7 @@ import * as React from 'react';
 import { PanelSection, Button } from '@ohif/ui';
 
 import WrappedSelect from './WrappedSelect';
-import getActiveDisplayUIDSet from '../auxiliary/getActiveDisplayUIDSet';
+import getActiveDisplayUIDSet from './getActiveDisplayUIDSet';
 
 export default ({ status, setStatus, setAnalysis, servicesManager }) => {
   const [availableMasks, setAvailableMasks] = React.useState<Record<string, any>>({});
@@ -140,7 +140,7 @@ export default ({ status, setStatus, setAnalysis, servicesManager }) => {
     }
   };
 
-  const saveDiscrepency = async () => {
+  const saveDiscrepancy = async () => {
     const { uiNotificationService } = servicesManager.services;
 
     let activeDisplayUIDSet;
@@ -263,8 +263,8 @@ export default ({ status, setStatus, setAnalysis, servicesManager }) => {
 
       <Button
         className="mb-1 mt-1"
-        children="Save Discrepency"
-        onClick={() => saveDiscrepency().catch(console.error)}
+        children="Save Discrepancy"
+        onClick={() => saveDiscrepancy().catch(console.error)}
         disabled={isAnalysisAvailable() === false}
       ></Button>
     </PanelSection>
