@@ -283,6 +283,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
                             '--scp-flag=-l 50000',
                             '--scp-flag=-o ServerAliveInterval=15',
                             '--scp-flag=-o ServerAliveCountMax=10',
+                            '--scp-flag=-4',
                             dicom_image_directory,
                             f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}/'], check=True)
         except Exception as e:
@@ -295,6 +296,7 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
                 '--scp-flag=-l 50000',
                 '--scp-flag=-o ServerAliveInterval=15',
                 '--scp-flag=-o ServerAliveCountMax=10',
+                '--scp-flag=-4',
                 dicom_image_directory,
                 f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}/'], check=True, capture_output=True, text=True).stdout
             at_index = dry_run_cmd.find("@")
@@ -429,6 +431,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                             '--scp-flag=-l 50000',
                             '--scp-flag=-o ServerAliveInterval=15',
                             '--scp-flag=-o ServerAliveCountMax=10',
+                            '--scp-flag=-4',
                             f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_id}/',
                             dcm_prediction_dir], check=True)
         except Exception as e:
@@ -441,6 +444,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                 '--scp-flag=-l 50000',
                 '--scp-flag=-o ServerAliveInterval=15',
                 '--scp-flag=-o ServerAliveCountMax=10',
+                '--scp-flag=-4',
                 f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_id}/',
                 dcm_prediction_dir], check=True, capture_output=True, text=True).stdout
             at_index = dry_run_cmd.find("@")
