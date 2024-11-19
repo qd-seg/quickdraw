@@ -430,7 +430,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                             '--scp-flag=-o ServerAliveInterval=15',
                             '--scp-flag=-o ServerAliveCountMax=10',
                             f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_id}/',
-                            dcm_prediction_dir])
+                            dcm_prediction_dir], check=True)
         except Exception as e:
             print(e)
             print('Retrying with set ip...')
