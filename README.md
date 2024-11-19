@@ -51,40 +51,50 @@ within the project are configured to use these executables when invoked.
 ## Setting Up Google Cloud Services
 
 ### Google Cloud Project Creation
-The radiology Google Cloud project has already been set up. If you do not have access or if you wish to use a 
-different Google Cloud project, follow the instructions below.
 
-[Create a Google Cloud Project](https://console.cloud.google.com/projectcreate). Choose any name and organization.
+The radiology Google Cloud project has already been set up. If you do not have access or if you wish
+to use a different Google Cloud project, follow the instructions below.
 
-After creating a project, near the top of the screen you will see a search box that says "Search (/) for resources, 
-docs, products, and more". Search for and enable the following APIs:
+[Create a Google Cloud Project](https://console.cloud.google.com/projectcreate). Choose any name and
+organization.
+
+After creating a project, near the top of the screen you will see a search box that says "Search (/)
+for resources, docs, products, and more". Search for and enable the following APIs:
+
 - Compute Engine
 - Artifact Registry
 
-*You may have to enter your billing information to activate these APIs.*
+_You may have to enter your billing information to activate these APIs._
 
 #### Creating a Service Account
-- Open the left sidebar and navigate to `IAM & Admin > Service Accounts` 
-- Click "+ Create a Service Account"
-- Enter service account details in step 1
-- In step 2, grant the service account the following roles 
-(**make sure the roles have these exact names. Roles with similar names will not suffice. You cannot edit these permissions after service account creation, and will have to create another service account if the permissions are incorrect.**):
-  - Service Account User
-  - Compute Admin	
-  - Artifact Registry Administrator
-- Finish service account creation
+
+1. Open the left sidebar and navigate to `IAM & Admin > Service Accounts`
+2. Click `Create a Service Account`
+3. Enter service account details in step 1.
+4. In step 2, grant the service account the following roles. _*Make sure the roles have these exact
+   names. Roles with similar names will not suffice. You cannot edit these permissions after service
+   account creation, and will have to create another service account if the permissions are
+   incorrect.*_
+
+   - Service Account User
+   - Compute Admin
+   - Artifact Registry Administrator
+
+5. Finish service account creation.
 
 #### Creating a Service Account Key
+
 - After creating the account, open the service account in the Service accounts list
-- Navigate to the "Keys" tab
-- Click the "Add Key" button, select "JSON". It should download a .json file to your computer
+- Navigate to the `Keys` tab
+- Click the `Add Key` button, select `JSON`. It should download a JSON file to your computer.
 
-#### Project Authentication
-In the root directory of the project, create a folder named `secret`. Place the service account key json file into this
-folder and name it `service_account.json`. It should follow the schema below:
+#### Project Authentication and Configuration
+
+In the root directory of the project, create a directory named `secret`. Place the service account
+key json file into this folder and name it `service_account.json`. It should abide by the following
+schema:
+
 ```json
-// service_account.json
-
 {
   "type": string,
   "project_id": string,
@@ -100,91 +110,129 @@ folder and name it `service_account.json`. It should follow the schema below:
 }
 ```
 
-Create a new file named `service_configuration.json` and paste the following into it:
+Create a new file named `service_configuration.json` in the `secret/` directory and paste the
+following into it:
+
 ```json
 {
-    "zone": "us-east4-b",
-    "backupZones": [],
-    "machineType": "c2-standard-8",
-    "repository": "models",
-    "instanceLimit": 1,
-    "allowRunWithoutGoogleCloud": false
+  "zone": "us-east4-b",
+  "backupZones": [],
+  "machineType": "c2-standard-8",
+  "repository": "models",
+  "instanceLimit": 1,
+  "allowRunWithoutGoogleCloud": false
 }
 ```
+
 The default values above will function properly, but if you wish to replace any value:
-- `zone: string`:  [zone to create Compute Instance in](https://cloud.google.com/compute/docs/regions-zones)
-- `backupZones: string[]`: list of zones to check if original zone is out of resources
-- `machineType: string`: [machine type to create Instance from](https://cloud.google.com/compute/docs/machine-resource)
-- `repository: string`: name of Artifact Registry repository for model Docker images
-- `instanceLimit: int`: maximum number of Compute Instances that can exist at once. **Recommended value=1**
-- `allowRunWithoutGoogleCloud: boolean`: whether or not to continue running Flask server even if Google Cloud Services is down
----
-The paths in which the build process looks for these files defaults to `secret` but can be overwritten by setting the
-`$SERVICE_ACCOUNT` or `$SERVICE_CONFIGURATION` environment variables. These can be prepended to the
-Yarn scripts described in [`package.json`](package.json). The path is expected to be absolute or
-relative to the `build` directory.
+
+- `zone: string` - The target zone to create the compute instance in. Details can be found
+  [here](https://cloud.google.com/compute/docs/regions-zones).
+- `backupZones: string[]` - Potential backup zones to create the compute instance in the case that
+  the target zone is unavailable.
+- `machineType: string` - The machine type to use when creating the compute instance. Details can be
+  found [here](https://cloud.google.com/compute/docs/machine-resource).
+- `repository: string` - The name of the Artifact Registry repository for model Docker images.
+- `instanceLimit: int`: Maximum number of Compute Instances that can exist at once. **Only a single
+  instance is recommended.**
+- `allowRunWithoutGoogleCloud: boolean`: Whether or not to continue running the Flask server in the
+  case Google Cloud Services is down.
+
+The paths in which the build process looks for these files defaults to `secret/` but can be
+overwritten by setting the `$SERVICE_ACCOUNT` or `$SERVICE_CONFIGURATION` environment variables.
+These can be prepended to the Yarn scripts described in [`package.json`](package.json). The path is
+expected to be absolute or relative to the `build/` directory.
 
 ```
 > SERVICE_ACCOUNT=/path/to/file SERVICE_CONFIGURATION=/path/to/file yarn run ...
 ```
 
 ### Uploading Models
-In order to upload models using the CLI script, several Python libraries are required. Ensure that your 
-[virtual environment is activated](#activate-the-virtual-environment).
+
+In order to upload models using the CLI script, several Python libraries are required. Ensure that
+your [virtual environment is activated](#activate-the-virtual-environment).
 
 ```
 > pip install -r ./platform/broker/src/upload_requirements.txt
 ```
 
-A Dockerized model for organ segmentation is already available the radiology project's Google Cloud Artifact Registry. Follow the below instructions if you [want to use the existing model on a different Cloud project](#using-the-existing-model). If you would like to create your own model, [instructions are here](#creating-a-new-model).
-
----
+A Dockerized model for organ segmentation is already available the radiology project's Google Cloud
+Artifact Registry. Follow the below instructions if you
+[want to use the existing model on a different Cloud project](#using-the-existing-model). If you
+would like to create your own model, [instructions are here](#creating-a-new-model).
 
 #### Using the Existing Model
-Follow these instructions to use the existing Organ Segmentation model, created by Rahul Pemmaraju and Neehar Peri,
-in your own Google Cloud project.
+
+Follow these instructions to use the existing Organ Segmentation model, created by Rahul Pemmaraju
+and Neehar Peri, in your own Google Cloud project.
 
 If you have a .tar file of the Dockerized model:
-- `yarn run manage:upload -t <tarball-path>` 
 
-(*Usage of python3, python or py depends on your Python installation. ex: `yarn run manage:upload -t c:/Users/me/Downloads/model.tar`*)
+```
+> yarn run manage:upload -t <tarball_path>
+```
 
-This will upload the model to Artifact Registry in the repository determined by `service_configuration.json`. If
-a repository of the given name does not exist, one will be created.
+This will upload the model to Artifact Registry in the repository determined by
+`service_configuration.json`. If a repository of the given name does not exist, one will be created.
 
----
-Or, if you want to build the image from the `organ_seg_model` branch:
-- Navigate into a directory *outside* of this project's root directory
-- `git clone -b organ_seg_model gitlab@para.cs.umd.edu:purtilo/radiology.git`
-- `cd` into the organ_seg_model branch directory
-- `docker build -t <image-name> .`
-- **`cd` back into original project's root directory**
-- `yarn run manage:upload -i <image-name>`
+Or, if you want to build the image from the `organ_seg_model` branch, navigate into a directory
+_*outside*_ of this project's root directory and run the following set of commands.
 
----
+```
+> git clone -b organ_seg_model https://para.cs.umd.edu/purtilo/radiology.git
+> cd organ_seg_model
+> docker build -t <image_name>
+```
+
+The navigate back into the orignal project's root directory and run the next command.
+
+```
+> yarn run manage:upload -i <image_name>
+```
 
 #### Creating a New Model
-- Create Dockerfile with an ENTRYPOINT that is that python file ran to make predictions. Ex: `ENTRYPOINT ["python", "predict.py"]`
-- `predict.py` should take 1 required command-line argument, which is the name of the DICOM series that will be fed to the model
-- `predict.py` **MUST** take in inputs from `./images` and output to `./model_outputs/<dicom-series-name>/<output>.[dcm|npz]`, relative to the directory that `predict.py` is stored (probably `/app/`)
-- `docker build -t <image-name> .`
 
-Your image should appear if you run `docker images`. To test it:
-- Manually create directories `images/` and `model-outputs/` in your model's root path
-- Place a DICOM series into `images/`
-- `docker run -v <model-root-path>/images:/app/images -v <model-root-path>/model_outputs:/app/model_outputs <dicom-series-name> [OPTIONAL-ARGS]` 
-  
-You can push the model directly to Registry:
-- `yarn run manage:upload -i <image-name>`
+1. Create Dockerfile with an `ENTRYPOINT` that is that python file ran to make predictions, in the
+   form `ENTRYPOINT ["python", "<prediction_script>.py"]`.
 
-Or, if you wish to save the image to a tarball first:
-- `docker save -o <image-name>.tar <image-name>`
-- `yarn run manage:upload -t <tarball-path>`
+2. `predict.py` must take 1 required command-line argument, which is the name of the DICOM series
+   that will be fed to the model.
+
+3. `predict.py` must take in inputs from a relative directory `inputs/` and output to a directory of
+   the form `model-outputs/<dicom_series_name>/<output>`. The output must have a file extension of
+   either `.dcm` or `.npz`.
+
+You can then build the image and check to ensure it was created and stored in Docker.
+
+```
+> docker build -t <image_name>
+> docker images
+```
+
+Next, test the model directly on your machine. Manually create directories `images/` and
+`model-outputs/` in your model's root path and place a DICOM series into `images/`. Then run the
+image using Docker.
+
+```
+> docker run -v <model_root_path>/images:/app/images -v <model_root_path>/model_outputs:/app/model_outputs <dicom_series_name>
+```
+
+You can then push the model directly to the registry.
+
+```
+> yarn run manage:upload -i <image_name>
+```
+
+Or, save the image to a tarbar first.
+
+```
+> docker save -o <image_name>.tar <image_name>
+> yarn run manage:upload -t <tarball_path>
+```
 
 If you are having issues, double check your service account configuration secret files are correct.
-Also ensure the service account has the proper permissions as described [here](README.md#google-cloud-setup)
-  
-An example is provided in the `organ_seg_model` branch.
+Also ensure the service account has the proper permissions as described
+[here](README.md#google-cloud-setup). An example is provided in the `organ_seg_model` branch.
 
 ## Deployment
 
@@ -233,7 +281,7 @@ provides features to install all required packages together. Installing these de
 allow for partial type checking within the OHIF plugin portion of this project.
 
 ```
-> yarn run install:nodejs
+> yarn install
 ```
 
 ### Development
@@ -248,7 +296,7 @@ for live reloading of both the backend API and OHIF plugins.
 
 #### REST API Server
 
-The REST API server can be found in `platform/broker`, and is a Flask based backend for the OHIF
+The REST API server can be found in `platform/broker/`, and is a Flask based backend for the OHIF
 Viewer extensions. It interfaces between the OHIF Viewer, Orthanc DICOM server and Google Cloud
 Services to provide the necessary functionality.
 
@@ -256,5 +304,5 @@ Services to provide the necessary functionality.
 
 The OHIF Viewer is the core of this project, providing a framework for viewing DICOM modalities such
 as CT scans and segmentations. It provides an interface for extending it's functionality through the
-use of extensions and modes. These extensions and modes are stored in `platform/viewer` and are a
+use of extensions and modes. These extensions and modes are stored in `platform/viewer/` and are a
 set of React based components and configurations to enable them within the OHIF Viewer.
