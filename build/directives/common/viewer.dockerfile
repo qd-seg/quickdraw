@@ -3,7 +3,7 @@
 ARG ALPINE_VERSION
 ARG NODE_VERSION
 
-FROM alpine:${ALPINE_VERSION} AS pull
+FROM --platform=${BUILDPLATFORM} alpine:${ALPINE_VERSION} AS pull
 
 ARG VIEWER_VERSION
 
@@ -16,7 +16,7 @@ WORKDIR /usr/local/src/viewer
 RUN git fetch --all --tags --prune
 RUN git checkout v${VIEWER_VERSION}
 
-FROM node:${NODE_VERSION}-slim AS install
+FROM --platform=${BUILDPLATFORM} node:${NODE_VERSION}-slim AS install
 
 RUN apt-get update && apt-get -y install python3 g++ make && rm -rf /var/lib/apt/lists/*
 

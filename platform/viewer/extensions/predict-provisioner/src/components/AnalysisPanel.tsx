@@ -44,7 +44,7 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
   }, []);
 
   return (
-    <div>
+    <div className="ohif-scrollbar invisible-scrollbar overflow-auto">
       <ProgressLoadingBar progress={progress} />
 
       <ModelRelationPanelSection

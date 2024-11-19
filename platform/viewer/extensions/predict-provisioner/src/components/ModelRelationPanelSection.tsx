@@ -43,16 +43,7 @@ export default ({ status, setStatus, servicesManager }) => {
         }),
       });
 
-      if (response.ok || response.status === 202) {
-        uiNotificationService.show({
-          title: 'Prediction Queued',
-          message: 'Prediction is running in the background. Please wait a few minutes...',
-          type: 'success',
-          duration: 5000,
-        });
-      }
-
-      if (!response.ok) {
+      if (response.ok === false) {
         const json = await response.json();
 
         uiNotificationService.show({

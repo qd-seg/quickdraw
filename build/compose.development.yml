@@ -39,7 +39,6 @@ services:
       file: compose.common.yml
       service: orthanc
 
-
 volumes:
   index:
   store:
