@@ -239,6 +239,7 @@ def remove_instance_metadata(project_id: str, zone: str, instance: compute_v1.In
 def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, key_filepath: str, dicom_image_directory: str, dicom_series_id: str, instance_name: str, run_auth=True) -> bool:
     if run_auth:
         try:
+            print('Auth in upload to dicom instance...')
             # Log into service account with gcloud
             subprocess.run(['gcloud', 'auth', 'activate-service-account', service_account, f'--key-file={key_filepath}'], check=True)
         except Exception as e:
@@ -272,18 +273,38 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
         #                 '--quiet',
         #                 dicom_image_directory,
         #                 f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}'], check=True)
-        
-        subprocess.run(['gcloud', 'compute', 'scp',
-                        f'--project={project_id}', 
-                        f'--zone={zone}',
-                        '--verbosity=debug',
-                        '--quiet',
-                        '--scp-flag=-l 50000',
-                        '--scp-flag=-o ServerAliveInterval=15',
-                        '--scp-flag=-o ServerAliveCountMax=10',
-                        dicom_image_directory,
-                        f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}/'], check=True)
-        print('ok')
+        try:
+            # raise Exception('asdf')
+            subprocess.run(['gcloud', 'compute', 'scp',
+                            f'--project={project_id}', 
+                            f'--zone={zone}',
+                            '--verbosity=debug',
+                            '--quiet',
+                            '--scp-flag=-l 50000',
+                            '--scp-flag=-o ServerAliveInterval=15',
+                            '--scp-flag=-o ServerAliveCountMax=10',
+                            dicom_image_directory,
+                            f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}/'], check=True)
+        except Exception as e:
+            print(e)
+            print('Retrying with set ip...')
+            dry_run_cmd = subprocess.run(['gcloud', 'compute', 'scp',
+                f'--project={project_id}', 
+                f'--zone={zone}',
+                '--dry-run',
+                '--scp-flag=-l 50000',
+                '--scp-flag=-o ServerAliveInterval=15',
+                '--scp-flag=-o ServerAliveCountMax=10',
+                dicom_image_directory,
+                f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}/'], check=True, capture_output=True, text=True).stdout
+            at_index = dry_run_cmd.find("@")
+            colon_index = dry_run_cmd.find(":")
+            ip = get_instance_ip_address(get_instance(project_id, zone, instance_name), IPType.EXTERNAL)[0]
+            print(ip)
+            modified_cmd = dry_run_cmd[:at_index + 1] + ip + dry_run_cmd[colon_index:]
+            subprocess.run(modified_cmd, shell=True, check=True)
+            
+        print('upload ok', flush=True)
     except Exception as e:
         print('DICOM upload failed')
         print(e, flush=True)
@@ -349,7 +370,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         
     try:    
         # Log into service account with gcloud
-        subprocess.run(['gcloud', 'auth', 'activate-service-account', service_account, f'--key-file={key_filepath}'], check=True)
+        subprocess.run(['gcloud', 'auth', 'activate-service-account', service_account, f'--key-file={key_filepath}', '--verbosity=debug'], check=True)
         if not skip_predictions:
             print('Set DICOM image directory')
             # Set the directory on instance where DICOM images will be pulled from
@@ -398,17 +419,36 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
             
         os.makedirs(dcm_prediction_dir, exist_ok=True)
         print('Copying over predictions to', dcm_prediction_dir)
-        subprocess.run(['gcloud', 'compute', 'scp',
-                        f'--project={project_id}', 
-                        f'--zone={zone}',
-                        '--recurse',
-                        '--verbosity=debug',
-                        '--quiet',
-                        '--scp-flag=-l 50000',
-                        '--scp-flag=-o ServerAliveInterval=15',
-                        '--scp-flag=-o ServerAliveCountMax=10',
-                        f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_id}/',
-                        dcm_prediction_dir])
+        try:
+            subprocess.run(['gcloud', 'compute', 'scp',
+                            f'--project={project_id}', 
+                            f'--zone={zone}',
+                            '--recurse',
+                            '--verbosity=debug',
+                            '--quiet',
+                            '--scp-flag=-l 50000',
+                            '--scp-flag=-o ServerAliveInterval=15',
+                            '--scp-flag=-o ServerAliveCountMax=10',
+                            f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_id}/',
+                            dcm_prediction_dir])
+        except Exception as e:
+            print(e)
+            print('Retrying with set ip...')
+            dry_run_cmd = subprocess.run(['gcloud', 'compute', 'scp',
+                f'--project={project_id}', 
+                f'--zone={zone}',
+                '--dry-run',
+                '--scp-flag=-l 50000',
+                '--scp-flag=-o ServerAliveInterval=15',
+                '--scp-flag=-o ServerAliveCountMax=10',
+                f'{username}@{instance_name}:/home/{username}/model_outputs/{dicom_series_id}/',
+                dcm_prediction_dir], check=True, capture_output=True, text=True).stdout
+            at_index = dry_run_cmd.find("@")
+            colon_index = dry_run_cmd.find(":")
+            ip = get_instance_ip_address(get_instance(project_id, zone, instance_name), IPType.EXTERNAL)[0]
+            print(ip)
+            modified_cmd = dry_run_cmd[:at_index + 1] + ip + dry_run_cmd[colon_index:]
+            subprocess.run(modified_cmd, shell=True, check=True)
         
         # Delete files on Instance
         print('Deleting unnecessary files on VM')
