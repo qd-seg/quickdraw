@@ -188,7 +188,7 @@ export default ({ status, setStatus, setAnalysis, servicesManager }) => {
         }),
       });
 
-      if (response.ok || response.status === 202) {
+      if (response.ok === true || response.status === 202) {
         uiNotificationService.show({
           title: 'Discrepancy Processing',
           message: 'Creating Discrepancy mask in the background. Please wait a few minutes...',
@@ -197,7 +197,7 @@ export default ({ status, setStatus, setAnalysis, servicesManager }) => {
         });
       }
 
-      if (!response.ok) {
+      if (response.ok === false) {
         const json = await response.json();
 
         uiNotificationService.show({
