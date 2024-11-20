@@ -299,7 +299,9 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
                 f'{username}@{instance_name}:/home/{username}/images/{dicom_series_id}/'], check=True, capture_output=True, text=True).stdout
             at_index = dry_run_cmd.find("@")
             colon_index = dry_run_cmd.find(":")
-            ip = get_instance_ip_address(get_instance(project_id, zone, instance_name), IPType.EXTERNAL)[0]
+            ips = get_instance_ip_address(get_instance(project_id, zone, instance_name), IPType.EXTERNAL)
+            print(ips)
+            ip = ips[0]
             print(ip)
             modified_cmd = dry_run_cmd[:at_index + 1] + ip + dry_run_cmd[colon_index:]
             subprocess.run(modified_cmd, shell=True, check=True)
@@ -445,7 +447,9 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                 dcm_prediction_dir], check=True, capture_output=True, text=True).stdout
             at_index = dry_run_cmd.find("@")
             colon_index = dry_run_cmd.find(":")
-            ip = get_instance_ip_address(get_instance(project_id, zone, instance_name), IPType.EXTERNAL)[0]
+            ips = get_instance_ip_address(get_instance(project_id, zone, instance_name), IPType.EXTERNAL)
+            print(ips)
+            ip = ips[0]
             print(ip)
             modified_cmd = dry_run_cmd[:at_index + 1] + ip + dry_run_cmd[colon_index:]
             subprocess.run(modified_cmd, shell=True, check=True)
