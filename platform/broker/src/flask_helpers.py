@@ -303,6 +303,8 @@ def upload_dicom_to_instance(project_id: str, zone: str, service_account: str, k
             colon_index = dry_run_cmd.find(":")
             ips = get_instance_ip_address(get_instance(project_id, zone, instance_name), IPType.EXTERNAL)
             print(ips)
+            if len(ips) == 0:
+                raise Exception('Instance', instance_name, 'does not have external IP. Please delete it and create a new one.')
             ip = ips[0]
             print(ip)
             modified_cmd = dry_run_cmd[:at_index + 1] + ip + dry_run_cmd[colon_index:]
@@ -453,6 +455,8 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
             colon_index = dry_run_cmd.find(":")
             ips = get_instance_ip_address(get_instance(project_id, zone, instance_name), IPType.EXTERNAL)
             print(ips)
+            if len(ips) == 0:
+                raise Exception('Instance', instance_name, 'does not have external IP. Please delete it and create a new one.')
             ip = ips[0]
             print(ip)
             modified_cmd = dry_run_cmd[:at_index + 1] + ip + dry_run_cmd[colon_index:]

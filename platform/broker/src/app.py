@@ -160,11 +160,23 @@ def emit_update_progressbar(value):
     
 def emit_toast(message, type='success'): # type = success | warning | error
     socketio.emit('toast_message', {'message': message, 'type': type})
- 
-# outdated
+
 def clear_unused_instances():
-    '''Removes all Compute instances that do not have an existing model associated with them'''
-    pass
+    instances = list_instances(_PROJECT_ID, _ZONE)
+    print('Suspending running instances')
+    for instance in instances:
+        if instance.status == 'RUNNING':
+            print(instance.name, 'is running. Checking if idling:')
+            is_idling = next(filter(lambda m: m.key == 'idling', instance.metadata.items), None)
+            is_idling = is_idling is not None and is_idling.value == 'True'
+            if is_idling:
+                print(' Is idling, did not suspend')
+            else:
+                print(' Suspending', instance.name)
+                suspend_instance(_PROJECT_ID, _ZONE, instance.name, block=False)
+        # elif instance.status in ['PROVISIONING', 'STAGING']:
+            
+    return
     # print('Clearing unused instances...')
     # filename = _MODEL_INSTANCES_FILEPATH
     # model_instances = read_json(filename, default_as_dict=False)
@@ -1061,7 +1073,7 @@ else:
     print('Not running through main, no prefixes for routes')
     if not _NO_GOOGLE_CLOUD:
         clear_unused_instances()
-    clear_backup_region_instances()
+        clear_backup_region_instances()
     try:
         if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
             for name in os.listdir(cache_dir):
