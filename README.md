@@ -256,6 +256,10 @@ The path is expected to be absolute or relative to the `build/` directory.
 SSL_CERTIFICATE=/path/to/file SSL_CERTIFICATE_KEY=/path/to/file yarn run ...
 ```
 
+Note that OpenSSL may not be availble by default within the Windows operating system, but there are
+a variety of methods available to install the tool. There are several options listed on the
+[OpenSSL Wiki](https://wiki.openssl.org/index.php/Binaries).
+
 ## Deployment
 
 ### Docker
