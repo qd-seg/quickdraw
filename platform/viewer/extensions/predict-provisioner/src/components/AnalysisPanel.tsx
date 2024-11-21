@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import { ProgressLoadingBar, Toolbox } from '@ohif/ui';
 
 import ModelRelationPanelSection from './ModelRelationPanelSection';
@@ -18,6 +18,8 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
     calculating: false,
   });
 
+  const [socket, setSocket] = React.useState<Socket | undefined>(undefined);
+
   const isProcessing = () => !Object.values(status).every(x => x === false);
 
   React.useEffect(() => {
@@ -34,12 +36,19 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
         title: 'Status Update',
         message,
         type,
-        duration: 8000,
+        duration: 10000,
       });
     });
 
+    // socket.on('progress_update', ({ value }) => {
+    //   if (isProcessing()) setProgress(parseFloat(value) || 0);
+    // });
+
+    setSocket(socket);
+
     return () => {
       socket.disconnect();
+      setSocket(undefined);
     };
   }, []);
 
@@ -51,6 +60,7 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
         status={status}
         setStatus={setStatus}
         servicesManager={servicesManager}
+        socket={socket}
       />
 
       <PredictionAnalysisPanelSection

@@ -148,14 +148,14 @@ def emit_status_update(message):
     # pass
 
 
-def emit_update_progressbar(value):
+def emit_update_progressbar(value, type='prediction'):
     """
     Emit an update to the progress bar value to connected clients.
 
     Parameters:
         value (int): The new value for the progress bar.
     """
-    socketio.emit("progress_update", {"value": value})
+    socketio.emit(f"{type}_progress_update", {"value": value})
     # pass
     
 def emit_toast(message, type='success'): # type = success | warning | error
@@ -451,8 +451,6 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
                 print('trying another zone...', _ZONE)
             else:
                 succeeded_or_def_failed = True
-                
-            remove_tracked_model_instance(selected_model)
     
     if new_instance is not None:
         message = "Instance created successfully"

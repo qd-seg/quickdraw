@@ -1,10 +1,18 @@
 import * as React from 'react';
-import { PanelSection, Button } from '@ohif/ui';
+import { PanelSection, Button, ProgressLoadingBar } from '@ohif/ui';
 
 import getActiveDisplayUIDSet from './getActiveDisplayUIDSet';
 import WrappedSelect from './WrappedSelect';
+import { Socket } from 'socket.io-client';
 
-export default ({ status, setStatus, servicesManager }) => {
+interface ModelRelationPanelSectionProps {
+    status: Record<string, Boolean>;
+    setStatus: any;
+    servicesManager: any;
+    socket?: Socket;
+};
+
+export default ({ status, setStatus, servicesManager, socket }: ModelRelationPanelSectionProps) => {
   const [availableModels, setAvailableModels] = React.useState<Record<string, any>>({});
   const [selectedModel, setSelectedModel] = React.useState<{
     value: string | undefined;
@@ -14,8 +22,14 @@ export default ({ status, setStatus, servicesManager }) => {
     label: undefined,
   });
 
+  const [progress, setProgress] = React.useState<number | undefined>(0);
+
   const isProcessing = () => !Object.values(status).every(x => x === false);
   const isPredictionAvailable = () => selectedModel.value !== undefined && isProcessing() === false;
+//   const isPredictionInProgress = () => Object.values(availableModels).every(model => !model.running)
+  const isPredictionInProgress = React.useMemo(() => {
+    return Object.values(availableModels).every(model => !model.running);
+  }, [availableModels]);
 
   const predict = async () => {
     const { uiNotificationService } = servicesManager.services;
@@ -89,6 +103,20 @@ export default ({ status, setStatus, servicesManager }) => {
     getAvailableModels();
   }, []);
 
+  React.useEffect(() => {
+    if (socket === undefined) return;
+    if (socket.disconnected) return;
+    if (socket.hasListeners('update_model_list')) return;
+
+    socket.on('update_model_list', () => {
+        getAvailableModels();
+    });
+
+    socket.on('prediction_progress_update', ({ value }) => { 
+        setProgress(isPredictionInProgress ? (parseFloat(value) || undefined) : 0);
+    });
+  }, [socket]);
+
   return (
     <PanelSection title="Prediction Functions">
       <WrappedSelect
@@ -104,6 +132,7 @@ export default ({ status, setStatus, servicesManager }) => {
         onClick={() => predict().catch(console.error)}
         disabled={isPredictionAvailable() === false}
       ></Button>
+      <ProgressLoadingBar progress={progress} />
     </PanelSection>
   );
 };
