@@ -100,6 +100,14 @@ def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, 
         print('running push')
     subprocess.run(['docker', 'push', docker_tag])
     
+    if LOG:
+        print('Logging out')
+    try:
+        subprocess.run(['docker', 'logout'])
+    except Exception as e:
+        print(e)
+        print('The above error occurred while logging out. Please make sure to log out of docker before continuing.')
+        
 # Uploads a Dockerized ML model to Google Artifact Registry
 # NOTE: image_name MUST be the same as the name used for docker build + docker save
 def upload_docker_image_to_artifact_registry(project_id: str, zone: str, models_repo: str, image_name: str, tarball_path: str, LOG=False, skip_push=False):
