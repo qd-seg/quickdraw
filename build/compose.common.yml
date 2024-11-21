@@ -9,10 +9,16 @@ services:
     networks:
       - public
     volumes:
-      - ./configuration/nginx/surrogate.conf:/etc/nginx/conf.d/default.conf
+      - ./configuration/nginx/surrogate.conf.template:/etc/nginx/templates/default.conf.template
     ports:
       - ${HTTP_PORT}:80
       - ${HTTPS_PORT}:443
+    environment:
+      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/conf.d
+      - HTTPS_PORT=${HTTPS_PORT}
+    secrets:
+      - ssl_certificate
+      - ssl_certificate_key
 
   broker:
     image: broker
@@ -83,3 +89,7 @@ secrets:
     file: ${SERVICE_ACCOUNT}
   service_configuration:
     file: ${SERVICE_CONFIGURATION}
+  ssl_certificate:
+    file: ${SSL_CERTIFICATE}
+  ssl_certificate_key:
+    file: ${SSL_CERTIFICATE_KEY}

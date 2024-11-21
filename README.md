@@ -13,7 +13,7 @@ A virutal environment will create will allow for sandboxed installation of packa
 version conflicts with packages which may have already been installed.
 
 ```
-> python -m venv .venv
+python -m venv .venv
 ```
 
 Note that some systems may require using `python3` or `py` rather than `python`.
@@ -25,19 +25,19 @@ This process is dependent on the operating system and shell of the development e
 ##### Linux and MacOS
 
 ```
-> source .venv/bin/activate
+source .venv/bin/activate
 ```
 
 ##### Windows CMD
 
 ```
-> .venv\Scripts\activate.bat
+.venv\Scripts\activate.bat
 ```
 
 ##### Windows PowerShell
 
 ```
-> .venv\Scripts\activate.ps1
+.venv\Scripts\activate.ps1
 ```
 
 Note that the virtual environment must be activated any time a new shell is created. Some editors
@@ -68,7 +68,7 @@ _You may have to enter your billing information to activate these APIs._
 
 #### Creating a Service Account
 
-1. Open the left sidebar and navigate to `IAM & Admin > Service Accounts`
+1. Open the left sidebar and navigate to `IAM & Admin Service Accounts`
 2. Click `Create a Service Account`
 3. Enter service account details in step 1.
 4. In step 2, grant the service account the following roles. _*Make sure the roles have these exact
@@ -144,7 +144,7 @@ These can be prepended to the Yarn scripts described in [`package.json`](package
 expected to be absolute or relative to the `build/` directory.
 
 ```
-> SERVICE_ACCOUNT=/path/to/file SERVICE_CONFIGURATION=/path/to/file yarn run ...
+SERVICE_ACCOUNT=/path/to/file SERVICE_CONFIGURATION=/path/to/file yarn run ...
 ```
 
 ### Uploading Models
@@ -153,7 +153,7 @@ In order to upload models using the CLI script, several Python libraries are req
 your [virtual environment is activated](#activate-the-virtual-environment).
 
 ```
-> pip install -r ./platform/broker/src/upload_requirements.txt
+pip install -r ./platform/broker/src/upload_requirements.txt
 ```
 
 A Dockerized model for organ segmentation is already available the radiology project's Google Cloud
@@ -169,7 +169,7 @@ and Neehar Peri, in your own Google Cloud project.
 If you have a .tar file of the Dockerized model:
 
 ```
-> yarn run manage:upload -t <tarball_path>
+yarn run manage:upload -t <tarball_path>
 ```
 
 This will upload the model to Artifact Registry in the repository determined by
@@ -179,15 +179,15 @@ Or, if you want to build the image from the `organ_seg_model` branch, navigate i
 _*outside*_ of this project's root directory and run the following set of commands.
 
 ```
-> git clone -b organ_seg_model https://para.cs.umd.edu/purtilo/radiology.git
-> cd organ_seg_model
-> docker build -t <image_name>
+git clone -b organ_seg_model https://para.cs.umd.edu/purtilo/radiology.git
+cd organ_seg_model
+docker build -t <image_name>
 ```
 
 The navigate back into the orignal project's root directory and run the next command.
 
 ```
-> yarn run manage:upload -i <image_name>
+yarn run manage:upload -i <image_name>
 ```
 
 #### Creating a New Model
@@ -205,8 +205,8 @@ The navigate back into the orignal project's root directory and run the next com
 You can then build the image and check to ensure it was created and stored in Docker.
 
 ```
-> docker build -t <image_name>
-> docker images
+docker build -t <image_name>
+docker images
 ```
 
 Next, test the model directly on your machine. Manually create directories `images/` and
@@ -214,25 +214,47 @@ Next, test the model directly on your machine. Manually create directories `imag
 image using Docker.
 
 ```
-> docker run -v <model_root_path>/images:/app/images -v <model_root_path>/model_outputs:/app/model_outputs <dicom_series_name>
+docker run -v <model_root_path>/images:/app/images -v <model_root_path>/model_outputs:/app/model_outputs <dicom_series_name>
 ```
 
 You can then push the model directly to the registry.
 
 ```
-> yarn run manage:upload -i <image_name>
+yarn run manage:upload -i <image_name>
 ```
 
 Or, save the image to a tarbar first.
 
 ```
-> docker save -o <image_name>.tar <image_name>
-> yarn run manage:upload -t <tarball_path>
+docker save -o <image_name>.tar <image_name>
+yarn run manage:upload -t <tarball_path>
 ```
 
 If you are having issues, double check your service account configuration secret files are correct.
 Also ensure the service account has the proper permissions as described
 [here](README.md#google-cloud-setup). An example is provided in the `organ_seg_model` branch.
+
+## SSL Encryption
+
+In order to maintain patient privacy, the project is configured to use SSL encryption to secure the
+traffic between the client application and server side processes. This requires an SSL certificate
+and key, which can self-signed or signed through a trusted authority.
+
+To generate a self-signed certificate and key, run the command below in the root directory of the
+project.
+
+```
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./secret/ssl.key -out ./secret/ssl.crt
+```
+
+The build process searches for `secret/ssl.crt` and `secret/ssl.key` by default. To specify a custom
+location for each of the files, set the `$SSL_CERTIFICATE` and `$SSL_CERTIFICATE_KEY` environment
+variables. These can be prepended to the Yarn scripts described in [`package.json`](package.json).
+The path is expected to be absolute or relative to the `build/` directory.
+
+```
+SSL_CERTIFICATE=/path/to/file SSL_CERTIFICATE_KEY=/path/to/file yarn run ...
+```
 
 ## Deployment
 
@@ -244,8 +266,8 @@ behind a NGINX reverse proxy. Containers are networked to only interact with the
 containers.
 
 ```
-> yarn run build:production
-> yarn run start:production
+yarn run build:production
+yarn run start:production
 ```
 
 By default, the process will bind to ports `8080` and `8443` for HTTP and HTTPS respectively. To
@@ -253,13 +275,13 @@ change this behaviour, overwrite the environment variable by prepending assignem
 `HTTP_PORT` and `HTTPS_PORT` environment variables.
 
 ```
-> HTTP_PORT=8080 HTTPS_PORT=8443 yarn run ...
+HTTP_PORT=8080 HTTPS_PORT=8443 yarn run ...
 ```
 
 The process will run in the background until it is manually stopped.
 
 ```
-> yarn run stop:production
+yarn run stop:production
 ```
 
 ## Contributing
@@ -271,7 +293,7 @@ The process will run in the background until it is manually stopped.
 Install the necessary Python libraries to the virtual environment.
 
 ```
-> pip install -r ./platform/broker/requirements.txt
+pip install -r ./platform/broker/requirements.txt
 ```
 
 #### NodeJS Packages
@@ -281,7 +303,7 @@ provides features to install all required packages together. Installing these de
 allow for partial type checking within the OHIF plugin portion of this project.
 
 ```
-> yarn install
+yarn install
 ```
 
 ### Development
@@ -290,8 +312,8 @@ Simply start up a set of Docker containers which will be spun up in development 
 for live reloading of both the backend API and OHIF plugins.
 
 ```
-> yarn run build:development
-> yarn run start:development
+yarn run build:development
+yarn run start:development
 ```
 
 #### REST API Server

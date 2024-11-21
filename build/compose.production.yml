@@ -25,7 +25,9 @@ services:
       file: compose.common.yml
       service: viewer
     volumes:
-      - ./configuration/nginx/static.conf:/etc/nginx/conf.d/default.conf
+      - ./configuration/nginx/static.conf.template:/etc/nginx/templates/default.conf.template
+    environment:
+      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/conf.d
 
   postgresql:
     extends:
@@ -51,3 +53,7 @@ secrets:
     file: ${SERVICE_ACCOUNT}
   service_configuration:
     file: ${SERVICE_CONFIGURATION}
+  ssl_certificate:
+    file: ${SSL_CERTIFICATE}
+  ssl_certificate_key:
+    file: ${SSL_CERTIFICATE_KEY}
