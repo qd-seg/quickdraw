@@ -199,8 +199,8 @@ yarn run manage:upload -i <image_name>
    that will be fed to the model.
 
 3. `predict.py` must take in inputs from a relative directory `inputs/` and output to a directory of
-   the form `model-outputs/<dicom_series_name>/<output>`. The output must have a file extension of
-   either `.dcm` or `.npz`.
+   the form `model-outputs/<dicom_series_name>/<output>`. Currently, the Flask server only supports model 
+   outputs in the form of `.npz` files compressed with `gzip`.
 
 You can then build the image and check to ensure it was created and stored in Docker.
 
@@ -223,7 +223,7 @@ You can then push the model directly to the registry.
 yarn run manage:upload -i <image_name>
 ```
 
-Or, save the image to a tarbar first.
+Or, save the image to a tarball first.
 
 ```
 docker save -o <image_name>.tar <image_name>
@@ -274,8 +274,11 @@ yarn run build:production
 yarn run start:production
 ```
 
-By default, the process will bind to ports `8080` and `8443` for HTTP and HTTPS respectively. To
-change this behaviour, overwrite the environment variable by prepending assignements to the
+If you run into issues during this process, consult the [possible setup issues section](#possible-setup-issues).
+
+By default, the process will bind to ports `8080` and `8443` for HTTP and HTTPS respectively. 
+This means you can access the project at `localhost:8080` or `localhost:8443` by default.
+To change this behaviour, overwrite the environment variable by prepending assignments to the
 `HTTP_PORT` and `HTTPS_PORT` environment variables.
 
 ```
@@ -320,6 +323,9 @@ yarn run build:development
 yarn run start:development
 ```
 
+As described above in the [production deployment instructions](#docker), the application can be accessed at 
+`localhost:<port>`. The Orthanc DICOM server can be viewed directly at `localhost:<port>/store`.
+
 #### REST API Server
 
 The REST API server can be found in `platform/broker/`, and is a Flask based backend for the OHIF
@@ -332,3 +338,30 @@ The OHIF Viewer is the core of this project, providing a framework for viewing D
 as CT scans and segmentations. It provides an interface for extending it's functionality through the
 use of extensions and modes. These extensions and modes are stored in `platform/viewer/` and are a
 set of React based components and configurations to enable them within the OHIF Viewer.
+
+### Possible Setup Issues
+#### Docker Out of Memory
+The Docker build or compose process may fail with exit code 137. This means Docker does not have sufficient
+memory allocated to complete the build or compose process. 
+
+Clear the build cache.
+
+```
+docker buildx prune
+```
+
+Allocate more memory for Docker. 
+It is recommended to have at least **6GB** of memory and **2GB** of swap space.
+
+On Linux and MacOS, this is done through the Docker user interface. 
+Click the gear icon on the top navbar and navigate to `Settings > Resources > Advanced`.
+
+On Windows,
+you must allocate more memory for WSL by [editing `.wslconfig`](https://learn.microsoft.com/en-us/windows/wsl/wsl-config).
+
+
+#### Google Cloud Compute
+Occasionally, Google Cloud will run out of resources in a specific zone and be unable to create an instance. Consult 
+the [configuration section](#project-authentication-and-configuration) to choose a different zone within the same region,
+or wait until resources are available. 
+More details on this issue can be found on [Google Cloud Compute's documentation](https://cloud.google.com/compute/docs/troubleshooting/troubleshooting-resource-availability).
