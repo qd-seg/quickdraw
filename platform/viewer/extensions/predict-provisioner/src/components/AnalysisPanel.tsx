@@ -6,10 +6,19 @@ import ModelRelationPanelSection from './ModelRelationPanelSection';
 import PredictionAnalysisPanelSection from './PredictionAnalysisPanelSection';
 import AdaptedSegmentationPanelSection from './AdaptedSegmentationPanelSection';
 
+export interface PanelStatus {
+    uploading: boolean;
+    deleting: boolean;
+    predicting: boolean;
+    authenticating: boolean;
+    loading: boolean;
+    calculating: boolean;
+};
+
 export default ({ servicesManager, commandsManager, extensionManager }) => {
   const [analysis, setAnalysis] = React.useState<Record<string, any>>({});
-  const [progress, setProgress] = React.useState<number | undefined>(0);
-  const [status, setStatus] = React.useState<Record<string, boolean>>({
+//   const [progress, setProgress] = React.useState<number | undefined>(0);
+  const [status, setStatus] = React.useState<PanelStatus>({
     uploading: false,
     deleting: false,
     predicting: false,
@@ -22,9 +31,9 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
 
   const isProcessing = () => !Object.values(status).every(x => x === false);
 
-  React.useEffect(() => {
-    isProcessing() ? setProgress(undefined) : setProgress(0);
-  }, [status]);
+//   React.useEffect(() => {
+//     isProcessing() ? setProgress(undefined) : setProgress(0);
+//   }, [status]);
 
   React.useEffect(() => {
     const { uiNotificationService } = servicesManager.services;
@@ -40,6 +49,10 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
       });
     });
 
+    socket.onAny((event, a) => {
+        console.log(event, a)
+    });
+
     // socket.on('progress_update', ({ value }) => {
     //   if (isProcessing()) setProgress(parseFloat(value) || 0);
     // });
@@ -47,6 +60,7 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
     setSocket(socket);
 
     return () => {
+      console.log('Diconnecting socket.')
       socket.disconnect();
       setSocket(undefined);
     };
@@ -54,8 +68,6 @@ export default ({ servicesManager, commandsManager, extensionManager }) => {
 
   return (
     <div className="ohif-scrollbar invisible-scrollbar overflow-auto">
-      <ProgressLoadingBar progress={progress} />
-
       <ModelRelationPanelSection
         status={status}
         setStatus={setStatus}

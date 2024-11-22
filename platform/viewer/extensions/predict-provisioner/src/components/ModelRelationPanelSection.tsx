@@ -4,10 +4,11 @@ import { PanelSection, Button, ProgressLoadingBar } from '@ohif/ui';
 import getActiveDisplayUIDSet from './getActiveDisplayUIDSet';
 import WrappedSelect from './WrappedSelect';
 import { Socket } from 'socket.io-client';
+import { PanelStatus } from './AnalysisPanel';
 
 interface ModelRelationPanelSectionProps {
-    status: Record<string, Boolean>;
-    setStatus: any;
+    status: PanelStatus;
+    setStatus: React.Dispatch<React.SetStateAction<PanelStatus>>;
     servicesManager: any;
     socket?: Socket;
 };
@@ -28,8 +29,8 @@ export default ({ status, setStatus, servicesManager, socket }: ModelRelationPan
   const isPredictionAvailable = () => selectedModel.value !== undefined && isProcessing() === false;
 //   const isPredictionInProgress = () => Object.values(availableModels).every(model => !model.running)
   const isPredictionInProgress = React.useMemo(() => {
-    return Object.values(availableModels).every(model => !model.running);
-  }, [availableModels]);
+    return status.predicting || !Object.values(availableModels).every(model => !model.running);
+  }, [status, availableModels]);
 
   const predict = async () => {
     const { uiNotificationService } = servicesManager.services;
@@ -90,7 +91,13 @@ export default ({ status, setStatus, servicesManager, socket }: ModelRelationPan
 
       const models = {};
       for (let model of body.models) models[model.name] = model;
-
+      if (selectedModel.value !== undefined) {
+        const prevModel = models[selectedModel.value];
+        setSelectedModel({
+            value: prevModel.name,
+            label: prevModel.name + (prevModel.running ? ' (running)' : '')
+        });
+      }
       setAvailableModels(models);
     } catch (error) {
       console.error(error);
@@ -105,34 +112,56 @@ export default ({ status, setStatus, servicesManager, socket }: ModelRelationPan
 
   React.useEffect(() => {
     if (socket === undefined) return;
-    if (socket.disconnected) return;
-    if (socket.hasListeners('update_model_list')) return;
 
-    socket.on('update_model_list', () => {
-        getAvailableModels();
-    });
-
-    socket.on('prediction_progress_update', ({ value }) => { 
+    function setPredictionProgress({ value }) {
         setProgress(isPredictionInProgress ? (parseFloat(value) || undefined) : 0);
-    });
-  }, [socket]);
+    };
+
+    socket.on('prediction_progress_update', setPredictionProgress);
+    return () => {
+        socket.off('prediction_progress_update', setPredictionProgress);
+    };
+  }, [availableModels]);
+
+  React.useEffect(() => {
+    if (socket === undefined) return;
+
+    async function getAndSetAvailableModels() {
+        getAvailableModels();
+    };
+
+    socket.on('update_model_list', getAndSetAvailableModels);
+    return () => {
+        socket.off('update_model_list', getAndSetAvailableModels);
+    };
+  }, [selectedModel]);
+
+  React.useEffect(() => {
+    if (progress === 100) {
+        setProgress(0);
+    }
+  }, [progress]);
 
   return (
     <PanelSection title="Prediction Functions">
       <WrappedSelect
         label="Prediction Model"
-        options={Object.keys(availableModels).map(name => ({ value: name, label: name }))}
-        value={selectedModel}
-        onChange={selection => setSelectedModel(selection)}
+        // options={Object.keys(availableModels).map(name => ({ value: name, label: name }))}
+        options={Object.entries(availableModels).map(([modelName, model]) => 
+            ({ value: modelName, label: modelName + (model.running ? ' (running)' : '')})
+        )}
+        value={selectedModel} // should prob get label from selectedModel. needs to update on change
+        // value={selectedModel.label === undefined ? selectedModel : {...selectedModel, label: selectedModel.label + (availableModels[selectedModel.value || '']?.running ? ' (running)' : '')}}
+        onChange={selection => {setSelectedModel(selection)}}
       />
 
+      <ProgressLoadingBar className="" progress={progress} />
       <Button
         className="mb-2 mt-1"
         children="Predict"
         onClick={() => predict().catch(console.error)}
         disabled={isPredictionAvailable() === false}
       ></Button>
-      <ProgressLoadingBar progress={progress} />
     </PanelSection>
   );
 };

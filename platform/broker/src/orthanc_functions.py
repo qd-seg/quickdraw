@@ -131,7 +131,7 @@ def get_modality_of_series(series_UID):
     series = series.get_main_information()
     return series["MainDicomTags"]["Modality"]
 
-def get_next_available_iterative_name_for_series(base_series_name, parent_study_uid, split_char='_', modality='SEG'):
+def get_next_available_iterative_name_for_series(base_series_name, parent_study_uid, split_char='_', modality='SEG', max_len=64):
     orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc', timeout=60)
     valid_studies = pyorthanc.find_studies(orthanc, query={'StudyInstanceUID': parent_study_uid})
     if len(valid_studies) == 0:
@@ -165,4 +165,11 @@ def get_next_available_iterative_name_for_series(base_series_name, parent_study_
             print('next valid iter:', next_valid_iteration)
             break
             
-    return f'{base_series_name}{split_char}{next_valid_iteration}'
+    return_name = f'{base_series_name}{split_char}{next_valid_iteration}'
+    if max_len is not None and len(return_name) > max_len: # DICOM descriptions must be 64 chars or less
+        prefix_len = (max_len - 5) // 2  # Length of the prefix
+        suffix_len = max_len - 5 - prefix_len  # Length of the suffix
+        return_name = return_name[:prefix_len] + '-xxx-' + return_name[-suffix_len:]
+        print('shortened description to', return_name)
+        
+    return return_name

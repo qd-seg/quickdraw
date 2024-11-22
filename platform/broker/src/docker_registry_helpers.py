@@ -23,10 +23,11 @@ def list_docker_images(project_id: str, zone: str, models_repo: str, specific_ta
         return list(response)
     
 def get_docker_image(project_id: str, zone: str, models_repo: str, image_name: str):
-    request = artifactregistry.GetDockerImageRequest(name=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}/dockerImages/{image_name}:latest')
+    # request = artifactregistry.GetDockerImageRequest()
+    request = artifactregistry.GetPackageRequest(name=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}/packages/{image_name}')
     try:
-        response = get_registry_client().get_docker_image(request)
-        artifactregistry.GetTagRequest()
+        # response = get_registry_client().get_docker_image(request)
+        response = get_registry_client().get_package(request)
         return response
     except Exception as e:
         print('Could not get docker image of name', image_name)

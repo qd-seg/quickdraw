@@ -15,7 +15,7 @@ from flask_helpers import (
     run_predictions,
     get_dicom_series_from_orthanc_to_cache
 )
-from docker_registry_helpers import list_docker_images
+from docker_registry_helpers import list_docker_images, get_docker_image
 from gcloud_auth import auth_with_key_file_json, read_env_vars, validate_zone, validate_machine_type
 from werkzeug.middleware.proxy_fix import ProxyFix
 from orthanc_get import get_files_and_dice_score
@@ -106,6 +106,9 @@ app.config['SECRET_KEY'] = 'asdfjkl'
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*", path='/api/socket.io' if __name__ == '__main__' else 'socket.io')
 
+PREDICTION_LOCK = 0  
+MODELS_BEING_SET_UP = {}
+
 # Serve React App
 @bp.route("/", defaults={"path": ""})  # Base path for the app
 @bp.route("/<path:path>")  # Handling additional paths under the base
@@ -160,6 +163,9 @@ def emit_update_progressbar(value, type='prediction'):
     
 def emit_toast(message, type='success'): # type = success | warning | error
     socketio.emit('toast_message', {'message': message, 'type': type})
+    
+def emit_update_model_list():
+    socketio.emit('update_model_list')
 
 def clear_unused_instances():
     instances = list_instances(_PROJECT_ID, _ZONE)
@@ -374,7 +380,7 @@ def list_models():
         {
             'name': d.name.split('/')[-1],
             'updateTime': d.update_time.rfc3339(),
-            'running': is_tracked_model_instance_running(d.name.split('/')[-1])
+            'running': MODELS_BEING_SET_UP.get(d.name.split('/')[-1]) or is_tracked_model_instance_running(d.name.split('/')[-1])
         } for d in docker_packages]}), 200
     
 @bp.route('/isModelRunning', methods=['POST'])
@@ -445,6 +451,7 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
                 _CURRENT_BACKUP_ZONE_INDEX += 1
                 if _CURRENT_BACKUP_ZONE_INDEX >= len(_BACKUP_ZONES):
                     print('Attempted all backup zones but could not find one that is available quitting the Compute setup process.')
+                    emit_toast('Google Cloud is out of resources and cannot create a new Compute Instance. Please use another zone or try again later.', type='error')
                     return None
                 
                 _ZONE = _BACKUP_ZONES[_CURRENT_BACKUP_ZONE_INDEX]
@@ -468,6 +475,7 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
                     start_instance(_PROJECT_ID, _ZONE, new_instance.name)
                     
                 remove_instance_metadata(_PROJECT_ID, _ZONE, new_instance, ['idling'])
+                emit_update_model_list()
             else:
                 message = 'You are already running a prediction on that DICOM image. Please wait until the other prediction finishes.'
                 emit_toast(message, type='error')
@@ -544,7 +552,7 @@ def convert_cached_pred_result_to_seg(dicom_series_obj, dcm_prediction_dir, cach
                     # iterative naming
                     # get all SEG series with same parent 
                     # find next avail name
-                    seg_name = f'p_{selected_model}'
+                    seg_name = f'pred_{selected_model}'
                     parent_study_uid = None
                     print(dicom_series_obj)
                     try: 
@@ -631,6 +639,7 @@ def test_iter():
     return jsonify({ 'message': seg_name }), 200
 
 def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_instance_at_end=True): # TODO: should take series study patient id
+    emit_toast_on_fail = True
     try: 
         print('instance not none')
         set_tracked_model_instance_running(selected_model, True)
@@ -658,14 +667,16 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
             instance.name, 
             progress_bar_update_callback=emit_update_progressbar,
             stop_instance_at_end=stop_instance_at_end,
-            pred_cache_dir=pred_cache_dir
+            pred_cache_dir=pred_cache_dir,
+            toast_callback=emit_toast
         )
         
         if dcm_pred_dir is None:
             print('Predictions failed or return no directory')
+            emit_toast_on_fail = False
             raise Exception('Predictions failed')
         
-        emit_update_progressbar(90)
+        emit_update_progressbar(85)
         
         emit_status_update('Converting to SEG...')
         emit_toast('Saving your predictions. Almost done, please wait...')
@@ -682,10 +693,12 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
             shutil.rmtree(pred_cache_dir)
         
         print('Removing old metadata...')
+        emit_update_progressbar(95)
         instance = get_instance(_PROJECT_ID, _ZONE, instance.name)
         remove_instance_metadata(_PROJECT_ID, _ZONE, instance, ['dicom-image', 'model-displayname'])
         
         emit_update_progressbar(100)
+        emit_update_model_list()
         # emit_status_update('Prediction done')
         print('Prediction done')
         emit_toast('Prediction done. Reload to see changes.')
@@ -693,7 +706,9 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
     except Exception as e:
         print(e)
         print(traceback.format_exc())
-        emit_toast('Something went wrong when running your prediction. Is your uploaded model outputting a .npz mask?', type='error')
+        if emit_toast_on_fail:
+            emit_toast(e, type='error')
+        # emit_toast('Something went wrong when running your prediction. Is your uploaded model outputting a .npz mask?', type='error')
         set_tracked_model_instance_running(selected_model, False)
         
         if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
@@ -710,8 +725,7 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         remove_instance_metadata(_PROJECT_ID, _ZONE, get_instance(_PROJECT_ID, _ZONE, instance.name), ['dicom-image', 'model-displayname'], add_idling=True)
         # set_
         return False
-
-PREDICTION_LOCK = 0    
+  
 def setup_compute_and_run_pred_helper(
         selected_model: str, start_compute: bool, dicom_series_id: str,
         study_id: str, stop_instance_at_end: bool = True):
@@ -721,6 +735,7 @@ def setup_compute_and_run_pred_helper(
         instance = setup_compute_with_model_helper(selected_model, start_compute=start_compute, dicom_series_id=dicom_series_id)
         if instance is None:
             PREDICTION_LOCK = 0
+            del MODELS_BEING_SET_UP[selected_model]
             emit_toast('Error: Google Cloud is at its limit, please wait.', type='error')
             return False
     except Exception as e:
@@ -728,6 +743,7 @@ def setup_compute_and_run_pred_helper(
         print(traceback.format_exc())
         # return jsonify({ 'message': 'Issue creating Compute instance. Google Cloud Services likely experiencing temporary resource shortage. Please try again later.' }), 500
         PREDICTION_LOCK = 0
+        del MODELS_BEING_SET_UP[selected_model]
         emit_toast('Issue creating Compute instance. Google Cloud Services likely experiencing temporary resource shortage. Please try again later.', type='error')
         return False
             
@@ -735,6 +751,7 @@ def setup_compute_and_run_pred_helper(
     # thread.start()
     PREDICTION_LOCK = 0 # unlock here because in theory you could run multiple predictions at once on different instances
     try:
+        del MODELS_BEING_SET_UP[selected_model]
         run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_instance_at_end=stop_instance_at_end)
     except Exception as e:
         print(e)
@@ -756,6 +773,14 @@ def run_prediction():
     Returns:
         response: JSON response with status of the prediction process.
     """
+    
+    # if MODELS_BEING_SET_UP.get('find-organ-alpha') is None:
+    #     MODELS_BEING_SET_UP['find-organ-alpha'] = 1
+    # else:
+    #     del MODELS_BEING_SET_UP['find-organ-alpha']
+        
+    # emit_update_model_list()
+    # return jsonify({'message': 'hello world'}), 200
     
     if PREDICTION_LOCK != 0:
         return jsonify({ 'message': 'Currently setting up another prediction job. Please wait.' }), 429
@@ -800,6 +825,13 @@ def run_prediction():
         PREDICTION_LOCK = 0
         return jsonify({ 'message': "Error: Google Cloud is at its limit, please wait." }), 429
     
+    if get_docker_image(_PROJECT_ID, _ZONE, _REPOSITORY, selected_model) is None:
+        PREDICTION_LOCK = 0
+        return jsonify({ 'message': f'Model {selected_model} does not exist.' }), 400
+    
+    MODELS_BEING_SET_UP[selected_model] = 1
+    emit_update_model_list()
+    emit_update_progressbar(5)
     thread = threading.Thread(target=setup_compute_and_run_pred_helper, args=(selected_model, True, series_id, study_id), kwargs={'stop_instance_at_end': False})
     thread.start()
     return jsonify({ 'message': 'Your prediction job is now running...' }), 202

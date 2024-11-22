@@ -355,7 +355,7 @@ def setup_compute_instance(project_id: str, zone: str, instance_name: str | None
     return instance
 
 # Run predictions on existing compute instance. Assumes DICOM images have already been uploaded to ./dicom-images/
-def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, cached_dicom_series_path: str, dicom_series_id: str, instance_name: str, skip_predictions: bool = False, progress_bar_update_callback = None, stop_instance_at_end: bool = True, pred_cache_dir: str = 'dcm-predictions/') -> str | None:
+def run_predictions(project_id: str, zone: str, service_account: str, key_filepath: str, cached_dicom_series_path: str, dicom_series_id: str, instance_name: str, skip_predictions: bool = False, progress_bar_update_callback = None, stop_instance_at_end: bool = True, pred_cache_dir: str = 'dcm-predictions/', toast_callback=None) -> str | None:
     # Need:
     # where does dicom series come from -> the cache/temp-dcm/study_id/instance_id/...
     # where are images uploaded to -> /home/USER/images/instance_id (uid)
@@ -387,7 +387,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
             
             # Copy over DICOM images from server to instance
             if progress_bar_update_callback is not None:
-                progress_bar_update_callback(45)
+                progress_bar_update_callback(40)
 
             print('Uploading DICOM to Compute')
             if not upload_dicom_to_instance(
@@ -402,7 +402,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
                     raise Exception('Upload failed')
             
             if progress_bar_update_callback is not None:
-                progress_bar_update_callback(60)
+                progress_bar_update_callback(55)
                 
             print('Run startup script')
             # Run startup script (compute-setup-script.sh), which makes predictions. This blocks until predictions are made
@@ -417,7 +417,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         # Copy over DICOM images (predictions) from instance to server
         # subprocess.run(['mkdir', '-p', './dcm-prediction/'])
         if progress_bar_update_callback is not None:
-                progress_bar_update_callback(85)
+                progress_bar_update_callback(80)
                 
         dcm_prediction_dir = pred_cache_dir
         if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
@@ -487,6 +487,9 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
     except Exception as e:
         print('Something went wrong with running predictions:')
         print(e, flush=True)
+        if toast_callback is not None:
+            toast_callback(e, type='error')
+            
         if stop_instance_at_end:
             stop_instance(project_id, zone, instance_name)
         else:

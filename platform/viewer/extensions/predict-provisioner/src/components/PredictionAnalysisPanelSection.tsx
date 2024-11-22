@@ -1,10 +1,18 @@
 import * as React from 'react';
-import { PanelSection, Button } from '@ohif/ui';
+import { PanelSection, Button, ProgressLoadingBar } from '@ohif/ui';
 
 import WrappedSelect from './WrappedSelect';
 import getActiveDisplayUIDSet from './getActiveDisplayUIDSet';
+import { PanelStatus } from './AnalysisPanel';
 
-export default ({ status, setStatus, setAnalysis, servicesManager }) => {
+interface PredictionAnalysisPanelSectionProps {
+    status: PanelStatus;
+    setStatus: React.Dispatch<React.SetStateAction<PanelStatus>>;
+    setAnalysis: any;
+    servicesManager: any;
+};
+
+export default ({ status, setStatus, setAnalysis, servicesManager }: PredictionAnalysisPanelSectionProps) => {
   const [availableMasks, setAvailableMasks] = React.useState<Record<string, any>>({});
   const [selectedMask, setSelectedMask] = React.useState<Record<string, any>>({
     value: undefined,
@@ -14,6 +22,8 @@ export default ({ status, setStatus, setAnalysis, servicesManager }) => {
     value: undefined,
     label: undefined,
   });
+  
+  const [progress, setProgress] = React.useState<number | undefined>(0);
 
   const isProcessing = () => !Object.values(status).every(x => x === false);
   const isAnalysisAvailable = () =>
@@ -21,6 +31,11 @@ export default ({ status, setStatus, setAnalysis, servicesManager }) => {
     selectedTruth.value !== undefined &&
     isProcessing() === false &&
     status.calculating === false;
+
+  React.useEffect(() => {
+    // isProcessing() ? setProgress(undefined) : setProgress(0);
+    status.calculating ? setProgress(undefined) : setProgress(0);
+  }, [status]);
 
   const getAvailableMasks = () => {
     const { displaySetService } = servicesManager.services;
@@ -244,7 +259,9 @@ export default ({ status, setStatus, setAnalysis, servicesManager }) => {
   }, [servicesManager]);
 
   return (
-    <PanelSection title="Analysis Tools">
+    <PanelSection title="Analysis Tools">  
+      <ProgressLoadingBar className="" progress={progress} />
+
       <WrappedSelect
         label="Predicted Segmentation"
         options={Object.keys(availableMasks).map(uid => ({

@@ -363,10 +363,5 @@ def get_non_intersection_mask_to_seg(
     print(label_names)
     print('Converting to SEG...')
     print(output_desc)
-    if len(output_desc) > 64:
-        prefix_len = (64 - 5) // 2  # Length of the prefix
-        suffix_len = 64 - 5 - prefix_len  # Length of the suffix
-        output_desc = output_desc[:prefix_len] + '-xxx-' + output_desc[-suffix_len:]
-        print('shortened description to', output_desc)
     
     return convert_3d_numpy_array_to_dicom_seg(dicom_series, non_intersections, label_names, output_filename, slice_axis=0, seg_series_description=output_desc)
