@@ -903,7 +903,7 @@ def save_discrepancy_mask_helper(dicom_series_id, pred_series_id, truth_series_i
     temp_seg_path = os.path.join(disc_path, '_res/')
     os.makedirs(temp_seg_path, exist_ok=True)
     
-    seg_name = f'd'
+    seg_name = f'disc'
     # print(dicom_series_obj)
     try: 
         seg_name += f'_{pred_series_obj.description}'
