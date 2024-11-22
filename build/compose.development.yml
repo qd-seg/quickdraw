@@ -53,3 +53,7 @@ secrets:
     file: ${SERVICE_ACCOUNT}
   service_configuration:
     file: ${SERVICE_CONFIGURATION}
+  ssl_certificate:
+    file: ${SSL_CERTIFICATE}
+  ssl_certificate_key:
+    file: ${SSL_CERTIFICATE_KEY}
