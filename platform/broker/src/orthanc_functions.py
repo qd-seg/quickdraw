@@ -70,7 +70,7 @@ def get_first_dicom_image_series_from_study(patient_id, study_UID, save_director
     image_folder = os.listdir(study_dir)[image_order_num]
     return first_folder, study_dir + "/"+image_folder
 
-def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[], extract_zip=True):
+def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[], extract_zip=True, download=True):
     print('saving', save_directory)
     url = orthanc_url
 
@@ -84,6 +84,9 @@ def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[
     # print(save_directory)
     # print(a_series)
     print(len(a_series.instances))
+    if not download:
+        return a_series
+    
     os.makedirs(save_directory, exist_ok=True)
     zip_path = os.path.join(save_directory, 'series.zip')
     a_series.download(zip_path, with_progres=False)

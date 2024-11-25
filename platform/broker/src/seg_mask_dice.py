@@ -2,6 +2,7 @@ import pydicom
 from typing import Tuple
 import pydicom_seg.reader_utils
 import numpy as np
+import traceback
 
 
 ## deps
@@ -146,7 +147,7 @@ def seg_to_mask(seg_path, slice_thickness=1):
     seg_mask = reader.read(seg_series).data
     return seg_mask, seg_series
     
-def seg_mask_dice(dicom_dir, pred_path, truth_path):
+def seg_mask_dice(num_dicom_instances, pred_path, truth_path):
 
     # print("hello I AM IN SEG_MASK_DICE ")
     # print("pred_path -> " + pred_path)
@@ -159,7 +160,12 @@ def seg_mask_dice(dicom_dir, pred_path, truth_path):
     # result_images = reader.read(dcm_images)
 
     # image_data = result_images.data
-    pred_data, dcm_pred = seg_to_mask(pred_path, slice_thickness=1)
+    try:
+        pred_data, dcm_pred = seg_to_mask(pred_path, slice_thickness=1)
+    except Exception as e:
+        print(traceback.format_exc())
+        print('Prediction mask was likely empty. The above error was handled properly.')
+        pred_data, dcm_pred = None, None
     # print(image_data.shape)
     # print(image_data)
 
@@ -171,13 +177,31 @@ def seg_mask_dice(dicom_dir, pred_path, truth_path):
 
     # truth_data = result_truth.data
     # print(truth_data.shape)
-    truth_data, dcm_truth = seg_to_mask(truth_path, slice_thickness=1)
-
+    try:
+        truth_data, dcm_truth = seg_to_mask(truth_path, slice_thickness=1)
+    except Exception as e:
+        print(traceback.format_exc())
+        print('Truth mask was likely empty. The above error was handled properly.')
+        truth_data, dcm_truth = None, None
+        
+    if pred_data is None and truth_data is None:
+        return []
+    
+    if pred_data is None and truth_data is not None:
+        return calculate_dice_scores(np.zeros_like(truth_data), truth_data, {}, dcm_truth)
+    
+    if truth_data is None and pred_data is not None:
+        return calculate_dice_scores(pred_data, np.zeros_like(pred_data), dcm_pred, {})
+        
     if truth_data.shape != pred_data.shape:
         if truth_data.shape[0] < pred_data.shape[0]:
             # print("not the same size, padding the ground truth to match the image shape")
+            if pred_data.shape[0] < num_dicom_instances:
+                pred_data = pad_ground_truth(pred_data, (num_dicom_instances, pred_data.shape[1], pred_data.shape[2]))
             truth_data = pad_ground_truth(truth_data, pred_data.shape)
         elif truth_data.shape[0] > pred_data.shape[0]:
+            if truth_data.shape[0] < num_dicom_instances:
+                truth_data = pad_ground_truth(truth_data, (num_dicom_instances, truth_data.shape[1], truth_data.shape[2]))
             pred_data = pad_ground_truth(pred_data, truth_data.shape)
 
     # print("after pad")

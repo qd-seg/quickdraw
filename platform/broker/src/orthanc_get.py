@@ -5,6 +5,7 @@ import shutil
 from dice_score_get import get_DICE_score
 from seg_mask_dice import seg_mask_dice
 from orthanc_functions import get_dicom_series_by_id, get_modality_of_series
+import traceback
 
 def get_files_and_dice_score(dicom_series_UID, pred_series_UID,truth_series_UID):#find ground truth and use this series id to get files from folder
     #orthanc_url = 'http://localhost:8042' #TEST ONLY!!
@@ -21,8 +22,8 @@ def get_files_and_dice_score(dicom_series_UID, pred_series_UID,truth_series_UID)
     # return []
     pred_dir = get_dicom_series_by_id(pred_series_UID, os.path.join(dice_dir, '_pred'))
     truth_dir = get_dicom_series_by_id(truth_series_UID, os.path.join(dice_dir, '_truth'))
-    # DICOM_dir = get_dicom_series_by_id(dicom_series_UID, os.path.join(dice_dir, '_dicom'))
-
+    DICOM_series = get_dicom_series_by_id(dicom_series_UID, os.path.join(dice_dir, '_dicom'), download=False)
+    print(len(DICOM_series.instances))
     
     for dirpath, _, fnames in os.walk(pred_dir):
         print(fnames)
@@ -108,12 +109,13 @@ def get_files_and_dice_score(dicom_series_UID, pred_series_UID,truth_series_UID)
     try:
         if has_SEG_tag:
             print('has seg')
-            dice_list = seg_mask_dice(None, pred_dir, truth_dir)#for seg files
+            dice_list = seg_mask_dice(len(DICOM_series.instances), pred_dir, truth_dir)#for seg files
         else:
             DICOM_dir = get_dicom_series_by_id(dicom_series_UID, os.path.join(dice_dir, '_dicom'))
             dice_list = get_DICE_score(DICOM_dir,pred_dir,truth_dir)#for rtstruct files
     except Exception as e:
         print(e)
+        print(traceback.format_exc())
         dice_list = []
     print(dice_list)
     # if os.path.exists(start+"/"+patient_folder_name):
