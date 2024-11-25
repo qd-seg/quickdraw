@@ -340,6 +340,12 @@ use of extensions and modes. These extensions and modes are stored in `platform/
 set of React based components and configurations to enable them within the OHIF Viewer.
 
 ### Possible Setup Issues
+#### Docker Not Running
+If Docker is not currently running you recieve the following error: 
+`error during connect: Get [...] The system cannot find the file specified.`
+
+Ensure that Docker is running on your device and run the start or build command again. 
+
 #### Docker Out of Memory
 The Docker build or compose process may fail with exit code 137. This means Docker does not have sufficient
 memory allocated to complete the build or compose process. 
