@@ -3,11 +3,7 @@ import { PanelSection, Button, ProgressLoadingBar } from '@ohif/ui';
 
 import getActiveDisplayUIDSet from './getActiveDisplayUIDSet';
 import WrappedSelect, { WrappedSelectOption } from './WrappedSelect';
-import {
-  AnalysisPanelEvaluationMap,
-  AnalysisPanelStatus,
-  SegmentationUIDPair,
-} from './AnalysisPanel';
+import { AnalysisPanelEvaluationMap, AnalysisPanelStatus } from './AnalysisPanel';
 
 interface PredictionAnalysisPanelSectionProperties {
   status: AnalysisPanelStatus;
@@ -121,10 +117,10 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
     const uids = [
       sets.find(x => x.SeriesInstanceUID === pair[0].series_uid).displaySetInstanceUID,
       sets.find(x => x.SeriesInstanceUID === pair[1].series_uid).displaySetInstanceUID,
-    ].sort() as SegmentationUIDPair;
+    ].sort();
 
     const update = new Map(evaluation);
-    update.set(uids, body);
+    update.set(uids.join(':'), body);
 
     setEvaluation(update);
     setStatus({ ...status, calculating: false });
@@ -235,10 +231,8 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
         value={selected[0]}
         onChange={option => {
           setSelected(previous => {
-            const update = [...previous] as SelectedSegmentationPair;
-            update[0] = option;
-
-            return update;
+            previous[0] = option;
+            return [...previous];
           });
         }}
       />
@@ -249,10 +243,8 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
         value={selected[1]}
         onChange={option => {
           setSelected(previous => {
-            const update = [...previous] as SelectedSegmentationPair;
-            update[1] = option;
-
-            return update;
+            previous[1] = option;
+            return [...previous];
           });
         }}
       />

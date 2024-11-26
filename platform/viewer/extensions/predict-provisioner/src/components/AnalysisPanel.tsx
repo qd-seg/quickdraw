@@ -4,8 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import PredictionAnalysisPanelSection from './PredictionAnalysisPanelSection';
 import ModelRelationPanelSection from './ModelRelationPanelSection';
 
-export type AnalysisPanelEvaluationMap = Map<SegmentationUIDPair, SegmentationPairEvaulation>;
-export type SegmentationUIDPair = [string, string];
+export type AnalysisPanelEvaluationMap = Map<string, SegmentationPairEvaulation>;
 export type SegmentationPairEvaulation = { label: string; value: number }[];
 
 export interface AnalysisPanelStatus {
@@ -58,6 +57,10 @@ export default (properties: AnalysisPanelProperties) => {
       setSocket(undefined);
     };
   }, []);
+
+  React.useEffect(() => {
+    console.log('DEBUG:', evaluation);
+  }, [evaluation]);
 
   return (
     <div className="ohif-scrollbar invisible-scrollbar overflow-auto">

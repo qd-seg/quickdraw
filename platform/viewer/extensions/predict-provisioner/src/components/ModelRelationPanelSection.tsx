@@ -13,12 +13,11 @@ interface ModelRelationPanelSectionProperties {
   servicesManager: any;
 }
 
+type AvailableModelMap = Map<string, AvailableModelOption>;
 interface AvailableModelOption extends WrappedSelectOption {
   running: boolean;
   updateTime: Date;
 }
-
-type AvailableModelMap = Map<string, AvailableModelOption>;
 
 export default (properties: ModelRelationPanelSectionProperties) => {
   const { status, setStatus, servicesManager, socket } = properties;
