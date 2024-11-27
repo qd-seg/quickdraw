@@ -3,32 +3,32 @@ import { PanelSection, Button, ProgressLoadingBar } from '@ohif/ui';
 
 import getActiveDisplayUIDSet from './getActiveDisplayUIDSet';
 import WrappedSelect, { WrappedSelectOption } from './WrappedSelect';
-import { AnalysisPanelEvaluationMap, AnalysisPanelStatus } from './AnalysisPanel';
+import { EvaluationMap, AnalysisPanelStatus } from './AnalysisPanel';
 
 interface PredictionAnalysisPanelSectionProperties {
   status: AnalysisPanelStatus;
   setStatus: React.Dispatch<React.SetStateAction<AnalysisPanelStatus>>;
-  evaluation: AnalysisPanelEvaluationMap;
-  setEvaluation: React.Dispatch<React.SetStateAction<AnalysisPanelEvaluationMap>>;
+  evaluations: EvaluationMap;
+  setEvaluations: React.Dispatch<React.SetStateAction<EvaluationMap>>;
   servicesManager: any;
 }
 
 type AvailableSegmentationMap = Map<string, WrappedSelectOption>;
-type SelectedSegmentationPair = [WrappedSelectOption | undefined, WrappedSelectOption | undefined];
+export type SelectedSegmentationPair = [
+  WrappedSelectOption | undefined,
+  WrappedSelectOption | undefined,
+];
 
 export default (properties: PredictionAnalysisPanelSectionProperties) => {
-  const { status, setStatus, evaluation, setEvaluation, servicesManager } = properties;
+  const { status, setStatus, evaluations, setEvaluations, servicesManager } = properties;
   const { uiNotificationService, displaySetService } = servicesManager.services;
 
   const [available, setAvailable] = React.useState<AvailableSegmentationMap>(new Map());
   const [selected, setSelected] = React.useState<SelectedSegmentationPair>([undefined, undefined]);
   const [progress, setProgress] = React.useState<number | undefined>(0);
 
-  const isAnalysisAvailable = React.useMemo(
-    () =>
-      selected[0]?.value !== undefined &&
-      selected[1]?.value !== undefined &&
-      status.calculating === false,
+  const isAnalysisAvailable = React.useMemo<boolean>(
+    () => Boolean(selected[0]?.value && selected[1]?.value && !status.calculating),
     [selected, status]
   );
 
@@ -48,6 +48,7 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
     const update = new Map();
     for (let series of sets) {
       const option = { label: series.description, value: series.uid };
+
       update.set(series.uid, option);
     }
 
@@ -57,7 +58,7 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
   const calculateDICEScore = async () => {
     const active = getActiveDisplayUIDSet({ servicesManager });
 
-    if (selected[0]?.value === undefined || available.get(selected[0].value) === undefined) {
+    if (!selected[0]?.value || !available.get(selected[0].value)) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please select a segmentaion to compare.',
@@ -68,7 +69,7 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
       return;
     }
 
-    if (selected[1]?.value === undefined || available.get(selected[1].value) === undefined) {
+    if (!selected[1]?.value || !available.get(selected[1].value)) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please select a ground truth segmentaion to compare against.',
@@ -115,14 +116,20 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
 
     const sets = displaySetService.getActiveDisplaySets();
     const uids = [
-      sets.find(x => x.SeriesInstanceUID === pair[0].series_uid).displaySetInstanceUID,
-      sets.find(x => x.SeriesInstanceUID === pair[1].series_uid).displaySetInstanceUID,
-    ].sort();
+      sets.find(set => set.SeriesInstanceUID === pair[0].series_uid).displaySetInstanceUID,
+      sets.find(set => set.SeriesInstanceUID === pair[1].series_uid).displaySetInstanceUID,
+    ];
 
-    const update = new Map(evaluation);
-    update.set(uids.join(':'), body);
+    const update = new Map(evaluations);
+    update.set([...uids].sort().join(':'), {
+      descriptors: [
+        { label: pair[0].series_desc, value: uids[0] },
+        { label: pair[1].series_desc, value: uids[1] },
+      ],
+      result: body,
+    });
 
-    setEvaluation(update);
+    setEvaluations(update);
     setStatus({ ...status, calculating: false });
 
     uiNotificationService.show({
@@ -136,7 +143,7 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
   const saveDiscrepancy = async () => {
     const active = getActiveDisplayUIDSet({ servicesManager });
 
-    if (selected[0]?.value === undefined || available.get(selected[0].value) === undefined) {
+    if (!selected[0]?.value || !available.get(selected[0].value)) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please select a segmentaion to compare.',
@@ -147,7 +154,7 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
       return;
     }
 
-    if (selected[1]?.value === undefined || available.get(selected[1].value) === undefined) {
+    if (!selected[1]?.value || !available.get(selected[1].value)) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please select a ground truth segmentaion to compare against.',
@@ -190,7 +197,7 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
       }),
     });
 
-    if (response.ok === true || response.status === 202) {
+    if (response.ok || response.status === 202) {
       uiNotificationService.show({
         title: 'Discrepancy Processing',
         message: 'Creating Discrepancy mask in the background. Please wait a few minutes...',
@@ -253,14 +260,14 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
         className="mb-1 mt-1"
         children="Calculate DICE Score"
         onClick={() => calculateDICEScore().catch(console.error)}
-        disabled={isAnalysisAvailable === false}
+        disabled={!isAnalysisAvailable}
       />
 
       <Button
         className="mb-1 mt-1"
         children="Save Discrepancy"
         onClick={() => saveDiscrepancy().catch(console.error)}
-        disabled={isAnalysisAvailable === false}
+        disabled={!isAnalysisAvailable}
       />
     </PanelSection>
   );

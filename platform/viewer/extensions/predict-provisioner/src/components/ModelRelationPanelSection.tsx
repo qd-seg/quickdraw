@@ -27,13 +27,13 @@ export default (properties: ModelRelationPanelSectionProperties) => {
   const [available, setAvailable] = React.useState<AvailableModelMap>(new Map());
   const [selected, setSelected] = React.useState<WrappedSelectOption | undefined>(undefined);
 
-  const isPredictionInProgress = React.useMemo(
+  const isPredictionInProgress = React.useMemo<boolean>(
     () => status.predicting || !Array.from(available.values()).every(model => !model.running),
     [status, available]
   );
 
   const predict = async () => {
-    if (selected?.value === undefined) {
+    if (!selected?.value) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please select a model.',
@@ -56,7 +56,7 @@ export default (properties: ModelRelationPanelSectionProperties) => {
         }),
       });
 
-      if (response.ok === true) return;
+      if (response.ok) return;
 
       const json = await response.json();
 
@@ -89,16 +89,18 @@ export default (properties: ModelRelationPanelSectionProperties) => {
 
       const updated = new Map();
       for (let model of body.models) {
-        updated.set(model.name, {
+        const entry = {
           label: `${model.running ? '[Running]' : ''} ${model.name}`,
           value: model.name,
           running: model.running,
           updateTime: new Date(model.pdateTime),
-        });
+        };
+
+        updated.set(model.name, entry);
       }
       setAvailable(updated);
 
-      if (selected?.value === undefined) return;
+      if (!selected?.value) return;
 
       const previous = updated.get(selected.value);
 
@@ -122,7 +124,7 @@ export default (properties: ModelRelationPanelSectionProperties) => {
   }, []);
 
   React.useEffect(() => {
-    if (socket === undefined) return;
+    if (!socket) return;
 
     socket.on('prediction_progress_update', setPredictionProgress);
 
@@ -132,7 +134,7 @@ export default (properties: ModelRelationPanelSectionProperties) => {
   }, [available]);
 
   React.useEffect(() => {
-    if (socket === undefined) return;
+    if (!socket) return;
 
     socket.on('update_model_list', getAvailableModels);
 

@@ -3,9 +3,14 @@ import { io, Socket } from 'socket.io-client';
 
 import PredictionAnalysisPanelSection from './PredictionAnalysisPanelSection';
 import ModelRelationPanelSection from './ModelRelationPanelSection';
+import SegmentationPanel from './SegmentationPanel';
+import { WrappedSelectOption } from './WrappedSelect';
 
-export type AnalysisPanelEvaluationMap = Map<string, SegmentationPairEvaulation>;
-export type SegmentationPairEvaulation = { label: string; value: number }[];
+export type EvaluationMap = Map<string, SegmentationPairEvaulation>;
+export interface SegmentationPairEvaulation {
+  descriptors: [WrappedSelectOption, WrappedSelectOption];
+  result: { label: string; value: number }[];
+}
 
 export interface AnalysisPanelStatus {
   uploading: boolean;
@@ -27,7 +32,7 @@ export default (properties: AnalysisPanelProperties) => {
   const { uiNotificationService } = servicesManager.services;
 
   const [socket, setSocket] = React.useState<Socket | undefined>(undefined);
-  const [evaluation, setEvaluation] = React.useState<AnalysisPanelEvaluationMap>(new Map());
+  const [evaluations, setEvaluations] = React.useState<EvaluationMap>(new Map());
   const [status, setStatus] = React.useState<AnalysisPanelStatus>({
     uploading: false,
     deleting: false,
@@ -49,7 +54,7 @@ export default (properties: AnalysisPanelProperties) => {
       });
     });
 
-    socket.onAny((e, a) => console.log(e, a));
+    socket.onAny((event, rest) => console.log(event, rest));
     setSocket(socket);
 
     return () => {
@@ -57,10 +62,6 @@ export default (properties: AnalysisPanelProperties) => {
       setSocket(undefined);
     };
   }, []);
-
-  React.useEffect(() => {
-    console.log('DEBUG:', evaluation);
-  }, [evaluation]);
 
   return (
     <div className="ohif-scrollbar invisible-scrollbar overflow-auto">
@@ -74,9 +75,16 @@ export default (properties: AnalysisPanelProperties) => {
       <PredictionAnalysisPanelSection
         status={status}
         setStatus={setStatus}
-        evaluation={evaluation}
-        setEvaluation={setEvaluation}
+        evaluations={evaluations}
+        setEvaluations={setEvaluations}
         servicesManager={servicesManager}
+      />
+
+      <SegmentationPanel
+        servicesManager={servicesManager}
+        commandsManager={commandsManager}
+        extensionManager={extensionManager}
+        evaluations={evaluations}
       />
     </div>
   );
