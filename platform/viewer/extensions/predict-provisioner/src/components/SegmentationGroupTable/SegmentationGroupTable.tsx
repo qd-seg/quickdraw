@@ -150,7 +150,7 @@ export default (properties: SegmentationGroupTableProperties) => {
 
               {!disableEditing && showAddSegment && (
                 <AddSegmentRow
-                  onClick={() => selected[0] && onSegmentAdd(selected[0]?.value)}
+                  onClick={() => selected[0] && onSegmentAdd(selected[0].value)}
                   onSegmentationToggleVisibility={() => {}}
                   segmentation={undefined}
                 />

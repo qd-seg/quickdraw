@@ -45,14 +45,14 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
       description: set.SeriesDescription,
     }));
 
-    const update = new Map();
+    const updated = new Map();
     for (let series of sets) {
       const option = { label: series.description, value: series.uid };
 
-      update.set(series.uid, option);
+      updated.set(series.uid, option);
     }
 
-    setAvailable(update);
+    setAvailable(updated);
   };
 
   const calculateDICEScore = async () => {
@@ -120,8 +120,8 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
       sets.find(set => set.SeriesInstanceUID === pair[1].series_uid).displaySetInstanceUID,
     ];
 
-    const update = new Map(evaluations);
-    update.set([...uids].sort().join(':'), {
+    const updated = new Map(evaluations);
+    updated.set([...uids].sort().join(':'), {
       descriptors: [
         { label: pair[0].series_desc, value: uids[0] },
         { label: pair[1].series_desc, value: uids[1] },
@@ -129,7 +129,7 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
       result: body,
     });
 
-    setEvaluations(update);
+    setEvaluations(updated);
     setStatus({ ...status, calculating: false });
 
     uiNotificationService.show({

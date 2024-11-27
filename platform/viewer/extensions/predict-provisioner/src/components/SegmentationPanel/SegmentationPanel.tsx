@@ -42,17 +42,17 @@ export default (properties: SegmentationPanelProperties) => {
     React.useState<SegmentationConfiguration>(() => segmentationService.getConfiguration());
 
   const setSegmentationConfigurationWrapper = React.useCallback(
-    (segmentationId, key, value) => {
+    (id, key, value) => {
       segmentationService.setConfiguration({
-        segmentationId,
+        segmentationId: id,
         [key]: value,
       });
     },
     [segmentationService]
   );
 
-  const getToolGroupIds = segmentationId => {
-    return segmentationService.getToolGroupIdsWithSegmentation(segmentationId);
+  const getToolGroupIdentifiers = id => {
+    return segmentationService.getToolGroupIdsWithSegmentation(id);
   };
 
   const onSegmentationAdd = async () => {
@@ -66,68 +66,60 @@ export default (properties: SegmentationPanelProperties) => {
       ? configuration.onSegmentationAdd
       : onSegmentationAdd;
 
-  const onSegmentationDelete = segmentationId => {
-    segmentationService.remove(segmentationId);
+  const onSegmentationDelete = id => {
+    segmentationService.remove(id);
   };
 
-  const onSegmentationEdit = segmentationId => {
-    const segmentation = segmentationService.getSegmentation(segmentationId);
+  const onSegmentationEdit = id => {
+    const segmentation = segmentationService.getSegmentation(id);
     const { label } = segmentation;
 
     callInputDialog(uiDialogService, label, label => {
       if (label === '') return;
 
-      segmentationService.addOrUpdateSegmentation({ id: segmentationId, label }, false, true);
+      segmentationService.addOrUpdateSegmentation({ id, label }, false, true);
     });
   };
 
-  const onSegmentationClick = segmentationId => {
-    segmentationService.setActiveSegmentationForToolGroup(segmentationId);
+  const onSegmentationClick = id => {
+    segmentationService.setActiveSegmentationForToolGroup(id);
   };
 
-  const onSegmentationToggleVisibility = segmentationId => {
-    segmentationService.toggleSegmentationVisibility(segmentationId);
-
-    const segmentation = segmentationService.getSegmentation(segmentationId);
-
-    const isVisible = segmentation.isVisible;
+  const onSegmentationToggleVisibility = id => {
+    segmentationService.toggleSegmentationVisibility(id);
+    const segmentation = segmentationService.getSegmentation(id);
     const segments = segmentation.segments;
 
-    getToolGroupIds(segmentationId).forEach(toolGroupId => {
-      segments.forEach((_, segmentIndex) => {
-        segmentationService.setSegmentVisibility(
-          segmentationId,
-          segmentIndex,
-          isVisible,
-          toolGroupId
-        );
+    getToolGroupIdentifiers(id).forEach(group => {
+      segments.forEach((_, index) => {
+        segmentationService.setSegmentVisibility(id, index, segmentation.isVisible, group);
       });
     });
   };
 
-  const onSegmentationDownload = segmentationId => {
-    commandsManager.runCommand('downloadSegmentation', { segmentationId });
+  const onSegmentationDownload = id => {
+    commandsManager.runCommand('downloadSegmentation', { segmentationId: id });
   };
 
-  const onSegmentationDownloadRTSS = segmentationId => {
-    commandsManager.runCommand('downloadRTSS', { segmentationId });
+  const onSegmentationDownloadRTSS = id => {
+    commandsManager.runCommand('downloadRTSS', { segmentationId: id });
   };
 
-  const onSegmentationExport = async segmentationId => {
+  const onSegmentationExport = async id => {
     const datasources = extensionManager.getActiveDataSource();
 
     const displaySetInstanceUIDs = await createReportAsync({
       servicesManager,
       getReport: () =>
         commandsManager.runCommand('storeSegmentation', {
-          segmentationId,
+          segmentationId: id,
           dataSource: datasources[0],
         }),
       reportType: 'Segmentation',
     });
 
     if (displaySetInstanceUIDs) {
-      segmentationService.remove(segmentationId);
+      segmentationService.remove(id);
 
       viewportGridService.setDisplaySetsForViewport({
         viewportId: viewportGridService.getActiveViewportId(),
@@ -136,78 +128,72 @@ export default (properties: SegmentationPanelProperties) => {
     }
   };
 
-  const onSegmentAdd = segmentationId => {
-    segmentationService.addSegment(segmentationId);
+  const onSegmentAdd = id => {
+    segmentationService.addSegment(id);
   };
 
-  const onSegmentDelete = (segmentationId, segmentIndex) => {
-    segmentationService.removeSegment(segmentationId, segmentIndex);
+  const onSegmentDelete = (id, index) => {
+    segmentationService.removeSegment(id, index);
   };
 
-  const onSegmentEdit = (segmentationId, segmentIndex) => {
-    const segmentation = segmentationService.getSegmentation(segmentationId);
+  const onSegmentEdit = (id, index) => {
+    const segmentation = segmentationService.getSegmentation(id);
 
-    const segment = segmentation.segments[segmentIndex];
+    const segment = segmentation.segments[index];
     const { label } = segment;
 
     callInputDialog(uiDialogService, label, label => {
       if (label === '') return;
 
-      segmentationService.setSegmentLabel(segmentationId, segmentIndex, label);
+      segmentationService.setSegmentLabel(id, index, label);
     });
   };
 
-  const onSegmentClick = (segmentationId, segmentIndex) => {
-    segmentationService.setActiveSegment(segmentationId, segmentIndex);
+  const onSegmentClick = (id, index) => {
+    segmentationService.setActiveSegment(id, index);
 
-    getToolGroupIds(segmentationId).forEach(toolGroupId => {
-      segmentationService.setActiveSegmentationForToolGroup(segmentationId, toolGroupId);
-      segmentationService.jumpToSegmentCenter(segmentationId, segmentIndex, toolGroupId);
+    getToolGroupIdentifiers(id).forEach(group => {
+      segmentationService.setActiveSegmentationForToolGroup(id, group);
+      segmentationService.jumpToSegmentCenter(id, index, group);
     });
   };
 
-  const onSegmentColorClick = (segmentationId, segmentIndex) => {
-    const segmentation = segmentationService.getSegmentation(segmentationId);
+  const onSegmentColorClick = (id, index) => {
+    const segmentation = segmentationService.getSegmentation(id);
 
-    const segment = segmentation.segments[segmentIndex];
+    const segment = segmentation.segments[index];
     const { color, opacity } = segment;
 
-    const rgbaColor = {
+    const current = {
       r: color[0],
       g: color[1],
       b: color[2],
       a: opacity / 255.0,
     };
 
-    callColorPickerDialog(uiDialogService, rgbaColor, (newRGBAColor, actionId) => {
-      if (actionId === 'cancel') return;
+    callColorPickerDialog(uiDialogService, current, (updated, action) => {
+      if (action === 'cancel') return;
 
-      segmentationService.setSegmentRGBAColor(segmentationId, segmentIndex, [
-        newRGBAColor.r,
-        newRGBAColor.g,
-        newRGBAColor.b,
-        newRGBAColor.a * 255.0,
+      segmentationService.setSegmentRGBAColor(id, index, [
+        updated.r,
+        updated.g,
+        updated.b,
+        updated.a * 255.0,
       ]);
     });
   };
 
-  const onSegmentToggleVisibility = (segmentationId, segmentIndex) => {
-    const segmentation = segmentationService.getSegmentation(segmentationId);
-    const segment = segmentation.segments[segmentIndex];
-    const isVisible = !segment.isVisible;
+  const onSegmentToggleVisibility = (id, index) => {
+    const segmentation = segmentationService.getSegmentation(id);
+    const segment = segmentation.segments[index];
 
-    getToolGroupIds(segmentationId).forEach(toolGroupId => {
-      segmentationService.setSegmentVisibility(
-        segmentationId,
-        segmentIndex,
-        isVisible,
-        toolGroupId
-      );
+    getToolGroupIdentifiers(id).forEach(group => {
+      segmentationService.setSegmentVisibility(id, index, !segment.isVisible, group);
     });
   };
 
-  const onSegmentToggleLock = (segmentationId, segmentIndex) => {
-    segmentationService.toggleSegmentLocked(segmentationId, segmentIndex);
+  const onSegmentToggleLock = (id, index) => {
+    segmentationService.toggleSegmentLocked(id, index);
   };
 
   const setRenderOutline = value => {
@@ -262,17 +248,17 @@ export default (properties: SegmentationPanelProperties) => {
   }, []);
 
   React.useEffect(() => {
-    const handleActiveViewportChange = (viewportId: string | undefined) => {
-      const activeViewportId = viewportId || viewportGridService.getActiveViewportId();
-      const displaySetUIDs = viewportGridService.getDisplaySetsUIDsForViewport(activeViewportId);
+    const handleActiveViewportChange = (id: string | undefined) => {
+      const active = id || viewportGridService.getActiveViewportId();
+      const uids = viewportGridService.getDisplaySetsUIDsForViewport(active);
 
-      if (!displaySetUIDs) return;
+      if (!uids) return;
 
       const isReconstructable =
-        displaySetUIDs?.some(displaySetUID => {
-          const displaySet = displaySetService.getDisplaySetByUID(displaySetUID);
+        uids?.some(uid => {
+          const set = displaySetService.getDisplaySetByUID(uid);
 
-          return displaySet?.isReconstructable;
+          return set?.isReconstructable;
         }) || false;
 
       if (isReconstructable) {
@@ -299,8 +285,8 @@ export default (properties: SegmentationPanelProperties) => {
     });
 
     [changed, ready].forEach(event => {
-      const { unsubscribe } = viewportGridService.subscribe(event, ({ viewportId }) => {
-        handleActiveViewportChange(viewportId);
+      const { unsubscribe } = viewportGridService.subscribe(event, ({ id }) => {
+        handleActiveViewportChange(id);
       });
 
       subscriptions.grid.push(unsubscribe);
@@ -320,7 +306,7 @@ export default (properties: SegmentationPanelProperties) => {
       additionalClassName={additionalClassName}
       disableEditing={configuration.disableEditing || false}
       showAddSegmentation={true}
-      showAddSegment={configuration.addSegment || false}
+      showAddSegment={configuration.addSegment || true}
       showDeleteSegment={true}
       onSegmentationAdd={onSegmentationAddWrapper}
       onSegmentationDelete={onSegmentationDelete}

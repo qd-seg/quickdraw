@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { io, Socket } from 'socket.io-client';
+import { Toolbox } from '@ohif/ui';
 
 import PredictionAnalysisPanelSection from './PredictionAnalysisPanelSection';
 import ModelRelationPanelSection from './ModelRelationPanelSection';
@@ -78,6 +79,14 @@ export default (properties: AnalysisPanelProperties) => {
         evaluations={evaluations}
         setEvaluations={setEvaluations}
         servicesManager={servicesManager}
+      />
+
+      <Toolbox
+        commandsManager={commandsManager}
+        servicesManager={servicesManager}
+        extensionManager={extensionManager}
+        buttonSectionId="segmentationToolbox"
+        title="Segmentation Tools"
       />
 
       <SegmentationPanel
