@@ -55,7 +55,7 @@ export default (properties: AnalysisPanelProperties) => {
       });
     });
 
-    socket.onAny((event, rest) => console.log(event, rest));
+    socket.onAny((event, action) => console.log(event, action));
     setSocket(socket);
 
     return () => {

@@ -74,14 +74,14 @@ export default (properties: ActionRowProperties) => {
       previous[1] = comparable[0];
       return [...previous];
     });
-  }, [active]);
+  }, [active, evaluations]);
 
   return (
     <div>
       <WrappedSelect
         description="Active Segmentation"
         options={loaded as WrappedSelectOption[]}
-        value={loaded.find(option => option?.value === selected[0]?.value)}
+        value={selected[0]}
         onChange={option => {
           setSelected(previous => {
             onSegmentationClick(option.value);
@@ -95,7 +95,7 @@ export default (properties: ActionRowProperties) => {
       <WrappedSelect
         description="Comparison Segmentation"
         options={comparable as WrappedSelectOption[]}
-        value={comparable.find(option => option?.value === selected[1]?.value)}
+        value={selected[1]}
         onChange={option => {
           setSelected(previous => {
             previous[1] = option;
