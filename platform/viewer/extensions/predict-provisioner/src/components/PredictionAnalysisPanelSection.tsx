@@ -121,7 +121,7 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
     ];
 
     const updated = new Map(evaluations);
-    updated.set([...uids].sort().join(':'), {
+    updated.set(uids.join(':'), {
       descriptors: [
         { label: pair[0].series_desc, value: uids[0] },
         { label: pair[1].series_desc, value: uids[1] },

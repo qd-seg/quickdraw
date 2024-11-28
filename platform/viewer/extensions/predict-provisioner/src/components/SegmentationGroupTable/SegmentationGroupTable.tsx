@@ -95,7 +95,7 @@ export default (properties: SegmentationGroupTableProperties) => {
   const evaluation = React.useMemo(() => {
     if (!selected[0] || !selected[1]) return;
 
-    return evaluations.get([selected[0]?.value, selected[1]?.value].sort().join(':'));
+    return evaluations.get([selected[0]?.value, selected[1]?.value].join(':'));
   }, [selected]);
 
   React.useEffect(() => {

@@ -56,28 +56,20 @@ export default (properties: ActionRowProperties) => {
       label: segmentation.label,
     })) as WrappedSelectOption[];
 
-    const calculated = Array.from(evaluations.values())
-      .map(evaluation => evaluation.descriptors)
-      .flat();
+    const calculated = Array.from(evaluations.values()).map(evaluation => {
+      return evaluation.descriptors[0];
+    });
 
-    return calculated.concat(loaded).reduce(reducer, []) as WrappedSelectOption[];
+    return calculated.concat(loaded).reduce(reducer, []);
   }, [evaluations, segmentations]);
 
   const comparable = React.useMemo(() => {
     if (!selected[0]) return [];
 
     return Array.from(evaluations.entries())
-      .map(([key, value]) => ({ set: new Set(key.split(':')), value }))
-      .filter(({ set }) => selected[0] && set.has(selected[0].value))
-      .map(({ set, value }) => {
-        if (set.size === 1) return { id: Array.from(set.keys())[0], value };
-
-        const id = Array.from(set.keys()).find(id => selected[0] && id !== selected[0].value);
-        return { id, value };
-      })
-      .map(({ id, value }) => {
-        return value.descriptors.find(descriptor => descriptor.value === id);
-      }) as WrappedSelectOption[];
+      .map(([key, value]) => ({ pair: key.split(':'), value }))
+      .filter(({ pair }) => selected[0]?.value === pair[0])
+      .map(({ pair, value }) => value.descriptors[1]);
   }, [evaluations, selected]);
 
   React.useEffect(() => {
