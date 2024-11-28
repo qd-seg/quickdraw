@@ -5,11 +5,12 @@ import ConfigurationMenu from './ConfigurationMenu';
 import ActionRow from './ActionRow';
 import NoSegmentationRow from './NoSegmentationRow';
 import AddSegmentRow from './AddSegmentRow';
+import SegmentRow from './SegmentRow';
+import ImmutableSegmentRow from './ImmutableSegmentRow';
 
 import { Segmentation, SegmentationConfiguration } from '../SegmentationPanel';
 import { EvaluationMap } from '../AnalysisPanel';
 import { SelectedSegmentationPair } from '../PredictionAnalysisPanelSection';
-import SegmentRow from './SegmentRow';
 
 interface SegmentationGroupTableProperties {
   configuration: { initialConfiguration: SegmentationConfiguration };
@@ -83,7 +84,19 @@ export default (properties: SegmentationGroupTableProperties) => {
 
   const active = React.useMemo(() => {
     return segmentations?.find(segmentation => segmentation.isActive);
-  }, [segmentations, evaluations]);
+  }, [segmentations]);
+
+  const primary = React.useMemo(() => {
+    return segmentations?.find(segmentation => {
+      return segmentation.displaySetInstanceUID === selected[0]?.value;
+    });
+  }, [selected]);
+
+  const evaluation = React.useMemo(() => {
+    if (!selected[0] || !selected[1]) return;
+
+    return evaluations.get([selected[0]?.value, selected[1]?.value].sort().join(':'));
+  }, [selected]);
 
   React.useEffect(() => {
     if (!active) return;
@@ -94,12 +107,18 @@ export default (properties: SegmentationGroupTableProperties) => {
     });
   }, [active]);
 
+  React.useEffect(() => {
+    if (!primary || primary.isActive) return;
+
+    onSegmentationClick(primary.id);
+  }, [primary]);
+
   return (
     <div className="flex min-h-0 flex-col bg-black text-[13px] font-[300]">
       <PanelSection
         title={'Segmentation'}
         actionIcons={
-          selected[0]
+          primary
             ? [
                 {
                   name: 'settings-bars',
@@ -123,7 +142,7 @@ export default (properties: SegmentationGroupTableProperties) => {
         )}
 
         <div className="bg-primary-dark">
-          {segmentations?.length === 0 ? (
+          {segmentations?.length === 0 && evaluations?.size === 0 ? (
             <div className="select-none bg-black py-[3px]">
               {showAddSegmentation && !disableEditing && (
                 <NoSegmentationRow
@@ -137,6 +156,7 @@ export default (properties: SegmentationGroupTableProperties) => {
               <ActionRow
                 evaluations={evaluations}
                 segmentations={segmentations}
+                primary={primary}
                 selected={selected}
                 setSelected={setSelected}
                 additionalClassName={additionalClassName}
@@ -151,7 +171,7 @@ export default (properties: SegmentationGroupTableProperties) => {
                 onSegmentationExport={onSegmentationExport}
               />
 
-              {!disableEditing && showAddSegment && (
+              {primary && !disableEditing && showAddSegment && (
                 <AddSegmentRow
                   onClick={() => selected[0] && onSegmentAdd(selected[0].value)}
                   onSegmentationToggleVisibility={() => {}}
@@ -161,27 +181,24 @@ export default (properties: SegmentationGroupTableProperties) => {
             </div>
           )}
 
-          {active && (
+          {primary && (
             <div className="ohif-scrollbar flex h-fit min-h-0 flex-1 flex-col overflow-auto bg-black">
-              {active.segments?.map(segment => {
+              {primary.segments?.map(segment => {
                 if (!segment) return null;
 
                 const { segmentIndex: index, color, label, isVisible, isLocked } = segment;
-
-                const key = [selected[0]?.value, selected[1]?.value].sort().join(':');
-                const evaluation = evaluations.get(key);
                 const record = evaluation?.result.find(record => record.label === label);
 
                 return (
                   <div className="mb-[1px]" key={index}>
                     <SegmentRow
-                      segmentation={active}
+                      segmentation={primary}
                       index={index}
                       label={label}
                       color={color}
                       text={undefined}
                       record={record ? record : evaluation ? { label, value: 0 } : undefined}
-                      isActive={active.activeSegmentIndex === index}
+                      isActive={primary.activeSegmentIndex === index}
                       isVisible={isVisible}
                       isLocked={isLocked}
                       showDelete={showDeleteSegment}
@@ -193,6 +210,20 @@ export default (properties: SegmentationGroupTableProperties) => {
                       onSegmentToggleVisibility={onSegmentToggleVisibility}
                       onSegmentToggleLock={onSegmentToggleLock}
                     />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!primary && evaluation && (
+            <div className="ohif-scrollbar flex h-fit min-h-0 flex-1 flex-col overflow-auto bg-black">
+              {evaluation.result.map((record, index) => {
+                if (!record) return;
+
+                return (
+                  <div className="mb-[1px]" key={index}>
+                    <ImmutableSegmentRow index={index} record={record} />
                   </div>
                 );
               })}

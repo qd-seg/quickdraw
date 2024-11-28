@@ -106,9 +106,15 @@ export default (properties: SegmentRowProperties) => {
               />
             </div>
 
-            <div className="flex items-center py-1 hover:cursor-pointer">
-              {`${record ? `${record.value.toFixed(2)} - ` : ''}${label}`}
-            </div>
+            {record && (
+              <div className="pl-1.5 pr-1.5">
+                <div className="flex grid w-[28px] place-items-center items-center py-1 font-semibold">
+                  {record.value.toFixed(2)}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center py-1 hover:cursor-pointer">{label}</div>
           </div>
 
           <div className="absolute right-[8px] top-0 flex flex-row-reverse rounded-lg pt-[3px]">
