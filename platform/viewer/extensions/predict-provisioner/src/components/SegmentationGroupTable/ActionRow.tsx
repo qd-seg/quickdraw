@@ -64,13 +64,14 @@ export default (properties: ActionRowProperties) => {
   }, [evaluations, segmentations]);
 
   const comparable = React.useMemo(() => {
+    console.log(evaluations, primary, selected[0]);
     if (!selected[0]) return [];
 
     return Array.from(evaluations.entries())
       .map(([key, value]) => ({ pair: key.split(':'), value }))
       .filter(({ pair }) => selected[0]?.value === pair[0])
       .map(({ pair, value }) => value.descriptors[1]);
-  }, [evaluations, primary]);
+  }, [evaluations, selected]);
 
   React.useEffect(() => {
     if (available.find(option => option.value === selected[0]?.value)) return;

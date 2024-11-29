@@ -140,7 +140,7 @@ export default (properties: SegmentationGroupTableProperties) => {
         )}
 
         <div className="bg-primary-dark">
-          {!primary && !evaluation ? (
+          {segmentations?.length === 0 && evaluations?.size === 0 ? (
             <div className="select-none bg-black py-[3px]">
               {showAddSegmentation && !disableEditing && (
                 <NoSegmentationRow
