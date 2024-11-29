@@ -87,9 +87,7 @@ export default (properties: SegmentationGroupTableProperties) => {
   }, [segmentations]);
 
   const primary = React.useMemo(() => {
-    return segmentations?.find(segmentation => {
-      return segmentation.displaySetInstanceUID === selected[0]?.value;
-    });
+    return segmentations?.find(segmentation => segmentation.id === selected[0]?.value);
   }, [selected]);
 
   const evaluation = React.useMemo(() => {
@@ -142,7 +140,7 @@ export default (properties: SegmentationGroupTableProperties) => {
         )}
 
         <div className="bg-primary-dark">
-          {segmentations?.length === 0 && evaluations?.size === 0 ? (
+          {!primary && !evaluation ? (
             <div className="select-none bg-black py-[3px]">
               {showAddSegmentation && !disableEditing && (
                 <NoSegmentationRow
@@ -170,19 +168,13 @@ export default (properties: SegmentationGroupTableProperties) => {
                 onSegmentationDownloadRTSS={onSegmentationDownloadRTSS}
                 onSegmentationExport={onSegmentationExport}
               />
-
-              {primary && !disableEditing && showAddSegment && (
-                <AddSegmentRow
-                  onClick={() => selected[0] && onSegmentAdd(selected[0].value)}
-                  onSegmentationToggleVisibility={() => {}}
-                  segmentation={undefined}
-                />
-              )}
             </div>
           )}
 
           {primary && (
             <div className="ohif-scrollbar flex h-fit min-h-0 flex-1 flex-col overflow-auto bg-black">
+              <AddSegmentRow onClick={() => selected[0] && onSegmentAdd(selected[0].value)} />
+
               {primary.segments?.map(segment => {
                 if (!segment) return null;
 

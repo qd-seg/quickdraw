@@ -115,6 +115,7 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
     const body = await response.json();
 
     const sets = displaySetService.getActiveDisplaySets();
+
     const uids = [
       sets.find(set => set.SeriesInstanceUID === pair[0].series_uid).displaySetInstanceUID,
       sets.find(set => set.SeriesInstanceUID === pair[1].series_uid).displaySetInstanceUID,

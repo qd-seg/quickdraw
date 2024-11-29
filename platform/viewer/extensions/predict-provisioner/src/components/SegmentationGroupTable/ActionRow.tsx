@@ -70,7 +70,7 @@ export default (properties: ActionRowProperties) => {
       .map(([key, value]) => ({ pair: key.split(':'), value }))
       .filter(({ pair }) => selected[0]?.value === pair[0])
       .map(({ pair, value }) => value.descriptors[1]);
-  }, [evaluations, selected]);
+  }, [evaluations, primary]);
 
   React.useEffect(() => {
     if (available.find(option => option.value === selected[0]?.value)) return;
