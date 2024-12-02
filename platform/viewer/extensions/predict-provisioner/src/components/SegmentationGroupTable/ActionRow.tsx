@@ -5,6 +5,7 @@ import WrappedSelect, { WrappedSelectOption } from '../WrappedSelect';
 import { EvaluationMap } from '../AnalysisPanel';
 import { Segmentation } from '../SegmentationPanel';
 import { SelectedSegmentationPair } from '../PredictionAnalysisPanelSection';
+import NoSegmentationRow from './NoSegmentationRow';
 
 interface ActionRowProperties {
   evaluations: EvaluationMap;
@@ -132,67 +133,83 @@ export default (properties: ActionRowProperties) => {
       />
 
       {primary && (
-        <div className="group mx-0.5 mt-[8px] flex items-center justify-around pb-[10px]">
-          <div onClick={event => event.stopPropagation()}>
-            <Dropdown
-              id="segmentation-dropdown"
-              showDropdownIcon={false}
-              alignment="left"
-              itemsClassName={`text-primary-active ${additionalClassName}`}
-              showBorders={false}
-              maxCharactersPerLine={30}
-              list={[
-                ...(!disableEditing
-                  ? [
-                      {
-                        title: 'Add',
-                        onClick: () => onSegmentationAdd(),
-                      },
-                    ]
-                  : []),
-                ...(!disableEditing
-                  ? [
-                      {
-                        title: 'Rename',
-                        onClick: () => onSegmentationEdit(primary.id),
-                      },
-                    ]
-                  : []),
-                {
-                  title: 'Delete',
-                  onClick: () => onSegmentationDelete(primary.id),
-                },
-                ...(!disableEditing
-                  ? [
-                      {
-                        title: 'Export',
-                        onClick: () => onSegmentationExport(primary.id),
-                      },
-                    ]
-                  : []),
-                ...[
-                  {
-                    title: 'Download',
-                    onClick: () => onSegmentationDownload(primary.id),
-                  },
-                ],
-              ]}
-            >
-              <div className="hover:bg-secondary-dark grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]">
-                <Icon name="icon-more-menu" />
+        <div className="mx-0.5 mt-[8px] justify-around pb-[10px]">
+          {!disableEditing && (
+            <div onClick={event => event.stopPropagation()} className="w-full">
+              <div className={`group ${additionalClassName}`} onClick={() => onSegmentationAdd()}>
+                <div className="text-primary-active group-hover:bg-secondary-dark flex items-center rounded-[4px] group-hover:cursor-pointer">
+                  <div className="grid h-[28px] w-[28px] place-items-center">
+                    <Icon name="icon-add" />
+                  </div>
+
+                  <span className="text-[13px]">Create Empty</span>
+                </div>
               </div>
-            </Dropdown>
+            </div>
+          )}
+
+          {!disableEditing && (
+            <div onClick={event => event.stopPropagation()} className="w-full">
+              <div
+                className={`group ${additionalClassName}`}
+                onClick={() => onSegmentationDownload(primary.id)}
+              >
+                <div className="text-primary-active group-hover:bg-secondary-dark flex items-center rounded-[4px] group-hover:cursor-pointer">
+                  <div className="grid h-[28px] w-[28px] place-items-center">
+                    <Icon name="action-new-dialog" />
+                  </div>
+
+                  <span className="text-[13px]">Save as New</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!disableEditing && (
+            <div onClick={event => event.stopPropagation()} className="w-full">
+              <div
+                className={`group ${additionalClassName}`}
+                onClick={() => onSegmentationEdit(primary.id)}
+              >
+                <div className="text-primary-active group-hover:bg-secondary-dark flex items-center rounded-[4px] group-hover:cursor-pointer">
+                  <div className="grid h-[28px] w-[28px] place-items-center">
+                    <Icon name="icon-rename" />
+                  </div>
+
+                  <span className="text-[13px]">Rename</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div onClick={event => event.stopPropagation()} className="w-full">
+            <div
+              className={`group ${additionalClassName}`}
+              onClick={() => onSegmentationDelete(primary.id)}
+            >
+              <div className="text-primary-active group-hover:bg-secondary-dark flex items-center rounded-[4px] group-hover:cursor-pointer">
+                <div className="grid h-[28px] w-[28px] place-items-center">
+                  <Icon name="icon-close" />
+                </div>
+
+                <span className="text-[13px]">Unload</span>
+              </div>
+            </div>
           </div>
 
-          <div
-            className="hover:bg-secondary-dark mr-1 grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]"
-            onClick={() => onSegmentationToggleVisibility(primary.id)}
-          >
-            {primary?.isVisible ? (
-              <Icon name="row-shown" className="text-primary-active" />
-            ) : (
-              <Icon name="row-hidden" className="text-primary-active" />
-            )}
+          <div onClick={event => event.stopPropagation()} className="w-full">
+            <div
+              className={`group ${additionalClassName}`}
+              onClick={() => onSegmentationToggleVisibility(primary.id)}
+            >
+              <div className="text-primary-active group-hover:bg-secondary-dark flex items-center rounded-[4px] group-hover:cursor-pointer">
+                <div className="grid h-[28px] w-[28px] place-items-center">
+                  <Icon name={primary.isVisible ? 'row-shown' : 'row-hidden'} />
+                </div>
+
+                <span className="text-[13px]">{primary.isVisible ? 'Hide All' : 'Show All'}</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
