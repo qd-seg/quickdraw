@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Icon } from '@ohif/ui';
+import { Icon, Tooltip } from '@ohif/ui';
 
 import WrappedSelect, { WrappedSelectOption } from '../WrappedSelect';
 import { EvaluationMap } from '../AnalysisPanel';
@@ -130,75 +130,80 @@ export default (properties: ActionRowProperties) => {
         }}
       />
 
-      {primary && (
-        <div className="mx-0.5 mt-[8px] justify-around pb-[10px]">
+      <div className="mx-0.5 mt-[8px] justify-around pb-[10px]">
+        <div className="group mx-0.5 mt-[8px] flex items-center justify-around">
           {!disableEditing && (
-            <div onClick={event => event.stopPropagation()} className="w-full">
-              <div className={`group ${additionalClassName}`} onClick={() => onSegmentationAdd()}>
-                <div className="text-primary-active group-hover:bg-secondary-dark flex items-center rounded-[4px] group-hover:cursor-pointer">
-                  <div className="grid h-[28px] w-[28px] place-items-center">
-                    <Icon name="icon-add" />
-                  </div>
-
-                  <span className="text-[13px]">Create Empty</span>
-                </div>
+            <div onClick={event => event.stopPropagation()}>
+              <div
+                className="hover:bg-secondary-dark mr-1 grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]"
+                onClick={() => onSegmentationAdd()}
+              >
+                <Tooltip content="Create Empty">
+                  <Icon name="icon-add" className="text-primary-active" />
+                </Tooltip>
               </div>
             </div>
           )}
 
-          {!disableEditing && (
-            <div onClick={event => event.stopPropagation()} className="w-full">
+          {primary && !disableEditing && (
+            <div onClick={event => event.stopPropagation()}>
               <div
-                className={`group ${additionalClassName}`}
+                className="hover:bg-secondary-dark mr-1 grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]"
                 onClick={() => onSegmentationExport(primary.id)}
               >
-                <div className="text-primary-active group-hover:bg-secondary-dark flex items-center rounded-[4px] group-hover:cursor-pointer">
-                  <div className="grid h-[28px] w-[28px] place-items-center">
-                    <Icon name="action-new-dialog" />
-                  </div>
-
-                  <span className="text-[13px]">Save as New</span>
-                </div>
+                <Tooltip content="Export as New">
+                  <Icon name="action-new-dialog" className="text-primary-active" />
+                </Tooltip>
               </div>
             </div>
           )}
 
-          <div className="group mx-0.5 mt-[8px] flex items-center justify-around">
+          {primary && !disableEditing && (
             <div onClick={event => event.stopPropagation()}>
-              {!disableEditing && (
-                <div
-                  className="hover:bg-secondary-dark mr-1 grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]"
-                  onClick={() => onSegmentationEdit(primary.id)}
-                >
+              <div
+                className="hover:bg-secondary-dark mr-1 grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]"
+                onClick={() => onSegmentationEdit(primary.id)}
+              >
+                <Tooltip content="Rename">
                   <Icon name="icon-rename" className="text-primary-active" />
-                </div>
-              )}
+                </Tooltip>
+              </div>
             </div>
+          )}
 
+          {primary && (
             <div onClick={event => event.stopPropagation()}>
               <div
                 className="hover:bg-secondary-dark mr-1 grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]"
                 onClick={() => onSegmentationDelete(primary.id)}
               >
-                <Icon name="icon-close" className="text-primary-active" />
+                <Tooltip content="Unload">
+                  <Icon name="icon-close" className="text-primary-active" />
+                </Tooltip>
               </div>
             </div>
+          )}
 
+          {primary && (
             <div onClick={event => event.stopPropagation()}>
               <div
                 className="hover:bg-secondary-dark mr-1 grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]"
                 onClick={() => onSegmentationToggleVisibility(primary.id)}
               >
                 {primary.isVisible ? (
-                  <Icon name="row-shown" className="text-primary-active" />
+                  <Tooltip content="Hide All">
+                    <Icon name="row-shown" className="text-primary-active" />
+                  </Tooltip>
                 ) : (
-                  <Icon name="row-hidden" className="text-primary-active" />
+                  <Tooltip content="Show All">
+                    <Icon name="row-hidden" className="text-primary-active" />
+                  </Tooltip>
                 )}
               </div>
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

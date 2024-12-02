@@ -173,8 +173,6 @@ export default (properties: SegmentationGroupTableProperties) => {
 
           {primary && (
             <div className="ohif-scrollbar flex h-fit min-h-0 flex-1 flex-col overflow-auto bg-black">
-              <AddSegmentRow onClick={() => selected[0] && onSegmentAdd(selected[0].value)} />
-
               {primary.segments?.map(segment => {
                 if (!segment) return null;
 
@@ -205,6 +203,8 @@ export default (properties: SegmentationGroupTableProperties) => {
                   </div>
                 );
               })}
+
+              <AddSegmentRow onClick={() => selected[0] && onSegmentAdd(selected[0].value)} />
             </div>
           )}
 
