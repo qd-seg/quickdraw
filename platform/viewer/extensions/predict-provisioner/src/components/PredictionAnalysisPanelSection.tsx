@@ -27,10 +27,20 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
   const [selected, setSelected] = React.useState<SelectedSegmentationPair>([undefined, undefined]);
   const [progress, setProgress] = React.useState<number | undefined>(0);
 
-  const isAnalysisAvailable = React.useMemo<boolean>(
-    () => Boolean(selected[0]?.value && selected[1]?.value && !status.calculating),
-    [selected, status]
-  );
+  const isAnalysisAvailable = React.useMemo<boolean>(() => {
+    return Boolean(selected[0]?.value && selected[1]?.value && !status.calculating);
+  }, [selected, status]);
+
+  const isAnalysisExportAvailable = React.useMemo<boolean>(() => {
+    const sets = displaySetService.getActiveDisplaySets();
+
+    const uids = [
+      sets.find(set => set.SeriesInstanceUID === selected[0]?.value)?.displaySetInstanceUID,
+      sets.find(set => set.SeriesInstanceUID === selected[1]?.value)?.displaySetInstanceUID,
+    ];
+
+    return Boolean(evaluations.get(`${uids[0]}:${uids[1]}`));
+  }, [evaluations, selected]);
 
   React.useEffect(() => {
     status.calculating ? setProgress(undefined) : setProgress(0);
@@ -219,6 +229,54 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
     setStatus({ ...status, calculating: false });
   };
 
+  const saveToFile = (name: string, data: string) => {
+    const file = new Blob([data], { type: 'text/plain' });
+    const element = document.createElement('a');
+    const url = URL.createObjectURL(file);
+
+    element.href = URL.createObjectURL(file);
+    element.download = name;
+    document.body.appendChild(element);
+    element.click();
+
+    setTimeout(() => {
+      document.body.removeChild(element);
+      window.URL.revokeObjectURL(url);
+    }, 0);
+  };
+
+  const saveToCSV = async () => {
+    const sets = displaySetService.getActiveDisplaySets();
+
+    const uids = [
+      sets.find(set => set.SeriesInstanceUID === selected[0]?.value)?.displaySetInstanceUID,
+      sets.find(set => set.SeriesInstanceUID === selected[1]?.value)?.displaySetInstanceUID,
+    ];
+
+    const evaluation = evaluations.get(`${uids[0]}:${uids[1]}`);
+
+    if (!evaluation) {
+      uiNotificationService.show({
+        title: 'Unable to Export',
+        message: 'Please calculate an analysis between the selected segmentations.',
+        type: 'error',
+        duration: 5000,
+      });
+
+      return;
+    }
+
+    let data = 'label,value\n';
+    for (let entry of evaluation.result) data += `${entry.label},${entry.value}\n`;
+
+    const scrubbed = [
+      evaluation.descriptors[0].label.replace(/[^a-z0-9]/gi, '-'),
+      evaluation.descriptors[1].label.replace(/[^a-z0-9]/gi, '-'),
+    ];
+
+    saveToFile(`${scrubbed[0]}_${scrubbed[1]}.csv`, data);
+  };
+
   React.useEffect(() => {
     const handle = () => getAvailableSegmentations();
 
@@ -269,6 +327,13 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
         children="Save Discrepancy"
         onClick={() => saveDiscrepancy().catch(console.error)}
         disabled={!isAnalysisAvailable}
+      />
+
+      <Button
+        className="mb-1 mt-1"
+        children="Export CSV"
+        onClick={() => saveToCSV().catch(console.error)}
+        disabled={!isAnalysisExportAvailable}
       />
     </PanelSection>
   );

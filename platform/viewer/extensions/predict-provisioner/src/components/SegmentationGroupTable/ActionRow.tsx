@@ -1,11 +1,10 @@
 import * as React from 'react';
-import { Icon, Dropdown } from '@ohif/ui';
+import { Icon } from '@ohif/ui';
 
 import WrappedSelect, { WrappedSelectOption } from '../WrappedSelect';
 import { EvaluationMap } from '../AnalysisPanel';
 import { Segmentation } from '../SegmentationPanel';
 import { SelectedSegmentationPair } from '../PredictionAnalysisPanelSection';
-import NoSegmentationRow from './NoSegmentationRow';
 
 interface ActionRowProperties {
   evaluations: EvaluationMap;
@@ -65,7 +64,6 @@ export default (properties: ActionRowProperties) => {
   }, [evaluations, segmentations]);
 
   const comparable = React.useMemo(() => {
-    console.log(evaluations, primary, selected[0]);
     if (!selected[0]) return [];
 
     return Array.from(evaluations.entries())

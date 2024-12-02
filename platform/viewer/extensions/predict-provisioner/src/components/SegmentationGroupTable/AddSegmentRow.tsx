@@ -1,8 +1,6 @@
 import * as React from 'react';
 import { Icon } from '@ohif/ui';
 
-import { Segmentation } from '../SegmentationPanel';
-
 interface AddSegmentRowProperties {
   onClick: () => unknown;
 }

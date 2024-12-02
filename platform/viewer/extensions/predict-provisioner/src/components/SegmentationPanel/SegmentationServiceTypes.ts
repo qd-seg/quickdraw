@@ -61,4 +61,4 @@ type Segmentation = {
   representationData: SegmentationRepresentationData;
 };
 
-export type { SegmentationConfiguration, Segment, Segmentation };
+export { SegmentationConfiguration, Segment, Segmentation };
