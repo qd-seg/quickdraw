@@ -163,49 +163,37 @@ export default (properties: ActionRowProperties) => {
             </div>
           )}
 
-          {!disableEditing && (
-            <div onClick={event => event.stopPropagation()} className="w-full">
+          <div className="group mx-0.5 mt-[8px] flex items-center justify-around">
+            <div onClick={event => event.stopPropagation()}>
+              {!disableEditing && (
+                <div
+                  className="hover:bg-secondary-dark mr-1 grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]"
+                  onClick={() => onSegmentationEdit(primary.id)}
+                >
+                  <Icon name="icon-rename" className="text-primary-active" />
+                </div>
+              )}
+            </div>
+
+            <div onClick={event => event.stopPropagation()}>
               <div
-                className={`group ${additionalClassName}`}
-                onClick={() => onSegmentationEdit(primary.id)}
+                className="hover:bg-secondary-dark mr-1 grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]"
+                onClick={() => onSegmentationDelete(primary.id)}
               >
-                <div className="text-primary-active group-hover:bg-secondary-dark flex items-center rounded-[4px] group-hover:cursor-pointer">
-                  <div className="grid h-[28px] w-[28px] place-items-center">
-                    <Icon name="icon-rename" />
-                  </div>
-
-                  <span className="text-[13px]">Rename</span>
-                </div>
+                <Icon name="icon-close" className="text-primary-active" />
               </div>
             </div>
-          )}
 
-          <div onClick={event => event.stopPropagation()} className="w-full">
-            <div
-              className={`group ${additionalClassName}`}
-              onClick={() => onSegmentationDelete(primary.id)}
-            >
-              <div className="text-primary-active group-hover:bg-secondary-dark flex items-center rounded-[4px] group-hover:cursor-pointer">
-                <div className="grid h-[28px] w-[28px] place-items-center">
-                  <Icon name="icon-close" />
-                </div>
-
-                <span className="text-[13px]">Unload</span>
-              </div>
-            </div>
-          </div>
-
-          <div onClick={event => event.stopPropagation()} className="w-full">
-            <div
-              className={`group ${additionalClassName}`}
-              onClick={() => onSegmentationToggleVisibility(primary.id)}
-            >
-              <div className="text-primary-active group-hover:bg-secondary-dark flex items-center rounded-[4px] group-hover:cursor-pointer">
-                <div className="grid h-[28px] w-[28px] place-items-center">
-                  <Icon name={primary.isVisible ? 'row-shown' : 'row-hidden'} />
-                </div>
-
-                <span className="text-[13px]">{primary.isVisible ? 'Hide All' : 'Show All'}</span>
+            <div onClick={event => event.stopPropagation()}>
+              <div
+                className="hover:bg-secondary-dark mr-1 grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]"
+                onClick={() => onSegmentationToggleVisibility(primary.id)}
+              >
+                {primary.isVisible ? (
+                  <Icon name="row-shown" className="text-primary-active" />
+                ) : (
+                  <Icon name="row-hidden" className="text-primary-active" />
+                )}
               </div>
             </div>
           </div>
