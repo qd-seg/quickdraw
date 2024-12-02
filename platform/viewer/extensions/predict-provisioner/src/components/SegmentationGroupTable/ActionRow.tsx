@@ -152,7 +152,7 @@ export default (properties: ActionRowProperties) => {
             <div onClick={event => event.stopPropagation()} className="w-full">
               <div
                 className={`group ${additionalClassName}`}
-                onClick={() => onSegmentationDownload(primary.id)}
+                onClick={() => onSegmentationExport(primary.id)}
               >
                 <div className="text-primary-active group-hover:bg-secondary-dark flex items-center rounded-[4px] group-hover:cursor-pointer">
                   <div className="grid h-[28px] w-[28px] place-items-center">
