@@ -203,8 +203,8 @@ export default (properties: PredictionAnalysisPanelSectionProperties) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         parent_id: active.parent_id,
-        predSeriesUid: JSON.stringify(pair[0]),
-        truthSeriesUid: JSON.stringify(pair[1]),
+        predSeriesUid: pair[0].series_uid,
+        truthSeriesUid: pair[1].series_uid,
       }),
     });
 
