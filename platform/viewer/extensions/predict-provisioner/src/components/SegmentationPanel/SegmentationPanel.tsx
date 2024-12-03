@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { createReportAsync } from '@ohif/extension-default';
+import { useViewportGrid } from '@ohif/ui';
 import { useAppConfig } from '@state';
 
 import callInputDialog from './callInputDialog';
@@ -25,9 +26,13 @@ export default (properties: SegmentationPanelProperties) => {
     customizationService,
     viewportGridService,
     uiDialogService,
+    uiNotificationService,
     displaySetService,
+    hangingProtocolService,
     cornerstoneViewportService,
   } = servicesManager.services;
+
+  const [{ isHangingProtocolLayout }] = useViewportGrid();
 
   const configuration = {
     disableEditing: useAppConfig()[0].disableEditing,
@@ -53,6 +58,58 @@ export default (properties: SegmentationPanelProperties) => {
 
   const getToolGroupIdentifiers = id => {
     return segmentationService.getToolGroupIdsWithSegmentation(id);
+  };
+
+  const onSegmentationOpen = id => {
+    if (!id) {
+      uiNotificationService.show({
+        title: 'Unable to Open Segmentation',
+        message: 'The segmentation identifier was not provided.',
+        type: 'info',
+        duration: 3000,
+      });
+    }
+
+    if (segmentations.find(segmentation => segmentation.id === id)) {
+      uiNotificationService.show({
+        title: 'Unable to Open Segmentation',
+        message: 'The segmentation is already loaded.',
+        type: 'info',
+        duration: 3000,
+      });
+    }
+
+    const sets = displaySetService.getActiveDisplaySets();
+
+    if (!sets.find(set => set.displaySetInstanceUID === id)) {
+      uiNotificationService.show({
+        title: 'Unable to Open Segmentation',
+        message: 'Could not load the correct display set.',
+        type: 'info',
+        duration: 3000,
+      });
+    }
+
+    let viewports = [];
+
+    try {
+      viewports = hangingProtocolService.getViewportsRequireUpdate(
+        viewportGridService.getActiveViewportId(),
+        id,
+        isHangingProtocolLayout
+      );
+    } catch (error) {
+      console.warn(error);
+
+      uiNotificationService.show({
+        title: 'Open Segmentation',
+        message: 'The selected display sets could not be added to the viewport.',
+        type: 'info',
+        duration: 3000,
+      });
+    }
+
+    viewportGridService.setDisplaySetsForViewports(viewports);
   };
 
   const onSegmentationAdd = async () => {
@@ -316,6 +373,7 @@ export default (properties: SegmentationPanelProperties) => {
       onSegmentationDownload={onSegmentationDownload}
       onSegmentationDownloadRTSS={onSegmentationDownloadRTSS}
       onSegmentationExport={onSegmentationExport}
+      onSegmentationOpen={onSegmentationOpen}
       onSegmentAdd={onSegmentAdd}
       onSegmentDelete={onSegmentDelete}
       onSegmentEdit={onSegmentEdit}

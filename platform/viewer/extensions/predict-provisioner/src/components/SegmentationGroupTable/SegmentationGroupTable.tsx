@@ -29,6 +29,7 @@ interface SegmentationGroupTableProperties {
   onSegmentationDownload: (id: string) => unknown;
   onSegmentationDownloadRTSS: (id: string) => unknown;
   onSegmentationExport: (id: string) => unknown;
+  onSegmentationOpen: (id: string) => unknown;
   onSegmentAdd: (id: string) => unknown;
   onSegmentDelete: (id: string, index: number) => unknown;
   onSegmentEdit: (id: string, index: number) => unknown;
@@ -55,6 +56,7 @@ export default (properties: SegmentationGroupTableProperties) => {
     showAddSegmentation,
     showAddSegment,
     showDeleteSegment,
+    onSegmentationOpen,
     onSegmentationAdd,
     onSegmentationDelete,
     onSegmentationEdit,
@@ -167,6 +169,7 @@ export default (properties: SegmentationGroupTableProperties) => {
                 onSegmentationDownload={onSegmentationDownload}
                 onSegmentationDownloadRTSS={onSegmentationDownloadRTSS}
                 onSegmentationExport={onSegmentationExport}
+                onSegmentationOpen={onSegmentationOpen}
               />
             </div>
           )}

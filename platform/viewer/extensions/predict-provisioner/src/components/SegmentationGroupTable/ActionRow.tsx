@@ -15,13 +15,14 @@ interface ActionRowProperties {
   additionalClassName: string;
   disableEditing: boolean;
   onSegmentationAdd: () => unknown;
-  onSegmentationDelete: (segmentationId: string) => unknown;
-  onSegmentationEdit: (segmentationId: string) => unknown;
-  onSegmentationClick: (segmentationId: string) => unknown;
-  onSegmentationToggleVisibility: (segmentationId: string) => unknown;
-  onSegmentationDownload: (segmentationId: string) => unknown;
-  onSegmentationDownloadRTSS: (segmentationId: string) => unknown;
-  onSegmentationExport: (segmentationId: string) => unknown;
+  onSegmentationDelete: (id: string) => unknown;
+  onSegmentationEdit: (id: string) => unknown;
+  onSegmentationClick: (id: string) => unknown;
+  onSegmentationToggleVisibility: (id: string) => unknown;
+  onSegmentationDownload: (id: string) => unknown;
+  onSegmentationDownloadRTSS: (id: string) => unknown;
+  onSegmentationExport: (id: string) => unknown;
+  onSegmentationOpen: (id: string) => unknown;
 }
 
 export default (properties: ActionRowProperties) => {
@@ -31,15 +32,13 @@ export default (properties: ActionRowProperties) => {
     primary,
     selected,
     setSelected,
-    additionalClassName,
     disableEditing,
     onSegmentationAdd,
     onSegmentationDelete,
     onSegmentationEdit,
-    onSegmentationClick,
     onSegmentationToggleVisibility,
-    onSegmentationDownload,
     onSegmentationExport,
+    onSegmentationOpen,
   } = properties;
 
   const available = React.useMemo(() => {
@@ -69,7 +68,7 @@ export default (properties: ActionRowProperties) => {
     return Array.from(evaluations.entries())
       .map(([key, value]) => ({ pair: key.split(':'), value }))
       .filter(({ pair }) => selected[0]?.value === pair[0])
-      .map(({ pair, value }) => value.descriptors[1]);
+      .map(({ value }) => value.descriptors[1]);
   }, [evaluations, selected]);
 
   React.useEffect(() => {
@@ -91,12 +90,12 @@ export default (properties: ActionRowProperties) => {
   React.useEffect(() => {
     if (comparable.find(option => option.value === selected[1]?.value)) return;
 
-    if (comparable.length === 0) {
+    if (comparable.length === 0 && selected[1] !== undefined) {
       setSelected(previous => {
         previous[1] = undefined;
         return [...previous];
       });
-    } else {
+    } else if (comparable.length !== 0) {
       setSelected(previous => {
         previous[1] = comparable[0];
         return [...previous];
@@ -140,6 +139,19 @@ export default (properties: ActionRowProperties) => {
               >
                 <Tooltip content="Create Empty">
                   <Icon name="icon-add" className="text-primary-active" />
+                </Tooltip>
+              </div>
+            </div>
+          )}
+
+          {!primary && selected[0] && (
+            <div onClick={event => event.stopPropagation()}>
+              <div
+                className="hover:bg-secondary-dark mr-1 grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]"
+                onClick={() => (selected[0] ? onSegmentationOpen(selected[0].value) : undefined)}
+              >
+                <Tooltip content="Load Segments">
+                  <Icon name="icon-search" className="text-primary-active" />
                 </Tooltip>
               </div>
             </div>
