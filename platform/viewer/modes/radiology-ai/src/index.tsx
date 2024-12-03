@@ -38,8 +38,8 @@ const extensionDependencies = {
 const modeFactory = ({ modeConfiguration }) => {
   return {
     id,
-    routeName: 'radiology-ai',
-    displayName: 'Radiology AI',
+    routeName: 'predict-analyze',
+    displayName: 'Prediction Analysis',
 
     onModeEnter: Segmentation.modeFactory({ modeConfiguration }).onModeEnter,
 

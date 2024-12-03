@@ -135,7 +135,7 @@ def calculate_dice_scores(pred_data: np.ndarray,
         dice_scores[pred_label] = float(dice_score)
 
     # dice_scores is in the form of {'Liver': 0.8906308112413376, 'Stomach': 0.9276701174292482, 'Duodenum': 0.9404155757022683, 'Inferior Vena Cava': 0.7494568578632709, 'Left Kidney': 0.0, 'Right Kidney': 0.9141375614824105, 'Aorta': 0.0, 'Left Adrenal Gland': 0.0, 'Right Adrenal Gland': 0.0, 'Gallbladder': 0.0, 'Esophagus': 0.8972954467648065, 'Pancreas': 0.8069919883466861}
-    dice_scores_list = [{key: value} for key, value in dice_scores.items()]
+    dice_scores_list = [{"label":key, "value":value} for key, value in dice_scores.items()]
     # print(dice_scores_list)
     # return dice_scores
     return dice_scores_list

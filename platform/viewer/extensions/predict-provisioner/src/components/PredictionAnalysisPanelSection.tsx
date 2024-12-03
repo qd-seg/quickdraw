@@ -1,73 +1,74 @@
 import * as React from 'react';
 import { PanelSection, Button, ProgressLoadingBar } from '@ohif/ui';
 
-import WrappedSelect from './WrappedSelect';
 import getActiveDisplayUIDSet from './getActiveDisplayUIDSet';
-import { PanelStatus } from './AnalysisPanel';
+import WrappedSelect, { WrappedSelectOption } from './WrappedSelect';
+import { EvaluationMap, AnalysisPanelStatus } from './AnalysisPanel';
 
-interface PredictionAnalysisPanelSectionProps {
-    status: PanelStatus;
-    setStatus: React.Dispatch<React.SetStateAction<PanelStatus>>;
-    setAnalysis: any;
-    servicesManager: any;
-};
+interface PredictionAnalysisPanelSectionProperties {
+  status: AnalysisPanelStatus;
+  setStatus: React.Dispatch<React.SetStateAction<AnalysisPanelStatus>>;
+  evaluations: EvaluationMap;
+  setEvaluations: React.Dispatch<React.SetStateAction<EvaluationMap>>;
+  servicesManager: any;
+}
 
-export default ({ status, setStatus, setAnalysis, servicesManager }: PredictionAnalysisPanelSectionProps) => {
-  const [availableMasks, setAvailableMasks] = React.useState<Record<string, any>>({});
-  const [selectedMask, setSelectedMask] = React.useState<Record<string, any>>({
-    value: undefined,
-    label: undefined,
-  });
-  const [selectedTruth, setSelectedTruth] = React.useState<Record<string, any>>({
-    value: undefined,
-    label: undefined,
-  });
-  
+type AvailableSegmentationMap = Map<string, WrappedSelectOption>;
+export type SelectedSegmentationPair = [
+  WrappedSelectOption | undefined,
+  WrappedSelectOption | undefined,
+];
+
+export default (properties: PredictionAnalysisPanelSectionProperties) => {
+  const { status, setStatus, evaluations, setEvaluations, servicesManager } = properties;
+  const { uiNotificationService, displaySetService } = servicesManager.services;
+
+  const [available, setAvailable] = React.useState<AvailableSegmentationMap>(new Map());
+  const [selected, setSelected] = React.useState<SelectedSegmentationPair>([undefined, undefined]);
   const [progress, setProgress] = React.useState<number | undefined>(0);
 
-  const isProcessing = () => !Object.values(status).every(x => x === false);
-  const isAnalysisAvailable = () =>
-    selectedMask.value !== undefined &&
-    selectedTruth.value !== undefined &&
-    isProcessing() === false &&
-    status.calculating === false;
+  const isAnalysisAvailable = React.useMemo<boolean>(() => {
+    return Boolean(selected[0]?.value && selected[1]?.value && !status.calculating);
+  }, [selected, status]);
+
+  const isAnalysisExportAvailable = React.useMemo<boolean>(() => {
+    const sets = displaySetService.getActiveDisplaySets();
+
+    const uids = [
+      sets.find(set => set.SeriesInstanceUID === selected[0]?.value)?.displaySetInstanceUID,
+      sets.find(set => set.SeriesInstanceUID === selected[1]?.value)?.displaySetInstanceUID,
+    ];
+
+    return Boolean(evaluations.get(`${uids[0]}:${uids[1]}`));
+  }, [evaluations, selected]);
 
   React.useEffect(() => {
-    // isProcessing() ? setProgress(undefined) : setProgress(0);
     status.calculating ? setProgress(undefined) : setProgress(0);
   }, [status]);
 
-  const getAvailableMasks = () => {
-    const { displaySetService } = servicesManager.services;
+  const getAvailableSegmentations = () => {
+    const active = displaySetService.getActiveDisplaySets();
+    const valid = active.filter(set => set.Modality === 'SEG');
 
-    const activeDisplaySets = displaySetService.getActiveDisplaySets();
-    const validDisplaySets = activeDisplaySets.filter(displaySet => displaySet.Modality === 'SEG');
-
-    const displaySetSeries = validDisplaySets.map(displaySet => ({
-      uid: displaySet.SeriesInstanceUID,
-      description: displaySet.SeriesDescription,
+    const sets = valid.map(set => ({
+      uid: set.SeriesInstanceUID,
+      description: set.SeriesDescription,
     }));
 
-    const masks = {};
-    for (let series of displaySetSeries) masks[series.uid] = series.description;
+    const updated = new Map();
+    for (let series of sets) {
+      const option = { label: series.description, value: series.uid };
 
-    setAvailableMasks(masks);
+      updated.set(series.uid, option);
+    }
+
+    setAvailable(updated);
   };
 
   const calculateDICEScore = async () => {
-    const { uiNotificationService, displaySetService } = servicesManager.services;
+    const active = getActiveDisplayUIDSet({ servicesManager });
 
-    let activeDisplayUIDSet;
-
-    try {
-      activeDisplayUIDSet = getActiveDisplayUIDSet({ servicesManager });
-    } catch (error) {
-      console.error(error);
-
-      return;
-    }
-
-    if (selectedMask.value === undefined || availableMasks[selectedMask.value] === undefined) {
+    if (!selected[0]?.value || !available.get(selected[0].value)) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please select a segmentaion to compare.',
@@ -78,7 +79,7 @@ export default ({ status, setStatus, setAnalysis, servicesManager }: PredictionA
       return;
     }
 
-    if (selectedTruth.value === undefined || availableMasks[selectedTruth.value] === undefined) {
+    if (!selected[1]?.value || !available.get(selected[1].value)) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please select a ground truth segmentaion to compare against.',
@@ -89,86 +90,71 @@ export default ({ status, setStatus, setAnalysis, servicesManager }: PredictionA
       return;
     }
 
-    const selectedMaskUIDs = {
-      series_desc: availableMasks[selectedMask.value],
-      series_uid: selectedMask.value,
-      patient_id: activeDisplayUIDSet.patient_id,
-      study_id: activeDisplayUIDSet.patient_id,
-      study_desc: activeDisplayUIDSet.study_description,
-      study_uid: activeDisplayUIDSet.study_uid,
+    const shared = {
+      patient_id: active.patient_id,
+      study_id: active.patient_id,
+      study_desc: active.study_description,
+      study_uid: active.study_uid,
     };
 
-    const selectedTruthUIDs = {
-      series_desc: availableMasks[selectedTruth.value],
-      series_uid: selectedTruth.value,
-      patient_id: activeDisplayUIDSet.patient_id,
-      study_id: activeDisplayUIDSet.patient_id,
-      study_desc: activeDisplayUIDSet.study_description,
-      study_uid: activeDisplayUIDSet.study_uid,
-    };
+    const pair = [
+      {
+        series_desc: selected[0].label,
+        series_uid: selected[0].value,
+        ...shared,
+      },
+      {
+        series_desc: selected[1].label,
+        series_uid: selected[1].value,
+        ...shared,
+      },
+    ];
 
     setStatus({ ...status, calculating: true });
 
-    try {
-      const response = await fetch(`/api/getDICEScores`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          parentDicomId: activeDisplayUIDSet.parent_id,
-          currentMask: JSON.stringify(selectedMaskUIDs),
-          groundTruth: JSON.stringify(selectedTruthUIDs),
-        }),
-      });
+    const response = await fetch(`/api/getDICEScores`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        parentDicomId: active.parent_id,
+        currentMask: JSON.stringify(pair[0]),
+        groundTruth: JSON.stringify(pair[1]),
+      }),
+    });
 
-      const body = await response.json();
+    const body = await response.json();
 
-      const activeDisplaySets = displaySetService.getActiveDisplaySets();
+    const sets = displaySetService.getActiveDisplaySets();
 
-      const maskDisplaySetInstanceUID = activeDisplaySets.find(
-        x => x.SeriesInstanceUID === selectedMaskUIDs.series_uid
-      ).displaySetInstanceUID;
+    const uids = [
+      sets.find(set => set.SeriesInstanceUID === pair[0].series_uid).displaySetInstanceUID,
+      sets.find(set => set.SeriesInstanceUID === pair[1].series_uid).displaySetInstanceUID,
+    ];
 
-      const truthDisplaySetInstanceUID = activeDisplaySets.find(
-        x => x.SeriesInstanceUID === selectedTruthUIDs.series_uid
-      ).displaySetInstanceUID;
+    const updated = new Map(evaluations);
+    updated.set(uids.join(':'), {
+      descriptors: [
+        { label: pair[0].series_desc, value: uids[0] },
+        { label: pair[1].series_desc, value: uids[1] },
+      ],
+      result: body,
+    });
 
-      setAnalysis(p => {
-        p[`${maskDisplaySetInstanceUID}:${truthDisplaySetInstanceUID}`] = {
-          maskUIDs: { ...selectedMaskUIDs, display_set_uid: maskDisplaySetInstanceUID },
-          truthUIDs: { ...selectedTruthUIDs, display_set_uid: truthDisplaySetInstanceUID },
-          scores: body,
-        };
+    setEvaluations(updated);
+    setStatus({ ...status, calculating: false });
 
-        return JSON.parse(JSON.stringify(p));
-      });
-
-      uiNotificationService.show({
-        title: 'Complete',
-        message: `Analysis was a success.`,
-        type: 'success',
-        duration: 5000,
-      });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setStatus({ ...status, calculating: false });
-    }
+    uiNotificationService.show({
+      title: 'Complete',
+      message: `Analysis was a success.`,
+      type: 'success',
+      duration: 5000,
+    });
   };
 
   const saveDiscrepancy = async () => {
-    const { uiNotificationService } = servicesManager.services;
+    const active = getActiveDisplayUIDSet({ servicesManager });
 
-    let activeDisplayUIDSet;
-
-    try {
-      activeDisplayUIDSet = getActiveDisplayUIDSet({ servicesManager });
-    } catch (error) {
-      console.error(error);
-
-      return;
-    }
-
-    if (selectedMask.value === undefined || availableMasks[selectedMask.value] === undefined) {
+    if (!selected[0]?.value || !available.get(selected[0].value)) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please select a segmentaion to compare.',
@@ -179,7 +165,7 @@ export default ({ status, setStatus, setAnalysis, servicesManager }: PredictionA
       return;
     }
 
-    if (selectedTruth.value === undefined || availableMasks[selectedTruth.value] === undefined) {
+    if (!selected[1]?.value || !available.get(selected[1].value)) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please select a ground truth segmentaion to compare against.',
@@ -190,52 +176,89 @@ export default ({ status, setStatus, setAnalysis, servicesManager }: PredictionA
       return;
     }
 
+    const shared = {
+      patient_id: active.patient_id,
+      study_id: active.patient_id,
+      study_desc: active.study_description,
+      study_uid: active.study_uid,
+    };
+
+    const pair = [
+      {
+        series_desc: selected[0].label,
+        series_uid: selected[0].value,
+        ...shared,
+      },
+      {
+        series_desc: selected[1].label,
+        series_uid: selected[1].value,
+        ...shared,
+      },
+    ];
+
     setStatus({ ...status, calculating: true });
 
-    try {
-      const response = await fetch(`/api/saveDiscrepancyMask`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          parent_id: activeDisplayUIDSet.parent_id,
-          predSeriesUid: selectedMask.value,
-          truthSeriesUid: selectedTruth.value,
-        }),
+    const response = await fetch(`/api/saveDiscrepancyMask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        parent_id: active.parent_id,
+        predSeriesUid: pair[0].series_uid,
+        truthSeriesUid: pair[1].series_uid,
+      }),
+    });
+
+    if (response.ok || response.status === 202) {
+      uiNotificationService.show({
+        title: 'Discrepancy Processing',
+        message: 'Creating Discrepancy mask in the background. Please wait a few minutes...',
+        type: 'success',
+        duration: 5000,
       });
+    } else {
+      const json = await response.json();
 
-      if (response.ok === true || response.status === 202) {
-        uiNotificationService.show({
-          title: 'Discrepancy Processing',
-          message: 'Creating Discrepancy mask in the background. Please wait a few minutes...',
-          type: 'success',
-          duration: 5000,
-        });
-      }
-
-      if (response.ok === false) {
-        const json = await response.json();
-
-        uiNotificationService.show({
-          title: 'Discrepancy Error',
-          message: json.message || 'Something went wrong with the discrepancy calculation.',
-          type: 'error',
-          duration: 5000,
-        });
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setStatus({ ...status, calculating: false });
+      uiNotificationService.show({
+        title: 'Discrepancy Error',
+        message: json.message || 'Something went wrong with the discrepancy calculation.',
+        type: 'error',
+        duration: 5000,
+      });
     }
+
+    setStatus({ ...status, calculating: false });
   };
 
-  React.useEffect(() => {
-    const { displaySetService, uiNotificationService } = servicesManager.services;
+  const saveToFile = (name: string, data: string) => {
+    const file = new Blob([data], { type: 'text/plain' });
+    const element = document.createElement('a');
+    const url = URL.createObjectURL(file);
 
-    if (displaySetService === undefined) {
+    element.href = URL.createObjectURL(file);
+    element.download = name;
+    document.body.appendChild(element);
+    element.click();
+
+    setTimeout(() => {
+      document.body.removeChild(element);
+      window.URL.revokeObjectURL(url);
+    }, 0);
+  };
+
+  const saveToCSV = async () => {
+    const sets = displaySetService.getActiveDisplaySets();
+
+    const uids = [
+      sets.find(set => set.SeriesInstanceUID === selected[0]?.value)?.displaySetInstanceUID,
+      sets.find(set => set.SeriesInstanceUID === selected[1]?.value)?.displaySetInstanceUID,
+    ];
+
+    const evaluation = evaluations.get(`${uids[0]}:${uids[1]}`);
+
+    if (!evaluation) {
       uiNotificationService.show({
-        title: 'Unable to Load',
-        message: 'Could not load the stored segmentations information.',
+        title: 'Unable to Export',
+        message: 'Please calculate an analysis between the selected segmentations.',
         type: 'error',
         duration: 5000,
       });
@@ -243,58 +266,75 @@ export default ({ status, setStatus, setAnalysis, servicesManager }: PredictionA
       return;
     }
 
-    const handleDisplaySetsAdded = () => getAvailableMasks();
+    let data = 'label,value\n';
+    for (let entry of evaluation.result) data += `${entry.label},${entry.value}\n`;
 
-    displaySetService.subscribe(
-      displaySetService.EVENTS.DISPLAY_SETS_ADDED,
-      handleDisplaySetsAdded
-    );
+    const scrubbed = [
+      evaluation.descriptors[0].label.replace(/[^a-z0-9]/gi, '-'),
+      evaluation.descriptors[1].label.replace(/[^a-z0-9]/gi, '-'),
+    ];
 
-    return () => {
-      displaySetService.unsubscribe(
-        displaySetService.EVENTS.DISPLAY_SETS_ADDED,
-        handleDisplaySetsAdded
-      );
-    };
+    saveToFile(`${scrubbed[0]}_${scrubbed[1]}.csv`, data);
+  };
+
+  React.useEffect(() => {
+    const handle = () => getAvailableSegmentations();
+
+    displaySetService.subscribe(displaySetService.EVENTS.DISPLAY_SETS_ADDED, handle);
+
+    return () => displaySetService.unsubscribe(displaySetService.EVENTS.DISPLAY_SETS_ADDED, handle);
   }, [servicesManager]);
 
   return (
-    <PanelSection title="Analysis Tools">  
-      <ProgressLoadingBar className="" progress={progress} />
+    <PanelSection title="Analysis Tools">
+      <div className="mb-2">
+        <ProgressLoadingBar progress={progress} />
+      </div>
 
       <WrappedSelect
-        label="Predicted Segmentation"
-        options={Object.keys(availableMasks).map(uid => ({
-          value: uid,
-          label: availableMasks[uid],
-        }))}
-        value={selectedMask}
-        onChange={setSelectedMask}
-      ></WrappedSelect>
+        description="Predicted Segmentation"
+        options={Array.from(available.values())}
+        value={selected[0]}
+        onChange={option => {
+          setSelected(previous => {
+            previous[0] = option;
+            return [...previous];
+          });
+        }}
+      />
 
       <WrappedSelect
-        label="Ground Truth Segmentation"
-        options={Object.keys(availableMasks).map(uid => ({
-          value: uid,
-          label: availableMasks[uid],
-        }))}
-        value={selectedTruth}
-        onChange={setSelectedTruth}
-      ></WrappedSelect>
+        description="Ground Truth Segmentation"
+        options={Array.from(available.values())}
+        value={selected[1]}
+        onChange={option => {
+          setSelected(previous => {
+            previous[1] = option;
+            return [...previous];
+          });
+        }}
+      />
 
       <Button
         className="mb-1 mt-1"
         children="Calculate DICE Score"
         onClick={() => calculateDICEScore().catch(console.error)}
-        disabled={isAnalysisAvailable() === false}
-      ></Button>
+        disabled={!isAnalysisAvailable}
+      />
 
       <Button
         className="mb-1 mt-1"
         children="Save Discrepancy"
         onClick={() => saveDiscrepancy().catch(console.error)}
-        disabled={isAnalysisAvailable() === false}
-      ></Button>
+        disabled={!isAnalysisAvailable}
+      />
+
+      <Button
+        className="mb-1 mt-1"
+        children="Export CSV"
+        onClick={() => saveToCSV().catch(console.error)}
+        disabled={!isAnalysisExportAvailable}
+      />
     </PanelSection>
   );
 };

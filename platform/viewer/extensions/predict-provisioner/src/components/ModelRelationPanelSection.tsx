@@ -1,41 +1,39 @@
 import * as React from 'react';
+import { Socket } from 'socket.io-client';
 import { PanelSection, Button, ProgressLoadingBar } from '@ohif/ui';
 
 import getActiveDisplayUIDSet from './getActiveDisplayUIDSet';
-import WrappedSelect from './WrappedSelect';
-import { Socket } from 'socket.io-client';
-import { PanelStatus } from './AnalysisPanel';
+import WrappedSelect, { WrappedSelectOption } from './WrappedSelect';
+import { AnalysisPanelStatus } from './AnalysisPanel';
 
-interface ModelRelationPanelSectionProps {
-    status: PanelStatus;
-    setStatus: React.Dispatch<React.SetStateAction<PanelStatus>>;
-    servicesManager: any;
-    socket?: Socket;
-};
+interface ModelRelationPanelSectionProperties {
+  socket?: Socket;
+  status: AnalysisPanelStatus;
+  setStatus: React.Dispatch<React.SetStateAction<AnalysisPanelStatus>>;
+  servicesManager: any;
+}
 
-export default ({ status, setStatus, servicesManager, socket }: ModelRelationPanelSectionProps) => {
-  const [availableModels, setAvailableModels] = React.useState<Record<string, any>>({});
-  const [selectedModel, setSelectedModel] = React.useState<{
-    value: string | undefined;
-    label: string | undefined;
-  }>({
-    value: undefined,
-    label: undefined,
-  });
+type AvailableModelMap = Map<string, AvailableModelOption>;
+interface AvailableModelOption extends WrappedSelectOption {
+  running: boolean;
+  updateTime: Date;
+}
+
+export default (properties: ModelRelationPanelSectionProperties) => {
+  const { status, setStatus, servicesManager, socket } = properties;
+  const { uiNotificationService } = servicesManager.services;
 
   const [progress, setProgress] = React.useState<number | undefined>(0);
+  const [available, setAvailable] = React.useState<AvailableModelMap>(new Map());
+  const [selected, setSelected] = React.useState<WrappedSelectOption | undefined>(undefined);
 
-  const isProcessing = () => !Object.values(status).every(x => x === false);
-  const isPredictionAvailable = () => selectedModel.value !== undefined && isProcessing() === false;
-//   const isPredictionInProgress = () => Object.values(availableModels).every(model => !model.running)
-  const isPredictionInProgress = React.useMemo(() => {
-    return status.predicting || !Object.values(availableModels).every(model => !model.running);
-  }, [status, availableModels]);
+  const isPredictionInProgress = React.useMemo<boolean>(
+    () => status.predicting || !Array.from(available.values()).every(model => !model.running),
+    [status, available]
+  );
 
   const predict = async () => {
-    const { uiNotificationService } = servicesManager.services;
-
-    if (selectedModel.value === undefined) {
+    if (!selected?.value) {
       uiNotificationService.show({
         title: 'Unable to Process',
         message: 'Please select a model.',
@@ -53,21 +51,21 @@ export default ({ status, setStatus, servicesManager, socket }: ModelRelationPan
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          selectedModel: selectedModel.value,
+          selectedModel: selected.value,
           ...getActiveDisplayUIDSet({ servicesManager }),
         }),
       });
 
-      if (response.ok === false) {
-        const json = await response.json();
+      if (response.ok) return;
 
-        uiNotificationService.show({
-          title: 'Prediction Error',
-          message: json.message || 'Something went wrong with the prediction.',
-          type: 'error',
-          duration: 5000,
-        });
-      }
+      const json = await response.json();
+
+      uiNotificationService.show({
+        title: 'Prediction Error',
+        message: json.message || 'Something went wrong with the prediction.',
+        type: 'error',
+        duration: 5000,
+      });
     } catch (error) {
       console.error(error);
 
@@ -89,16 +87,27 @@ export default ({ status, setStatus, servicesManager, socket }: ModelRelationPan
       const response = await fetch(`/api/listModels`);
       const body = await response.json();
 
-      const models = {};
-      for (let model of body.models) models[model.name] = model;
-      if (selectedModel.value !== undefined) {
-        const prevModel = models[selectedModel.value];
-        setSelectedModel({
-            value: prevModel.name,
-            label: prevModel.name + (prevModel.running ? ' (running)' : '')
-        });
+      const updated = new Map();
+      for (let model of body.models) {
+        const entry = {
+          label: `${model.running ? '[Running]' : ''} ${model.name}`,
+          value: model.name,
+          running: model.running,
+          updateTime: new Date(model.pdateTime),
+        };
+
+        updated.set(model.name, entry);
       }
-      setAvailableModels(models);
+      setAvailable(updated);
+
+      if (!selected?.value) return;
+
+      const previous = updated.get(selected.value);
+
+      setSelected({
+        value: previous.value,
+        label: `${previous.running ? '[Running]' : ''} ${previous.value}`,
+      });
     } catch (error) {
       console.error(error);
     } finally {
@@ -106,62 +115,57 @@ export default ({ status, setStatus, servicesManager, socket }: ModelRelationPan
     }
   };
 
+  const setPredictionProgress = ({ value }) => {
+    setProgress(isPredictionInProgress ? parseFloat(value) || undefined : 0);
+  };
+
   React.useEffect(() => {
     getAvailableModels();
   }, []);
 
   React.useEffect(() => {
-    if (socket === undefined) return;
-
-    function setPredictionProgress({ value }) {
-        setProgress(isPredictionInProgress ? (parseFloat(value) || undefined) : 0);
-    };
+    if (!socket) return;
 
     socket.on('prediction_progress_update', setPredictionProgress);
+
     return () => {
-        socket.off('prediction_progress_update', setPredictionProgress);
+      socket.off('prediction_progress_update', setPredictionProgress);
     };
-  }, [availableModels]);
+  }, [available]);
 
   React.useEffect(() => {
-    if (socket === undefined) return;
+    if (!socket) return;
 
-    async function getAndSetAvailableModels() {
-        getAvailableModels();
-    };
+    socket.on('update_model_list', getAvailableModels);
 
-    socket.on('update_model_list', getAndSetAvailableModels);
     return () => {
-        socket.off('update_model_list', getAndSetAvailableModels);
+      socket.off('update_model_list', getAvailableModels);
     };
-  }, [selectedModel]);
+  }, [selected]);
 
   React.useEffect(() => {
-    if (progress === 100) {
-        setProgress(0);
-    }
+    if (progress === 100) setProgress(0);
   }, [progress]);
 
   return (
     <PanelSection title="Prediction Functions">
+      <div className="mb-2">
+        <ProgressLoadingBar progress={progress} />
+      </div>
+
       <WrappedSelect
-        label="Prediction Model"
-        // options={Object.keys(availableModels).map(name => ({ value: name, label: name }))}
-        options={Object.entries(availableModels).map(([modelName, model]) => 
-            ({ value: modelName, label: modelName + (model.running ? ' (running)' : '')})
-        )}
-        value={selectedModel} // should prob get label from selectedModel. needs to update on change
-        // value={selectedModel.label === undefined ? selectedModel : {...selectedModel, label: selectedModel.label + (availableModels[selectedModel.value || '']?.running ? ' (running)' : '')}}
-        onChange={selection => {setSelectedModel(selection)}}
+        description="Prediction Model"
+        options={Array.from(available.values())}
+        value={selected}
+        onChange={setSelected}
       />
 
-      <ProgressLoadingBar className="" progress={progress} />
       <Button
         className="mb-2 mt-1"
         children="Predict"
         onClick={() => predict().catch(console.error)}
-        disabled={isPredictionAvailable() === false}
-      ></Button>
+        disabled={isPredictionInProgress}
+      />
     </PanelSection>
   );
 };

@@ -1,27 +1,38 @@
 import * as React from 'react';
-import { PanelSection, Select, Typography, Label } from '@ohif/ui';
+import { Select, Typography, Label } from '@ohif/ui';
 
-export default ({ value, onChange, options, label }) => {
+export type WrappedSelectOption = { label: string; value: string };
+
+export interface WrappedSelectProperties {
+  description: string;
+  value: WrappedSelectOption | undefined;
+  options: WrappedSelectOption[];
+  onChange: (value: WrappedSelectOption) => unknown;
+}
+
+export default (properties: WrappedSelectProperties) => {
+  const { description, value, options, onChange } = properties;
+
   const child = (
     <Select
       className="mb-2 w-full"
       closeMenuOnSelect={true}
       isSearchable={true}
       isClearable={false}
+      value={value}
       options={options}
       onChange={onChange}
-      value={value}
     />
   );
 
   const text = (
     <Typography
       color="primaryLight"
-      children={label}
+      children={description}
       className="mb-0.5 mt-1 pl-2.5"
       varient="subtitle"
     />
   );
 
-  return <Label children={child} text={text}></Label>;
+  return <Label children={child} text={text} />;
 };

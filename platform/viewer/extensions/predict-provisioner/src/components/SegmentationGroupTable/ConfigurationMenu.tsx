@@ -1,24 +1,53 @@
 import * as React from 'react';
 import { Icon, InputRange, CheckBox, InputNumber } from '@ohif/ui';
 
-const getRoundedValue = value => Math.round(value * 100) / 100;
+import { SegmentationConfiguration } from '../SegmentationPanel';
 
-const ActiveSegmentationConfig = ({
-  config,
+const round = value => Math.round(value * 100) / 100;
 
-  setRenderOutline,
-  setOutlineOpacityActive,
-  setOutlineWidthActive,
-  setRenderFill,
-  setFillAlpha,
-}) => {
+interface ActiveConfigurationMenuProperties {
+  configuration: SegmentationConfiguration;
+  setRenderOutline: (value: unknown) => unknown;
+  setRenderFill: (value: unknown) => unknown;
+  setOutlineOpacityActive: (value: unknown) => unknown;
+  setOutlineWidthActive: (value: unknown) => unknown;
+  setFillAlpha: (value: unknown) => unknown;
+}
+
+interface InactiveConfigurationMenuProperties {
+  configuration: SegmentationConfiguration;
+  setRenderInactiveSegmentations: (value: unknown) => unknown;
+  setFillAlphaInactive: (value: unknown) => unknown;
+}
+
+interface ConfigurationMenuProperties {
+  configuration: { initialConfiguration: SegmentationConfiguration };
+  setRenderOutline: (value: unknown) => unknown;
+  setRenderFill: (value: unknown) => unknown;
+  setRenderInactiveSegmentations: (value: unknown) => unknown;
+  setOutlineOpacityActive: (value: unknown) => unknown;
+  setOutlineWidthActive: (value: unknown) => unknown;
+  setFillAlpha: (value: unknown) => unknown;
+  setFillAlphaInactive: (value: unknown) => unknown;
+}
+
+const ActiveConfigurationMenu = (properties: ActiveConfigurationMenuProperties) => {
+  const {
+    configuration,
+    setRenderOutline,
+    setRenderFill,
+    setOutlineOpacityActive,
+    setOutlineWidthActive,
+    setFillAlpha,
+  } = properties;
+
   return (
     <div className="flex justify-between gap-[5px] px-2 pt-[13px] text-[12px]">
       <div className="flex h-[89px] flex-col items-start">
         <div className="mb-[12px] text-white">Active</div>
         <CheckBox
           label="Outline"
-          checked={config.renderOutline}
+          checked={configuration.renderOutline}
           labelClassName="text-[12px]"
           className="mb-[9px]"
           onChange={setRenderOutline}
@@ -27,7 +56,7 @@ const ActiveSegmentationConfig = ({
         <div className="mt-2" />
         <CheckBox
           label="Fill"
-          checked={config.renderFill}
+          checked={configuration.renderFill}
           labelClassName="text-[12px]"
           className="mb-[9px]"
           onChange={setRenderFill}
@@ -39,7 +68,7 @@ const ActiveSegmentationConfig = ({
         <InputRange
           minValue={0}
           maxValue={100}
-          value={getRoundedValue(config.outlineOpacity * 100)}
+          value={round((configuration.outlineOpacity || 0) * 100)}
           onChange={setOutlineOpacityActive}
           step={1}
           containerClassName="mt-[4px] mb-[9px] w-[100px]"
@@ -51,7 +80,7 @@ const ActiveSegmentationConfig = ({
         <InputRange
           minValue={0}
           maxValue={100}
-          value={getRoundedValue(config.fillAlpha * 100)}
+          value={round((configuration.fillAlpha || 0) * 100)}
           onChange={setFillAlpha}
           step={1}
           containerClassName="mt-[4px] mb-[9px] w-[100px]"
@@ -64,7 +93,7 @@ const ActiveSegmentationConfig = ({
       <div className="flex flex-col items-center">
         <div className="mb-[12px] text-[10px] text-[#b3b3b3]">Size</div>
         <InputNumber
-          value={config.outlineWidthActive}
+          value={configuration.outlineWidthActive}
           onChange={setOutlineWidthActive}
           minValue={0}
           maxValue={10}
@@ -75,17 +104,14 @@ const ActiveSegmentationConfig = ({
   );
 };
 
-const InactiveSegmentationConfig = ({
-  config,
+const InactiveConfigurationMenu = (properties: InactiveConfigurationMenuProperties) => {
+  const { configuration, setRenderInactiveSegmentations, setFillAlphaInactive } = properties;
 
-  setRenderInactiveSegmentations,
-  setFillAlphaInactive,
-}) => {
   return (
     <div className="px-3">
       <CheckBox
         label="Display inactive segmentations"
-        checked={config.renderInactiveSegmentations}
+        checked={configuration.renderInactiveSegmentations}
         labelClassName="text-[12px]"
         className="mb-[9px]"
         onChange={setRenderInactiveSegmentations}
@@ -96,7 +122,7 @@ const InactiveSegmentationConfig = ({
         <InputRange
           minValue={0}
           maxValue={100}
-          value={getRoundedValue(config.fillAlphaInactive * 100)}
+          value={round((configuration.fillAlphaInactive || 0) * 100)}
           onChange={setFillAlphaInactive}
           step={1}
           containerClassName="mt-[4px]"
@@ -109,25 +135,25 @@ const InactiveSegmentationConfig = ({
   );
 };
 
-export default ({
-  config,
+export default (properties: ConfigurationMenuProperties) => {
+  const {
+    configuration,
+    setFillAlpha,
+    setFillAlphaInactive,
+    setOutlineWidthActive,
+    setOutlineOpacityActive,
+    setRenderFill,
+    setRenderInactiveSegmentations,
+    setRenderOutline,
+  } = properties;
 
-  setFillAlpha,
-  setFillAlphaInactive,
-  setOutlineWidthActive,
-  setOutlineOpacityActive,
-  setRenderFill,
-  setRenderInactiveSegmentations,
-  setRenderOutline,
-}) => {
-  const { initialConfig } = config;
-  const [isMinimized, setIsMinimized] = React.useState(true);
+  const [isMinimized, setIsMinimized] = React.useState<boolean>(true);
 
   return (
     <div className="bg-primary-dark select-none">
       <div>
-        <ActiveSegmentationConfig
-          config={initialConfig}
+        <ActiveConfigurationMenu
+          configuration={configuration.initialConfiguration}
           setFillAlpha={setFillAlpha}
           setOutlineWidthActive={setOutlineWidthActive}
           setOutlineOpacityActive={setOutlineOpacityActive}
@@ -150,8 +176,8 @@ export default ({
         </div>
 
         {!isMinimized && (
-          <InactiveSegmentationConfig
-            config={initialConfig}
+          <InactiveConfigurationMenu
+            configuration={configuration.initialConfiguration}
             setRenderInactiveSegmentations={setRenderInactiveSegmentations}
             setFillAlphaInactive={setFillAlphaInactive}
           />
