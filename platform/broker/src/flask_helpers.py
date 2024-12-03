@@ -488,7 +488,7 @@ def run_predictions(project_id: str, zone: str, service_account: str, key_filepa
         print('Something went wrong with running predictions:')
         print(e, flush=True)
         if toast_callback is not None:
-            toast_callback(e, type='error')
+            toast_callback(str(e), type='error')
             
         if stop_instance_at_end:
             stop_instance(project_id, zone, instance_name)
