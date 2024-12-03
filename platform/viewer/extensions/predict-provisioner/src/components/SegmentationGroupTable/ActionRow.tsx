@@ -150,8 +150,8 @@ export default (properties: ActionRowProperties) => {
                 className="hover:bg-secondary-dark mr-1 grid h-[28px] w-[28px] cursor-pointer place-items-center rounded-[4px]"
                 onClick={() => (selected[0] ? onSegmentationOpen(selected[0].value) : undefined)}
               >
-                <Tooltip content="Load Segments">
-                  <Icon name="icon-search" className="text-primary-active" />
+                <Tooltip content="Load in Viewer">
+                  <Icon name="row-shown" className="text-primary-active" />
                 </Tooltip>
               </div>
             </div>
