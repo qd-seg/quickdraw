@@ -21,7 +21,7 @@ def list_docker_images(project_id: str, zone: str, models_repo: str, specific_ta
         request = artifactregistry.ListPackagesRequest(parent=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}')
         response = get_registry_client().list_packages(request)
         return list(response)
-    
+
 def get_docker_image(project_id: str, zone: str, models_repo: str, image_name: str):
     # request = artifactregistry.GetDockerImageRequest()
     request = artifactregistry.GetPackageRequest(name=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}/packages/{image_name}')
@@ -33,7 +33,7 @@ def get_docker_image(project_id: str, zone: str, models_repo: str, image_name: s
         print('Could not get docker image of name', image_name)
         print(e)
         return None
-    
+
 def delete_docker_image(project_id: str, zone: str, models_repo: str, image_name: str):
     request = artifactregistry.DeletePackageRequest(name=f'projects/{project_id}/locations/{get_region_name(zone)}/repositories/{models_repo}/packages/{image_name}')
     try:
@@ -43,13 +43,13 @@ def delete_docker_image(project_id: str, zone: str, models_repo: str, image_name
         print('Could not get docker image of name', image_name)
         print(e)
         return None
-    
+
 def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, models_repo: str, service_account_access_token: str, image_name: str, tarball_path: str, LOG=False, skip_push=False):
     region = get_region_name(zone)
     if LOG:
         print('Logging into docker with service account')
     subprocess.run(['docker', 'login', '-u', 'oauth2accesstoken', '--password-stdin', f'https://{region}-docker.pkg.dev'], check=True, input=service_account_access_token, text=True)
-    
+
     get_repo_request = artifactregistry.GetRepositoryRequest(name=f'projects/{project_id}/locations/{region}/repositories/{models_repo}')
     try:
         repo = get_registry_client().get_repository(get_repo_request)
@@ -66,8 +66,8 @@ def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, 
             repository_id=f'{models_repo}',
             repository=repo)
         result = get_registry_client().create_repository(create_repo_request)
-        result.result(timeout=_MAX_TIMEOUT_NORMAL_REQUEST)   
-    
+        result.result(timeout=_MAX_TIMEOUT_NORMAL_REQUEST)
+
     if image_name is None:
         if LOG:
             print('Loading docker image. This may take a while...')
@@ -81,26 +81,26 @@ def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, 
             print('Could not load docker image from tarball')
             print(e)
             exit(1)
-    # else: 
+    # else:
     #     print(f'Docker image of name {_IMAGE_NAME} already exists')
-        
+
     _IMAGE_NAME = image_name
     _TAG = 'latest'
     docker_tag = f'{region}-docker.pkg.dev/{project_id}/{models_repo}/{_IMAGE_NAME}:{_TAG}'
-    
+
     # docker_img_exists_output = subprocess.check_output(['docker', 'images', '-q', f'{_IMAGE_NAME}:{_TAG}'], text=True)
-    
+
     if LOG:
         print('running tag')
     subprocess.run(['docker', 'tag', f'{_IMAGE_NAME}:{_TAG}', docker_tag])
-    
+
     if skip_push:
         return
-    
+
     if LOG:
         print('running push')
     subprocess.run(['docker', 'push', docker_tag])
-    
+
     if LOG:
         print('Logging out')
     try:
@@ -108,10 +108,9 @@ def upload_docker_image_to_artifact_registry_helper(project_id: str, zone: str, 
     except Exception as e:
         print(e)
         print('The above error occurred while logging out. Please make sure to log out of docker before continuing.')
-        
+
 # Uploads a Dockerized ML model to Google Artifact Registry
 # NOTE: image_name MUST be the same as the name used for docker build + docker save
 def upload_docker_image_to_artifact_registry(project_id: str, zone: str, models_repo: str, image_name: str, tarball_path: str, LOG=False, skip_push=False):
     credentials = get_credentials()
     return upload_docker_image_to_artifact_registry_helper(project_id, zone, models_repo, credentials.token, image_name, tarball_path, LOG=LOG, skip_push=skip_push)
-  

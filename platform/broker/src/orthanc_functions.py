@@ -26,8 +26,8 @@ def change_tags(series_UID):#make sure this is an RTstruct series
     try:
         series = pyorthanc.find_series(orthanc, query={"SeriesInstanceUID":series_UID})[0]#Should only be one
     except:
-        return 
-    
+        return
+
     if "ground_truth" in series.labels:
         series.remove_label("ground_truth")
         print(series.labels)
@@ -54,7 +54,7 @@ def get_first_dicom_image_series_from_study(patient_id, study_UID, save_director
         if "CT" == file_info["MainDicomTags"]["Modality"]:
             image_order_num = i
             print('asdf;', i)
-            
+
     start = save_directory
     print(start+ '/patient.zip')
     patient.download(os.path.join(start, 'patient.zip'), with_progres=False)
@@ -62,9 +62,9 @@ def get_first_dicom_image_series_from_study(patient_id, study_UID, save_director
         zip_ref.extractall(start)
 
     # first_folder = patient.get_main_information()["MainDicomTags"]["PatientName"]
-    
+
     first_folder = patient.patient_id + " " + patient.name
-          
+
     # study_dir = start+"/"+first_folder +"/"+study_folder_name
     study_dir = os.path.join(start, first_folder, study_folder_name)
     image_folder = os.listdir(study_dir)[image_order_num]
@@ -78,7 +78,7 @@ def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[
     valid_series = pyorthanc.find_series(orthanc, query={'SeriesInstanceUID': series_instance_uid})
     if len(valid_series) == 0:
         raise Exception('No series found with UID:', series_instance_uid)
-    
+
     a_series = valid_series[0]
     # print('study id:', a_series.parent_study.study_id, .patient_id)
     # print(save_directory)
@@ -86,7 +86,7 @@ def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[
     print(len(a_series.instances))
     if not download:
         return a_series
-    
+
     os.makedirs(save_directory, exist_ok=True)
     zip_path = os.path.join(save_directory, 'series.zip')
     a_series.download(zip_path, with_progres=False)
@@ -95,13 +95,13 @@ def get_dicom_series_by_id(series_instance_uid, save_directory, series_obj_out=[
             # zip_ref.extractall(zip_path, [r'PANCREAS_0005 PANCREAS_0005/'])
             zip_ref.extractall(save_directory)
             os.remove(zip_path)
-    
-    patient = a_series.parent_patient 
+
+    patient = a_series.parent_patient
     if isinstance(series_obj_out, list):
         series_obj_out.append(a_series)
         # a_series.parent_study.uid
         # a_series.description
-    
+
     return os.path.join(save_directory, f'{patient.patient_id} {patient.name}') if extract_zip else zip_path
 
 def extract_dicom_series_zip(zip_path, save_directory, remove_original=False):
@@ -109,7 +109,7 @@ def extract_dicom_series_zip(zip_path, save_directory, remove_original=False):
             zip_ref.extractall(save_directory)
             if remove_original:
                 os.remove(zip_path)
-    
+
     return save_directory
 
 def uploadSegFile(file_path, remove_original=False):
@@ -122,7 +122,7 @@ def uploadSegFile(file_path, remove_original=False):
         print(os.path.exists(file_path))
         if os.path.exists(file_path):
             os.remove(file_path)
-            
+
 def get_modality_of_series(series_UID):
     orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc', timeout=60)
     series = None
@@ -130,7 +130,7 @@ def get_modality_of_series(series_UID):
         series = pyorthanc.find_series(orthanc, query={"SeriesInstanceUID":series_UID})[0]#Should only be one
     except Exception as e:
         return None
-    
+
     series = series.get_main_information()
     return series["MainDicomTags"]["Modality"]
 
@@ -152,9 +152,9 @@ def get_next_available_iterative_name_for_series(base_series_name, parent_study_
                    intersecting_series.append(s.description)
         except Exception as e:
             continue
-                
+
     # intersecting_series = [s.description for s in valid_studies[0].series if (
-    #     s.modality==modality and 
+    #     s.modality==modality and
     #     s.description.count(split_char) >= 1 and
     #     split_char.join(s.description.split(split_char)[:-1])==base_series_name
     #     # s.description.startswith(base_series_name)
@@ -167,12 +167,12 @@ def get_next_available_iterative_name_for_series(base_series_name, parent_study_
             next_valid_iteration = i
             print('next valid iter:', next_valid_iteration)
             break
-            
+
     return_name = f'{base_series_name}{split_char}{next_valid_iteration}'
     if max_len is not None and len(return_name) > max_len: # DICOM descriptions must be 64 chars or less
         prefix_len = (max_len - 5) // 2  # Length of the prefix
         suffix_len = max_len - 5 - prefix_len  # Length of the suffix
         return_name = return_name[:prefix_len] + '-xxx-' + return_name[-suffix_len:]
         print('shortened description to', return_name)
-        
+
     return return_name

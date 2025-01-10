@@ -1,6 +1,6 @@
 import pyorthanc
 import zipfile
-import os 
+import os
 import shutil
 from dice_score_get import get_DICE_score
 from seg_mask_dice import seg_mask_dice
@@ -12,7 +12,7 @@ def get_files_and_dice_score(dicom_series_UID, pred_series_UID,truth_series_UID)
     orthanc_url = 'http://orthanc'
     orthanc = pyorthanc.Orthanc(orthanc_url, username='orthanc', password='orthanc')
     has_SEG_tag = get_modality_of_series(pred_series_UID) == 'SEG' or get_modality_of_series(truth_series_UID) == 'SEG'
-    
+
     dice_dir = 'dice/'
     # print('cache', os.environ.get('CACHE_DIRECTORY'))
     # return []
@@ -24,7 +24,7 @@ def get_files_and_dice_score(dicom_series_UID, pred_series_UID,truth_series_UID)
     truth_dir = get_dicom_series_by_id(truth_series_UID, os.path.join(dice_dir, '_truth'))
     DICOM_series = get_dicom_series_by_id(dicom_series_UID, os.path.join(dice_dir, '_dicom'), download=False)
     print(len(DICOM_series.instances))
-    
+
     for dirpath, _, fnames in os.walk(pred_dir):
         print(fnames)
         print(dirpath)
@@ -35,7 +35,7 @@ def get_files_and_dice_score(dicom_series_UID, pred_series_UID,truth_series_UID)
         print(dirpath)
         if len(fnames) == 1:
             truth_dir = os.path.abspath(os.path.join(dirpath, fnames[0]))
-    
+
     # pred_series = pyorthanc.find_series(orthanc, query={"SeriesInstanceUID": pred_series_UID})[0]
 
     # patient_file_id = pyorthanc.find_patients(orthanc,query={'PatientID': patient_id})[0]#there should only be one
@@ -64,7 +64,7 @@ def get_files_and_dice_score(dicom_series_UID, pred_series_UID,truth_series_UID)
     #         if "SEG" == file_info["MainDicomTags"]["Modality"]:
     #             #print("Yes2")
     #             has_SEG_tag = True
-    
+
 
     # start = os.path.dirname(os.path.realpath(__file__))
     # patient_name = patient_info["MainDicomTags"]["PatientName"]
@@ -81,17 +81,17 @@ def get_files_and_dice_score(dicom_series_UID, pred_series_UID,truth_series_UID)
     #     if i == 1: #(This is the first seg file)
     #         series_folder_name = os.listdir(study_dir)[1]#should be the second one
     #         series_name = os.listdir(study_dir+"/"+series_folder_name)[0]#should only be one
-    #         #we move the file to prevent folders/files with same name overiding eachother 
+    #         #we move the file to prevent folders/files with same name overiding eachother
     #         shutil.move(study_dir+"/"+series_folder_name+"/"+series_name, start+"/"+patient_folder_name+"/"+series_name)
-            
-            
+
+
     #     if os.path.exists(start+"/patient.zip"):
     #         os.remove(start+"/patient.zip")
-    
+
 
     # DICOM_dir,pred_dir,truth_dir = "","",""
     # folders = os.listdir(study_dir)
-    
+
     # for folder_name in folders:
     #     if "CT" in folder_name and "RTSTRUCT" not in folder_name:#KEEP THE SPACE (TO PREVENT "CT" AND "STRUCT" FROM BEING CONFUSED)
     #         DICOM_dir += study_dir+"/"+ folder_name
@@ -100,7 +100,7 @@ def get_files_and_dice_score(dicom_series_UID, pred_series_UID,truth_series_UID)
     #         pred_dir += study_dir+"/"+folder_name
     #         pred_dir += "/" + os.listdir(pred_dir)[0]#should only be one file in folder
     # truth_dir += start+"/"+patient_folder_name+"/"+series_name
-    
+
     # print(DICOM_dir)
     print(pred_dir)
     print(truth_dir)

@@ -7,10 +7,10 @@ def process_conversion(dicom_series_path, rt_struct_path, seg_filename):
         # Step 2: Load DICOM series
         dicom_series = load_dicom_series(dicom_series_path)
         #roi_names = list(masks.keys())
-        
+
         # Step 3: Convert mask to DICOM SEG
         convert_mask_to_dicom_seg(dicom_series, masks, valid_roi_names, seg_filename)
-        
+
         return seg_filename
     else:
         print("No masks available to process.")

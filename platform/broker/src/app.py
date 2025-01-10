@@ -20,11 +20,11 @@ from gcloud_auth import auth_with_key_file_json, read_env_vars, validate_zone, v
 from werkzeug.middleware.proxy_fix import ProxyFix
 from orthanc_get import get_files_and_dice_score
 from orthanc_functions import (
-    change_tags, get_tags, 
-    get_dicom_series_by_id, get_first_dicom_image_series_from_study, 
-    uploadSegFile, 
+    change_tags, get_tags,
+    get_dicom_series_by_id, get_first_dicom_image_series_from_study,
+    uploadSegFile,
     get_modality_of_series,
-    get_next_available_iterative_name_for_series, 
+    get_next_available_iterative_name_for_series,
     extract_dicom_series_zip
 )
 from seg_converter_main_func import process_conversion
@@ -75,14 +75,14 @@ _NO_GOOGLE_CLOUD = False
 
 try:
     auth_with_key_file_json(_KEY_FILE)
-    
+
     available_zones = []
     if not validate_zone(_PROJECT_ID, _ZONE, avail_zones_out=available_zones):
         raise Exception(f'Zone {_ZONE} is not available for project {_PROJECT_ID}. Available zones are: {available_zones}')
     available_machine_types = []
     if not validate_machine_type(_PROJECT_ID, _ZONE, _MACHINE_TYPE, avail_types_out=available_machine_types):
         raise Exception(f'Machine type {_MACHINE_TYPE} is not available for zone {_ZONE}. Available types are: {available_machine_types}')
-    
+
 except Exception as e:
     print('An error occurred in authentication. It is likely that you did ' +
           'not provide a valid service account key file, or you are not connected to the internet.')
@@ -106,7 +106,7 @@ app.config['SECRET_KEY'] = 'asdfjkl'
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*", path='/api/socket.io' if __name__ == '__main__' else 'socket.io')
 
-PREDICTION_LOCK = 0  
+PREDICTION_LOCK = 0
 MODELS_BEING_SET_UP = {}
 
 # Serve React App
@@ -160,10 +160,10 @@ def emit_update_progressbar(value, type='prediction'):
     """
     socketio.emit(f"{type}_progress_update", {"value": value})
     # pass
-    
+
 def emit_toast(message, type='success'): # type = success | warning | error
     socketio.emit('toast_message', {'message': message, 'type': type})
-    
+
 def emit_update_model_list():
     socketio.emit('update_model_list')
 
@@ -181,7 +181,7 @@ def clear_unused_instances():
                 print(' Suspending', instance.name)
                 suspend_instance(_PROJECT_ID, _ZONE, instance.name, block=False)
         # elif instance.status in ['PROVISIONING', 'STAGING']:
-            
+
     return
     # print('Clearing unused instances...')
     # filename = _MODEL_INSTANCES_FILEPATH
@@ -196,10 +196,10 @@ def clear_unused_instances():
     #         print(' Deleting', instance.name)
     #         # TODO: temp: don't delete for now while debugging
     #         # delete_instance(_PROJECT_ID, _ZONE, instance.name)
-            
+
     # write_json(filename, remaining_instances)
     # print('done clearing', flush=True)
-    
+
 # When Google Compute runs out of resources in a zone, we attempt to create new Instances in backup zones
 # However, these are only temporary and must be deleted after we are done
 def clear_backup_region_instances():
@@ -214,12 +214,12 @@ def clear_backup_region_instances():
                 print('Deleting backup instance from zone:', zone, 'name:', instance.name)
                 delete_instance(_PROJECT_ID, zone, instance.name)
                 deleted += 1
-            
+
     print('Deleted', deleted, 'backup instances')
-    
+
 def get_existing_instance_for_model(model_name: str, try_any_avail=False):
     '''Get the Instance associated with a model name, or None if it does not exist'''
-    
+
     all_instances = list_instances(_PROJECT_ID, _ZONE)
     print('getting existing instances...')
     possible_any_avail_models = []
@@ -231,7 +231,7 @@ def get_existing_instance_for_model(model_name: str, try_any_avail=False):
         # print(instance.metadata.items)
         # print(this_name)
         # print(instance.status)
-        if (try_any_avail and (instance.status in ['TERMINATED', 'SUSPENDED'] or this_name is None or 
+        if (try_any_avail and (instance.status in ['TERMINATED', 'SUSPENDED'] or this_name is None or
                                (is_idling is not None and is_idling.value == 'True' and instance.status in ['RUNNING']))):
             possible_any_avail_models.append(instance)
         elif (this_name is not None and this_name.value == model_name):
@@ -240,7 +240,7 @@ def get_existing_instance_for_model(model_name: str, try_any_avail=False):
 
     if len(possible_any_avail_models) != 0:
         return possible_any_avail_models[0]
-    
+
     return None
 
 def is_able_to_predict_on_dicom_series(selected_model: str, dicom_series_id: str):
@@ -252,7 +252,7 @@ def is_able_to_predict_on_dicom_series(selected_model: str, dicom_series_id: str
         this_name = next(filter(lambda m: m.key == 'model-displayname', instance.metadata.items), None)
         if this_dicom_image is not None and this_dicom_image.value == dicom_series_id:
             return this_name is None or this_name.value == selected_model
-    
+
     return True
     # filename = _MODEL_INSTANCES_FILEPATH
     # model_instances = read_json(filename, default_as_dict=False)
@@ -260,7 +260,7 @@ def is_able_to_predict_on_dicom_series(selected_model: str, dicom_series_id: str
     # if matching_instance is None:
     #     print('No instance for model', model_name)
     #     return None
-    
+
     # return get_instance(_PROJECT_ID, _ZONE, matching_instance['instance_name'])
 
 # outdated
@@ -274,7 +274,7 @@ def add_tracked_model_instance(model_name: str, instance_name: str):
     #     'running': False,
     # })
     # write_json(filename, model_instances)
-    
+
 # outdated
 def set_tracked_model_instance_running(model_name: str, running: bool):
     pass
@@ -284,10 +284,10 @@ def set_tracked_model_instance_running(model_name: str, running: bool):
     #     if model_instance['model_name'] == model_name:
     #         model_instance['running'] = running
     #         print('Set model', model_name, 'to running:', running)
-            
+
     # write_json(filename, model_instances)
     # socketio.emit('model_instances_update')
-    
+
 def is_tracked_model_instance_running(model_name_or_instance: Union[str | Instance]):
     if isinstance(model_name_or_instance, str):
         # print(model_name_or_instance)
@@ -295,11 +295,11 @@ def is_tracked_model_instance_running(model_name_or_instance: Union[str | Instan
     else:
         # print(model_name_or_instance.name)
         instance = model_name_or_instance
-        
+
     is_idling = None if instance is None else next(filter(lambda m: m.key == 'idling', instance.metadata.items), None)
     this_name = None if instance is None else next(filter(lambda m: m.key == 'model-displayname', instance.metadata.items), None)
     print(is_idling, this_name)
-    return instance is not None and this_name is not None and (instance.status not in ['TERMINATED', 'SUSPENDED'] and 
+    return instance is not None and this_name is not None and (instance.status not in ['TERMINATED', 'SUSPENDED'] and
                                                                (is_idling is None or is_idling.value != 'True' or instance.status in ['SUSPENDING', 'STOPPING']))
     # filename = _MODEL_INSTANCES_FILEPATH
     # model_instances = read_json(filename, default_as_dict=False)
@@ -308,9 +308,9 @@ def is_tracked_model_instance_running(model_name_or_instance: Union[str | Instan
     #     if model_instance['model_name'] == model_name:
     #         print('found', model_name, model_instance.get('running', False))
     #         return model_instance.get('running', False)
-        
+
     # return False
-    
+
 # outdated
 def remove_tracked_model_instance(model_name: str):
     pass
@@ -318,13 +318,13 @@ def remove_tracked_model_instance(model_name: str):
     # model_instances = read_json(filename, default_as_dict=False)
     # model_instances = [x for x in model_instances if x['model_name'] != model_name]
     # write_json(filename, model_instances)
-    
+
 # @bp.route('/testSocket')
 # def test_socket():
 #     emit_status_update('hello there')
 #     emit_update_progressbar(50)
 #     return jsonify({ 'message': 'OK' }), 200
-    
+
 ## TODO
 ##TODO: Change containers in upload button component to instancesrunning
 @bp.route("/instancesrunning", methods=["POST"])
@@ -357,18 +357,18 @@ def authenticateGoogleCloud():
     """
     try:
         # auth_with_key_file_json(_KEY_FILE)
-        
+
         ## I'm not even sure what to do here. Maybe Firebase stuff?
 
         emit_status_update("User authenticated successfully")
         message = "Instance created successfully"
         status_code = 200
-        
+
     except Exception as e:
         emit_status_update("Error authenticating user")
         message = f"Error authenticating user: {str(e)}"
         status_code = 500
-        
+
     return jsonify({"message": message}), status_code
 
 @bp.route('/listModels', methods=['GET'])
@@ -382,7 +382,7 @@ def list_models():
             'updateTime': d.update_time.rfc3339(),
             'running': MODELS_BEING_SET_UP.get(d.name.split('/')[-1]) or is_tracked_model_instance_running(d.name.split('/')[-1])
         } for d in docker_packages]}), 200
-    
+
 @bp.route('/isModelRunning', methods=['POST'])
 def is_model_running():
     if request.is_json:
@@ -390,12 +390,12 @@ def is_model_running():
     else:
         print('not json')
         return jsonify({ 'message': 'Something went wrong' }), 500
-    
+
     selectedModel = json_data.get('selectedModel')
     if selectedModel is None:
         print('no selectedModel')
         return jsonify({ 'message': 'Please select a model' }), 400
-    
+
     return jsonify({ 'running': is_tracked_model_instance_running(selectedModel) }), 200
 
 def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_series_id=None):
@@ -405,29 +405,29 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
     print('Setting up instance...')
     emit_update_progressbar(10)
     emit_status_update('Setting up instance...')
-    
+
     succeeded_or_def_failed = False
-    new_instance = None    
+    new_instance = None
     while not succeeded_or_def_failed:
         try:
             existing_instance = get_existing_instance_for_model(selected_model, try_any_avail=True)
             # print(existing_instance.name)
             new_instance_name = generate_instance_name('ohif-instance', 'predictor') if existing_instance is None else existing_instance.name
-            
+
             # if existing_instance is not None and existing_instance.status != 'TERMINATED':
             if is_tracked_model_instance_running(existing_instance):
                 # PROVISIONING, STAGING, RUNNING, STOPPING,
                 #    SUSPENDING, SUSPENDED, REPAIRING, and TERMINATED
                 raise Exception('Model', selected_model, 'is already running. Please wait.')
-                
-            
+
+
             # TODO: Big issue: sometimes a Google Cloud Platform zone will run out of resources, and we will get:
-            # 503 SERVICE UNAVAILABLE ZONE_RESOURCE_POOL_EXHAUSTED: 
+            # 503 SERVICE UNAVAILABLE ZONE_RESOURCE_POOL_EXHAUSTED:
             # The zone 'projects/radiology-b0759/zones/us-east4-b' does not have enough resources available to fulfill the request
             # There needs to be some backup where it looks in other zones for resources, but
             #  this means that we will also need to store the zone separately for the model, and ALSO need to try other
             #  zones in the list_instances method, and anything else that uses _ZONE
-            
+
             new_instance = setup_compute_instance(
                 _PROJECT_ID,
                 _ZONE,
@@ -439,10 +439,10 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
                 _REPOSITORY,
                 dicom_series_id=dicom_series_id
             )
-            
+
             succeeded_or_def_failed = True
             print('new_instance', 'oops, none' if new_instance is None else new_instance.name)
-  
+
         except Exception as e:
             # print(e)
             print(traceback.format_exc())
@@ -453,19 +453,19 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
                     print('Attempted all backup zones but could not find one that is available quitting the Compute setup process.')
                     emit_toast('Google Cloud is out of resources and cannot create a new Compute Instance. Please use another zone or try again later.', type='error')
                     return None
-                
+
                 _ZONE = _BACKUP_ZONES[_CURRENT_BACKUP_ZONE_INDEX]
                 print('trying another zone...', _ZONE)
             else:
                 succeeded_or_def_failed = True
-    
+
     if new_instance is not None:
         message = "Instance created successfully"
         print(message)
         emit_update_progressbar(20)
         emit_status_update(message)
         emit_toast('A Compute instance for your prediction job was created successfully. Prediction now running...')
-        
+
         if start_compute:
             print('check if able to predict', selected_model, dicom_series_id)
             if is_able_to_predict_on_dicom_series(selected_model, dicom_series_id):
@@ -473,7 +473,7 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
                     resume_instance(_PROJECT_ID, _ZONE, new_instance.name)
                 else:
                     start_instance(_PROJECT_ID, _ZONE, new_instance.name)
-                    
+
                 remove_instance_metadata(_PROJECT_ID, _ZONE, new_instance, ['idling'])
                 emit_update_model_list()
             else:
@@ -483,7 +483,7 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
     else:
         emit_toast('Google Cloud is at its limit. Please wait.', type='error')
         emit_status_update("Error Google Cloud is at its limit, please wait.")
-        
+
     return new_instance
 
 # @bp.route('/setupComputeWithModel', methods=['POST'])
@@ -494,18 +494,18 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
 #     else:
 #         print('not json')
 #         return jsonify({ 'message': 'Something went wrong' }), 500
-    
+
 #     selected_model = json_data.get('selectedModel')
 #     if selected_model is None:
 #         print('no selectedModel')
 #         return jsonify({ 'message': 'Please select a model' }), 400
-    
+
 #     try:
 #         new_instance = setup_compute_with_model_helper(selected_model, start_compute=False)
 #     except Exception as e:
 #         print(e)
 #         new_instance = None
-        
+
 #     status_code = None
 #     if new_instance is not None:
 #         message = "Instance created successfully"
@@ -513,14 +513,14 @@ def setup_compute_with_model_helper(selected_model, start_compute=True, dicom_se
 #     else:
 #         message = "Google Cloud is at its limit, please wait."
 #         status_code = 500
-        
+
 #     return jsonify({"message": message}), status_code
 
 # TODO: the model right now does not distinguish between series, only by study
 # Also this should probably use only study id instead of patient id?
 def convert_cached_pred_result_to_seg(dicom_series_obj, dcm_prediction_dir, cached_dicom_series_path, temp_images_path, selected_model=None):
     print('Converting to SEG...')
-    
+
     temp_seg_path = os.path.join(dcm_prediction_dir, '__convert/')
     temp_image_path = os.path.join(dcm_prediction_dir, '__image/')
     extract_dicom_series_zip(cached_dicom_series_path, temp_image_path, remove_original=True)
@@ -529,7 +529,7 @@ def convert_cached_pred_result_to_seg(dicom_series_obj, dcm_prediction_dir, cach
     os.makedirs(temp_seg_path, exist_ok=True)
     # os.makedirs(temp_images_path, exist_ok=True)
     print('temp seg path', temp_seg_path)
-    
+
     # Convert all npz files in cache
     dcm_pred_files = os.listdir(dcm_prediction_dir)
     success_count = 0
@@ -538,7 +538,7 @@ def convert_cached_pred_result_to_seg(dicom_series_obj, dcm_prediction_dir, cach
             print(filepath)
             if not filepath.endswith('.npz'):
                 continue
-            
+
             success_count += 1
             # data = np.load(filepath)
             with gzip.open(filepath, 'rb') as gzf:
@@ -546,42 +546,42 @@ def convert_cached_pred_result_to_seg(dicom_series_obj, dcm_prediction_dir, cach
                     if not os.path.exists(temp_image_path):
                         print('path doesnt exist', temp_image_path)
                         # load from orthanc ...
-                        
+
                     dicom_series = load_dicom_series(temp_image_path)
-                    
+
                     # iterative naming
-                    # get all SEG series with same parent 
+                    # get all SEG series with same parent
                     # find next avail name
                     seg_name = f'pred_{selected_model}'
                     parent_study_uid = None
                     print(dicom_series_obj)
-                    try: 
+                    try:
                         seg_name += f'_{dicom_series_obj.description}'
                         parent_study_uid = dicom_series_obj.parent_study.uid
                         assert (parent_study_uid is not None)
                     except Exception as e:
                         print('Something went wrong with dcm loading:', e)
                         pass
-                    
+
                     print(seg_name, '| before')
-                    
+
                     seg_name = get_next_available_iterative_name_for_series(seg_name, parent_study_uid)
                     print(seg_name, '| after')
-                    
+
                     seg_save_dir = convert_3d_numpy_array_to_dicom_seg(
-                        dicom_series, 
-                        data['data'], 
-                        data['rois'], 
+                        dicom_series,
+                        data['data'],
+                        data['rois'],
                         os.path.join(temp_seg_path, f'{f.split(".")[0]}.dcm'),
                         slice_axis=2,
                         seg_series_description=seg_name
                     )
                     if seg_save_dir is None:
                         raise Exception('Something went wrong with saving SEG')
-                    
+
                     # Upload to orthanc
                     uploadSegFile(seg_save_dir, remove_original=True)
-                    
+
                     print('Removing', filepath, '...')
                     os.remove(filepath)
 
@@ -592,8 +592,8 @@ def convert_cached_pred_result_to_seg(dicom_series_obj, dcm_prediction_dir, cach
     # print('Removing', cached_dicom_series_path)
     # shutil.rmtree(cached_dicom_series_path)
     # shutil.rmtree(temp_images_path)
-    
-    # there were no model outputs that were actually converted to SEG. Probably because something with the 
+
+    # there were no model outputs that were actually converted to SEG. Probably because something with the
     # prediction failed
     if success_count == 0:
         # print('Nothing was converted to SEGs. Something likely went wrong with your model.')
@@ -616,87 +616,87 @@ def test_iter():
     selected_model = 'organ-segmentation-model'
     dicom_series_id = '1.2.826.0.1.3680043.2.1125.1.64196995986655345161142945283707267'
     seg_name = f'Predict_{selected_model}'
-    
+
     series_obj = []
     cached_dicom_series_path, temp_images_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id, series_obj_out=series_obj)
     dicom_series_obj = series_obj[0]
-    
+
     parent_study_uid = None
     print(dicom_series_obj)
-    try: 
+    try:
         seg_name += f'_{dicom_series_obj.description}'
         parent_study_uid = dicom_series_obj.parent_study.uid
         assert (parent_study_uid is not None)
     except Exception as e:
         print('Something went wrong with dcm loading:', e)
         pass
-    
+
     print(seg_name, '| before')
-    
+
     seg_name = get_next_available_iterative_name_for_series(seg_name, parent_study_uid)
     print(seg_name, '| after')
-    
+
     return jsonify({ 'message': seg_name }), 200
 
 def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_instance_at_end=True): # TODO: should take series study patient id
     emit_toast_on_fail = True
-    try: 
+    try:
         print('instance not none')
         set_tracked_model_instance_running(selected_model, True)
         emit_update_progressbar(25)
 
         # Pull the images from Orthanc into cache
         emit_status_update('Getting DICOM images...')
-        
+
         timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M_%S_%f')
         pred_cache_dir = f'prediction/{timestamp}'
         series_obj = []
         cached_dicom_series_path, temp_images_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id, cache_subdir=pred_cache_dir, series_obj_out=series_obj, extract_zip=False)
         series_obj = series_obj[0]
         print(cached_dicom_series_path, temp_images_path)
-        
+
         emit_update_progressbar(35)
         emit_status_update('Running predictions...')
         dcm_pred_dir = run_predictions(
-            _PROJECT_ID, 
-            _ZONE, 
-            _SERVICE_ACCOUNT_EMAIL, 
-            _KEY_FILE, 
-            cached_dicom_series_path, 
-            dicom_series_id, 
-            instance.name, 
+            _PROJECT_ID,
+            _ZONE,
+            _SERVICE_ACCOUNT_EMAIL,
+            _KEY_FILE,
+            cached_dicom_series_path,
+            dicom_series_id,
+            instance.name,
             progress_bar_update_callback=emit_update_progressbar,
             stop_instance_at_end=stop_instance_at_end,
             pred_cache_dir=pred_cache_dir,
             toast_callback=emit_toast
         )
-        
+
         if dcm_pred_dir is None:
             print('Predictions failed or return no directory')
             emit_toast_on_fail = False
             raise Exception('Predictions failed')
-        
+
         emit_update_progressbar(85)
-        
+
         emit_status_update('Converting to SEG...')
         emit_toast('Saving your predictions. Almost done, please wait...')
         print(dcm_pred_dir)
         convert_cached_pred_result_to_seg(series_obj, dcm_pred_dir, cached_dicom_series_path, temp_images_path, selected_model)
-        
+
         # TODO: maybe delete instance here? it gets paused anyway so not sure if needed
         set_tracked_model_instance_running(selected_model, False)
-        
+
         if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
             pred_cache_dir = os.path.abspath(os.path.join(cache_dir, pred_cache_dir))
         if os.path.exists(pred_cache_dir):
             print('Removing', pred_cache_dir)
             shutil.rmtree(pred_cache_dir)
-        
+
         print('Removing old metadata...')
         emit_update_progressbar(95)
         instance = get_instance(_PROJECT_ID, _ZONE, instance.name)
         remove_instance_metadata(_PROJECT_ID, _ZONE, instance, ['dicom-image', 'model-displayname'])
-        
+
         emit_update_progressbar(100)
         emit_update_model_list()
         # emit_status_update('Prediction done')
@@ -710,7 +710,7 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
             emit_toast(e, type='error')
         # emit_toast('Something went wrong when running your prediction. Is your uploaded model outputting a .npz mask?', type='error')
         set_tracked_model_instance_running(selected_model, False)
-        
+
         if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
             if not pred_cache_dir.startswith(cache_dir):
                 pred_cache_dir = os.path.abspath(os.path.join(cache_dir, pred_cache_dir))
@@ -725,12 +725,12 @@ def run_pred_helper(instance, selected_model, study_id, dicom_series_id, stop_in
         remove_instance_metadata(_PROJECT_ID, _ZONE, get_instance(_PROJECT_ID, _ZONE, instance.name), ['dicom-image', 'model-displayname'], add_idling=True)
         # set_
         return False
-  
+
 def setup_compute_and_run_pred_helper(
         selected_model: str, start_compute: bool, dicom_series_id: str,
         study_id: str, stop_instance_at_end: bool = True):
     global PREDICTION_LOCK
-    
+
     try:
         instance = setup_compute_with_model_helper(selected_model, start_compute=start_compute, dicom_series_id=dicom_series_id)
         if instance is None:
@@ -746,7 +746,7 @@ def setup_compute_and_run_pred_helper(
         del MODELS_BEING_SET_UP[selected_model]
         emit_toast('Issue creating Compute instance. Google Cloud Services likely experiencing temporary resource shortage. Please try again later.', type='error')
         return False
-            
+
     # thread = threading.Thread(target=run_pred_helper, args=(instance, selected_model, study_id, series_id), kwargs={'stop_instance_at_end': True})
     # thread.start()
     PREDICTION_LOCK = 0 # unlock here because in theory you could run multiple predictions at once on different instances
@@ -757,11 +757,11 @@ def setup_compute_and_run_pred_helper(
         print(e)
         emit_toast('Something went wrong while running predictions.', type='error')
         return False
-        
+
     # emit_toast('Prediction successful.')
     # return jsonify({ 'message': 'Prediction job successfully started' }), 202
     return True
-    
+
 @bp.route("/run", methods=["POST"])
 def run_prediction():
     global _ZONE
@@ -773,43 +773,43 @@ def run_prediction():
     Returns:
         response: JSON response with status of the prediction process.
     """
-    
+
     # if MODELS_BEING_SET_UP.get('find-organ-alpha') is None:
     #     MODELS_BEING_SET_UP['find-organ-alpha'] = 1
     # else:
     #     del MODELS_BEING_SET_UP['find-organ-alpha']
-        
+
     # emit_update_model_list()
     # return jsonify({'message': 'hello world'}), 200
-    
+
     if PREDICTION_LOCK != 0:
         return jsonify({ 'message': 'Currently setting up another prediction job. Please wait.' }), 429
-    
+
     _ZONE = _BASE_ZONE
     _CURRENT_BACKUP_ZONE_INDEX = -1
     PREDICTION_LOCK = 1
-    
+
     if request.is_json:
         json_data = request.get_json()
         print(json_data)
     else:
         PREDICTION_LOCK = 0
         return jsonify({'message': 'Invalid Request'}), 400
-    
+
     selected_model = json_data.get("selectedModel", None)
     # selectedDicomSeries = json_data["selectedDicomSeries"]
     # series_id = request.json.get('seriesId', None)
     series_id = request.json.get('parent_id', None)
     study_id = request.json.get('study_id', None)
-    
+
     print('params:')
     print(selected_model)
-    
+
     if selected_model is None or series_id is None or study_id is None:
         print('Invalid params from frontend')
         PREDICTION_LOCK = 0
         return jsonify({'message': 'Model or images not provided'}), 500
-    
+
     series_modality = get_modality_of_series(series_id)
     if series_modality is None:
         print('Series', series_id, 'does not exist.')
@@ -820,15 +820,15 @@ def run_prediction():
         print('Series', series_id, 'is not a valid image, it is a', series_modality)
         PREDICTION_LOCK = 0
         return jsonify({ 'message': f'You are trying to predict on a {series_modality}, not an image series.'}), 400
-    
+
     if is_tracked_model_instance_running(selected_model):
         PREDICTION_LOCK = 0
         return jsonify({ 'message': "Error: Google Cloud is at its limit, please wait." }), 429
-    
+
     if get_docker_image(_PROJECT_ID, _ZONE, _REPOSITORY, selected_model) is None:
         PREDICTION_LOCK = 0
         return jsonify({ 'message': f'Model {selected_model} does not exist.' }), 400
-    
+
     MODELS_BEING_SET_UP[selected_model] = 1
     emit_update_model_list()
     emit_update_progressbar(5)
@@ -875,16 +875,16 @@ def save_discrepancy_mask_helper(dicom_series_id, pred_series_id, truth_series_i
     disc_path = 'discrepancy/'
     if (cache_dir := os.environ.get('CACHE_DIRECTORY')) is not None:
         disc_path = os.path.abspath(os.path.join(cache_dir, disc_path))
-        
+
     cached_dicom_series_path, temp_images_path = get_dicom_series_from_orthanc_to_cache(dicom_series_id, cache_subdir='discrepancy/_images')
     dicom_series = load_dicom_series(cached_dicom_series_path)
     shutil.rmtree(temp_images_path)
-    
+
     pred_series_obj, truth_series_obj = [], []
     pred_series, temp_pred_path = get_dicom_series_from_orthanc_to_cache(pred_series_id, cache_subdir=os.path.join(disc_path, '_pred/'), series_obj_out=pred_series_obj)
     truth_series, temp_truth_path = get_dicom_series_from_orthanc_to_cache(truth_series_id, cache_subdir=os.path.join(disc_path, '_truth/'), series_obj_out=truth_series_obj)
     pred_series_obj, truth_series_obj = pred_series_obj[0], truth_series_obj[0]
-    
+
     for dirpath, _, fnames in os.walk(pred_series):
         print(fnames)
         print(dirpath)
@@ -895,31 +895,31 @@ def save_discrepancy_mask_helper(dicom_series_id, pred_series_id, truth_series_i
         print(dirpath)
         if len(fnames) == 1:
             truth_series = os.path.abspath(os.path.join(dirpath, fnames[0]))
-    
+
     pred_mask, dcm_pred = seg_to_mask(pred_series, slice_thickness=1)
     truth_mask, dcm_truth = seg_to_mask(truth_series, slice_thickness=1)
     shutil.rmtree(disc_path)
-    
+
     temp_seg_path = os.path.join(disc_path, '_res/')
     os.makedirs(temp_seg_path, exist_ok=True)
-    
+
     seg_name = f'disc'
     # print(dicom_series_obj)
-    try: 
+    try:
         seg_name += f'_{pred_series_obj.description}'
         seg_name += f'_{truth_series_obj.description}'
         parent_study_uid = pred_series_obj.parent_study.uid
     except Exception as e:
         print('Something went wrong with dcm loading:', e)
         pass
-    
+
     print(seg_name, '| before')
-    
+
     seg_name = get_next_available_iterative_name_for_series(seg_name, parent_study_uid)
     print(seg_name, '| after')
-    
+
     try:
-        out_name = get_non_intersection_mask_to_seg(dicom_series, pred_mask, truth_mask, dcm_pred, dcm_truth, 
+        out_name = get_non_intersection_mask_to_seg(dicom_series, pred_mask, truth_mask, dcm_pred, dcm_truth,
                                                     os.path.join(temp_seg_path, f'discrepancy.dcm'),
                                                     output_desc=seg_name,
                                                     separate_fp_fn=False,
@@ -930,20 +930,20 @@ def save_discrepancy_mask_helper(dicom_series_id, pred_series_id, truth_series_i
         emit_toast(f'Something went wrong: {str(e)}', type='error')
         return
         # return jsonify({ 'saved_mask': False, 'message': str(e) }), 500
-    
+
     if out_name is None:
         # print('something went wrong')
         DISC_LOCK = 0
         emit_toast('There were no discrepancies between the two masks. Nothing was saved.', type='warning')
         return
         # return jsonify({ 'saved_mask': False, 'message': 'There were no discrepancies between the two masks.' }), 200
-    
+
     print('Uploading SEG')
     uploadSegFile(out_name, remove_original=False)
-    
+
     print('Removing cached files')
     shutil.rmtree(temp_seg_path)
-    
+
     print('Done')
     DISC_LOCK = 0
     emit_toast('Successfully saved discrepancy mask. Please reload page to see changes.')
@@ -962,27 +962,27 @@ def save_discrepancy_mask():
         print('not json')
         DISC_LOCK = 0
         return jsonify({ 'message': 'Malformed Request' }), 500
-    
+
     dicom_series_id = json_data.get('parent_id')
     pred_series_id = json_data.get('predSeriesUid')
     truth_series_id = json_data.get('truthSeriesUid')
-    
+
     if dicom_series_id is None or pred_series_id is None or truth_series_id is None:
         DISC_LOCK = 0
         return jsonify({ 'message': 'Please select a prediction and truth mask.' }), 400
-    
+
     thread = threading.Thread(target=save_discrepancy_mask_helper, args=(dicom_series_id, pred_series_id, truth_series_id))
     thread.start()
     return jsonify({ 'message': 'Calculating discrepancy mask...' }), 202
-    
+
 DICE_LOCK = 0
 @bp.route('/getDICEScores', methods=['POST'])
 def getDICEScores():
     global DICE_LOCK
-    
+
     if DICE_LOCK != 0:
         return jsonify({ 'message': 'Currently calculating another DICE score. Please wait.' }), 429
-    
+
     DICE_LOCK = 1
     if request.is_json:
         json_data = request.get_json()
@@ -998,15 +998,15 @@ def getDICEScores():
         print('wrong params')
         DICE_LOCK = 0
         return jsonify({ 'message': 'Select both ground truth and another mask for DICE scores.' }), 400
-    
+
     currentMaskDic = json.loads(currentMaskDic)
     groundTruthDic = json.loads(groundTruthDic)
     # print(currentMaskDic, groundTruthDic)
-    
+
     parent_id = json_data.get('parentDicomId')
     pred_series_id = currentMaskDic['series_uid']
     truth_series_id = groundTruthDic['series_uid']
-    
+
     # parent_id = '1.2.826.0.1.3680043.2.1125.1.64196995986655345161142945283707267'
     # pred_series_id = '1.2.826.0.1.3680043.8.498.30971613207143197447909320821495929249'
     # truth_series_id = '1.2.826.0.1.3680043.8.498.65606104540766071416178016107620147411'
@@ -1014,7 +1014,7 @@ def getDICEScores():
         print('wrong params')
         DICE_LOCK = 0
         return jsonify({ 'message': 'Select both ground truth and another mask for DICE scores.' }), 400
-    
+
     print('getting dice...')
     try:
         score_dict = get_files_and_dice_score(parent_id,pred_series_id,truth_series_id)
@@ -1034,13 +1034,13 @@ def getDICEScores():
 #     else:
 #         print('not json')
 #         return jsonify({ 'message': 'Something went wrong' }), 500
-    
+
 #     study_UID = json_data.get('study_UID')
 #     if study_UID is None:
 #         return jsonify({ 'message': 'Need ID\'s' }), 400
 
 #     truth_list = get_tags(study_UID)
-    
+
 #     return jsonify({"truth_list":truth_list}), 200
 
 
@@ -1051,13 +1051,13 @@ def getDICEScores():
 #     else:
 #         print('not json')
 #         return jsonify({ 'message': 'Something went wrong' }), 500
-    
+
 #     series_UID = json_data.get('series_UID')
 #     if series_UID is None:
 #         return jsonify({ 'message': 'Need ID\'s' }), 400
 
 #     change_tags(series_UID)
-    
+
 #     return jsonify({"message":"success"}), 200
 
 
@@ -1068,7 +1068,7 @@ def convert_rt_struct_to_seg():
     else:
         print('not json')
         return jsonify({ 'message': 'Something went wrong' }), 500
-   
+
     patient_id = json_data.get('patient_id')
     study_id = json_data.get('study_id')  #? not sure
     if patient_id is None or study_id is None:
@@ -1112,7 +1112,7 @@ else:
     except Exception as e:
         print(e)
         print('The above exception occurred while trying to clear the cache in', cache_dir)
-        
+
     app.register_blueprint(bp)
     # socketio.init_app(app)
     # print(socketio.)

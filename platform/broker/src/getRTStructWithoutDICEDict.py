@@ -1,6 +1,6 @@
 import pyorthanc
 import zipfile
-import os 
+import os
 import shutil
 
 def getRTStructWithoutDICEDict(patient_id, study_id):
@@ -10,8 +10,8 @@ def getRTStructWithoutDICEDict(patient_id, study_id):
 
     study = pyorthanc.Study(study_id,orthanc).get_main_information()
     study_folder_name = study["MainDicomTags"]["StudyDescription"]
-    DICOM_file_modality = orthanc.get_series_id(study['Series'][0])["MainDicomTags"]["Modality"]#Assumes that the dicom is the first series in the array 
-   
+    DICOM_file_modality = orthanc.get_series_id(study['Series'][0])["MainDicomTags"]["Modality"]#Assumes that the dicom is the first series in the array
+
     start = "."#current file directory
     patient.download('patient.zip', with_progres=False)
     with zipfile.ZipFile(start+'/patient.zip', 'r') as zip_ref:
@@ -43,7 +43,3 @@ def getRTStructWithoutDICEDict(patient_id, study_id):
         "DICOM_series_path": DICOM_dir,
         "RT_struct_path": RTSTRUCT1
     }
-
-
-
-

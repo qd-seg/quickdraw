@@ -37,12 +37,12 @@ def read_env_vars(local=False):
     if not isinstance(instance_limit, int):
         print(f'{instance_limit} is not a valid integer value for instanceLimit. Setting Instance limit to 1.')
         instance_limit = 1
-        
+
     allow_run_without_google_cloud = service_config.get('allowRunWithoutGoogleCloud', False)
     if not isinstance(allow_run_without_google_cloud, bool):
         print(f'{allow_run_without_google_cloud} is not a valid boolean value for allowRunWithoutGoogleCloud. Setting it to False.')
         allow_run_without_google_cloud = False
-        
+
     return {
         'key_file': os.path.join(local_dir, 'service_account.json') if local else os.environ.get('SERVICE_ACCOUNT'),
         'project_id': service_accnt['project_id'],
@@ -75,9 +75,9 @@ def auth_with_key_file_json(key_file_path):
     """Authenticate using a service account JSON file."""
     global _CREDENTIALS
     global _KEY_FILE_PATH
-    
+
     print('Authenticating with service account from', key_file_path)
-    credentials = service_account.Credentials.from_service_account_file(key_file_path)     
+    credentials = service_account.Credentials.from_service_account_file(key_file_path)
     print('Loaded credentials')
     _KEY_FILE_PATH = key_file_path
     scoped_credentials = credentials.with_scopes(['https://www.googleapis.com/auth/cloud-platform'])
@@ -101,22 +101,22 @@ def refresh_credentials_if_expired():
 
 def get_compute_client(credentials: service_account.Credentials = None) -> compute_v1.InstancesClient:
     global _COMPUTE_CLIENT
-    
+
     if credentials is None:
         credentials = get_credentials()
     if _COMPUTE_CLIENT is None:
         _COMPUTE_CLIENT = compute_v1.InstancesClient(credentials=(get_credentials() if credentials is None else credentials))
-        
+
     return _COMPUTE_CLIENT
 
 def get_registry_client(credentials: service_account.Credentials = None) -> artifactregistry.ArtifactRegistryClient:
     global _REGISTRY_CLIENT
-    
+
     if credentials is None:
         credentials = get_credentials()
     if _REGISTRY_CLIENT is None:
         _REGISTRY_CLIENT = artifactregistry.ArtifactRegistryClient(credentials=(get_credentials() if credentials is None else credentials))
-        
+
     return _REGISTRY_CLIENT
 
 def validate_zone(project_id: str, zone: str, avail_zones_out: List | None = None):
@@ -130,9 +130,9 @@ def validate_zone(project_id: str, zone: str, avail_zones_out: List | None = Non
                     return True
             else:
                 avail_zones_out.append(avail_zone.name)
-            
+
     return avail_zones_out is not None and zone in avail_zones_out
-    
+
 def validate_machine_type(project_id: str, zone: str, machine_type: str, avail_types_out: List | None = None):
     client = compute_v1.MachineTypesClient(credentials=get_credentials())
     request = compute_v1.ListMachineTypesRequest(project=project_id, zone=zone)
@@ -144,5 +144,5 @@ def validate_machine_type(project_id: str, zone: str, machine_type: str, avail_t
                     return True
             else:
                 avail_types_out.append(machine.name)
-            
+
     return avail_types_out is not None and machine_type in avail_types_out

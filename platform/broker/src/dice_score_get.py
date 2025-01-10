@@ -43,10 +43,10 @@ def dice_thread(rtstruct_pred,rtstruct_truth,name,scores):
         print(name,dice_score)
     except:
         print("fail: ",name)
-        
+
 
 #Output: The dice score for every layer combined
-#Input: 
+#Input:
 # directory of the dicom image folder (string)
 # directory of the predicted rt struct (string)
 # directory of the true rt struct (string)
@@ -55,15 +55,15 @@ def get_DICE_score(dicom_dir,pred_path,truth_path):#For rtstructs
     try:
         scores = {}
         rtstruct_pred = RTStructBuilder.create_from(
-            dicom_series_path= dicom_dir, 
+            dicom_series_path= dicom_dir,
             rt_struct_path= pred_path
         )
 
         rtstruct_truth = RTStructBuilder.create_from(
-            dicom_series_path= dicom_dir, 
+            dicom_series_path= dicom_dir,
             rt_struct_path= truth_path
         )
-        
+
         names = rtstruct_truth.get_roi_names()
         pool = concurrent.futures.ThreadPoolExecutor(max_workers=len(names))
         for name in names:

@@ -218,7 +218,7 @@ def monkey_patched_create_series_mask_from_contour_sequence(series_data, contour
 
     return mask
 
-# Due to dependency issues, we must use a later version of pydicom, which does not 
+# Due to dependency issues, we must use a later version of pydicom, which does not
 def monkey_patched_PixelMeasuresSequence__eq__(self, other):
     if not isinstance(other, Sequence):
         raise TypeError('Second item must be of type pydicom.Sequence.')
@@ -241,12 +241,12 @@ def monkey_patched_PixelMeasuresSequence__eq__(self, other):
     return True
 
 
-if PATCH_HIGHDICOM:    
+if PATCH_HIGHDICOM:
     print('patching highdicom')
     Segmentation._check_and_cast_pixel_array = _check_and_cast_pixel_array
-    PixelMeasuresSequence.__eq__ = monkey_patched_PixelMeasuresSequence__eq__  
+    PixelMeasuresSequence.__eq__ = monkey_patched_PixelMeasuresSequence__eq__
     Segmentation._get_segment_pixel_array = _get_segment_pixel_array
-    
+
 if PATCH_RTUTILS:
     print('patching rt-utils')
     image_helper.create_series_mask_from_contour_sequence = monkey_patched_create_series_mask_from_contour_sequence

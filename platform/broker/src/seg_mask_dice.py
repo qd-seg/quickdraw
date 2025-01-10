@@ -146,7 +146,7 @@ def seg_to_mask(seg_path, slice_thickness=1):
     reader = pydicom_seg.MultiClassReader()
     seg_mask = reader.read(seg_series).data
     return seg_mask, seg_series
-    
+
 def seg_mask_dice(num_dicom_instances, pred_path, truth_path):
 
     # print("hello I AM IN SEG_MASK_DICE ")
@@ -183,16 +183,16 @@ def seg_mask_dice(num_dicom_instances, pred_path, truth_path):
         print(traceback.format_exc())
         print('Truth mask was likely empty. The above error was handled properly.')
         truth_data, dcm_truth = None, None
-        
+
     if pred_data is None and truth_data is None:
         return []
-    
+
     if pred_data is None and truth_data is not None:
         return calculate_dice_scores(np.zeros_like(truth_data), truth_data, {}, dcm_truth)
-    
+
     if truth_data is None and pred_data is not None:
         return calculate_dice_scores(pred_data, np.zeros_like(pred_data), dcm_pred, {})
-        
+
     if truth_data.shape != pred_data.shape:
         if truth_data.shape[0] < pred_data.shape[0]:
             # print("not the same size, padding the ground truth to match the image shape")
