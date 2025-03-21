@@ -172,7 +172,7 @@ yarn run manage:upload -t <tarball_path>
 This will upload the model to Artifact Registry in the repository determined by
 `service_configuration.json`. If a repository of the given name does not exist, one will be created.
 
-Or, if you want to build the image from the `multiorgan-segmentation-model` branch, navigate into a directory
+Or, if you want to build the image from the [`multiorgan-segmentation-model`](https://github.com/qd-seg/multiorgan-segmentation-model) repository, navigate into a directory
 _*outside*_ of this project's root directory and run the following set of commands.
 
 ```
